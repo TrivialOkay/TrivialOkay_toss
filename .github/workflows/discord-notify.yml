@@ -1,4 +1,3 @@
-# .github/workflows/discord-notify.yml
 name: Discord notification
 
 on:
@@ -18,16 +17,20 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "DISCORD_WEBHOOK_URL is not configured"
+            exit 1
+          fi
+
           SHORT_SHA="${GITHUB_SHA::7}"
           COMMIT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}"
-          MESSAGE="🚀 **main 브랜치가 업데이트됐어요**
-          저장소: ${GITHUB_REPOSITORY}
-          작업자: ${GITHUB_ACTOR}
-          커밋: [${SHORT_SHA}](${COMMIT_URL})"
+          MESSAGE="Main branch updated
+          Repository: ${GITHUB_REPOSITORY}
+          Author: ${GITHUB_ACTOR}
+          Commit: [${SHORT_SHA}](${COMMIT_URL})"
 
           jq -n --arg content "$MESSAGE" '{content: $content}' |
-            curl -fsS \
+            curl --fail-with-body --silent --show-error \
               -H "Content-Type: application/json" \
               -d @- \
               "$DISCORD_WEBHOOK_URL"
-              
