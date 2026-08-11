@@ -5,7 +5,7 @@ on:
     branches:
       - stevechan
     paths:
-      - "byeoril-mvp-source.zip"
+      - "byeoril-import-package.b64"
 
 permissions:
   contents: write
@@ -17,11 +17,12 @@ jobs:
       - name: Check out branch
         uses: actions/checkout@v4
 
-      - name: Expand source archive
+      - name: Expand MVP package
         run: |
-          mkdir -p byeoril-mvp-source
-          unzip -o byeoril-mvp-source.zip -d byeoril-mvp-source
-          rm byeoril-mvp-source.zip
+          base64 --decode byeoril-import-package.b64 > byeoril-import-package.zip
+          unzip -o byeoril-import-package.zip
+          rm byeoril-import-package.b64
+          rm byeoril-import-package.zip
           rm .github/workflows/import-byeoril.yml
 
       - name: Commit expanded source
