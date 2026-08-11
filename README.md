@@ -1,13 +1,3 @@
 # TrivialOkay_toss
 
-hello ??????????
-
-hi hi hi
-
-test
-
-test2
-
-8월 11일
-
-8월 11일 처음 중간 수정
+깽판
