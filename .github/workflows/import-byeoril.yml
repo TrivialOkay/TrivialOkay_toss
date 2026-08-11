@@ -1,0 +1,33 @@
+name: Import Byeoril MVP Source
+
+on:
+  push:
+    branches:
+      - stevechan
+    paths:
+      - "byeoril-mvp-source.zip"
+
+permissions:
+  contents: write
+
+jobs:
+  expand-source:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Expand source archive
+        run: |
+          mkdir -p byeoril-mvp-source
+          unzip -o byeoril-mvp-source.zip -d byeoril-mvp-source
+          rm byeoril-mvp-source.zip
+          rm .github/workflows/import-byeoril.yml
+
+      - name: Commit expanded source
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: 별일 앱인토스 MVP 소스 추가"
+          git push
