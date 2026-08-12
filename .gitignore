@@ -1,7 +1,5 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
+# Dependencies
+/node_modules/
 /.pnp
 .pnp.*
 .yarn/*
@@ -10,36 +8,54 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# Build outputs
 /.next/
 /.vinext/
+/dist/
+/miniapp-dist/
 /out/
+/coverage/
+*.ait
+*.tsbuildinfo
 
-# misc
-.DS_Store
-*.pem
+# Apps in Toss / Cloudflare local state
+/.wrangler/
+.dev.vars
+.dev.vars.*
 
-# debug
+# Environment files (keep the documented template)
+.env
+.env.*
+!.env.example
+
+# Python environments and caches
+/.venv/
+/venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-/dist/
-/miniapp-dist/
-/.wrangler/
+# Temporary/generated workspace files
 /outputs/
 /work/
 /tmp/
-tsconfig.tsbuildinfo
 
-*.ait
+# Local editor and OS files
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*.pem
+*.blend1

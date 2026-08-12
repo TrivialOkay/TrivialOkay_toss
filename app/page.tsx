@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   categories,
   collectionFilters,
@@ -22,6 +22,9 @@ import {
   type View,
 } from "./byeoril-data";
 import { BottomNav, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, Stars, StatusBar } from "./byeoril-ui";
+
+const FortuneBall = lazy(() => import("./fortune-ball").then((module) => ({ default: module.FortuneBall })));
+const fortuneBallKinds = ["ceramic", "crystal", "mochi", "dubai", "butter_rice_cake", "brick_cake", "slice_cake"] as const;
 
 const storageKey = "byeoril-records-v2";
 const legacyStorageKey = "byeoril-records-v1";
@@ -91,16 +94,20 @@ function Header({ title, onBack, right }: { title: string; onBack?: () => void; 
 
 function TodayScreen({
   fortuneIndex,
+  revealed,
   outcome,
   onOutcome,
   onCycle,
+  onReveal,
   onCapture,
   onAbout,
 }: {
   fortuneIndex: number;
+  revealed: boolean;
   outcome: Outcome;
   onOutcome: (value: Outcome) => void;
   onCycle: () => void;
+  onReveal: () => void;
   onCapture: () => void;
   onAbout: () => void;
 }) {
@@ -115,21 +122,23 @@ function TodayScreen({
         </div>
         <article className="fortune-card">
           <div className="fortune-kicker"><span className="crystal-ball" />오늘의 하찮은 운세<span className="help-circle">?</span></div>
-          <h2>{fortune.title}</h2>
-          <p>큰 기대는 금물!</p>
-          <FortuneScene kind={fortune.asset} speech={fortune.aside} />
+          <h2>{revealed ? fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
+          <p>{revealed ? "큰 기대는 금물!" : "돌리고, 누르고, 문지르면 와장창."}</p>
+          <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
+            <FortuneBall key={fortune.id} fortune={fortune.title} aside={fortune.aside} ballKind={fortuneBallKinds[fortuneIndex % fortuneBallKinds.length]} onReveal={onReveal} />
+          </Suspense>
         </article>
-        <section className="outcome-section">
+        <section className={`outcome-section ${revealed ? "" : "is-locked"}`} aria-hidden={!revealed}>
           <h2>이런 일, 실제로 일어났나요?</h2>
           <div className="outcome-grid" role="group" aria-label="오늘의 운세 결과">
             {(Object.keys(outcomeMeta) as Outcome[]).map((key) => (
-              <button key={key} className={`outcome-button ${outcome === key ? "selected" : ""}`} onClick={() => onOutcome(key)} aria-pressed={outcome === key}>
+              <button key={key} disabled={!revealed} className={`outcome-button ${outcome === key ? "selected" : ""}`} onClick={() => onOutcome(key)} aria-pressed={outcome === key}>
                 <strong>{outcomeMeta[key].label}</strong><OutcomeFace outcome={key} />
               </button>
             ))}
           </div>
         </section>
-        <button className="photo-record-button" onClick={onCapture}><span className="camera-symbol"><Icon name="camera" /></span><strong>사진 찍고 기록하기 <small>(선택)</small></strong><Icon name="chevron-right" /></button>
+        <button className="photo-record-button" aria-label="사진 찍고 기록하기" disabled={!revealed} onClick={onCapture}><span className="camera-symbol"><Icon name="camera" /></span><strong>{revealed ? <>사진 찍고 기록하기 <small>(선택)</small></> : "운세를 꺼내면 기록할 수 있어요"}</strong><Icon name="chevron-right" /></button>
       </section>
     </>
   );
@@ -297,6 +306,7 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("today");
   const [view, setView] = useState<View>("main");
   const [fortuneIndex, setFortuneIndex] = useState(now.getDate() % fortunes.length);
+  const [fortuneRevealed, setFortuneRevealed] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>("happened");
   const [category, setCategory] = useState<Category>("일상");
   const [note, setNote] = useState("");
@@ -345,7 +355,7 @@ export default function Home() {
   }
 
   function cycleFortune() {
-    setFortuneIndex((index) => (index + 1) % fortunes.length); setOutcome("happened"); setCategory(fortunes[(fortuneIndex + 1) % fortunes.length].category); setNote(""); setPhoto(null);
+    setFortuneIndex((index) => (index + 1) % fortunes.length); setFortuneRevealed(false); setOutcome("happened"); setCategory(fortunes[(fortuneIndex + 1) % fortunes.length].category); setNote(""); setPhoto(null);
   }
 
   function selectPhoto(file: File) {
@@ -393,7 +403,7 @@ export default function Home() {
         {view === "report" && <ReportScreen records={records} month={selectedMonth} onBack={backToMain} onMonth={setSelectedMonth} />}
         {view === "examples" && <ExamplesScreen onBack={backToMain} />}
         {view === "guide" && <GuideScreen onBack={backToMain} />}
-        {mainVisible && tab === "today" && <TodayScreen fortuneIndex={fortuneIndex} outcome={outcome} onOutcome={setOutcome} onCycle={cycleFortune} onCapture={() => { setCategory(fortune.category); setView("capture"); }} onAbout={() => moveTab("about")} />}
+        {mainVisible && tab === "today" && <TodayScreen fortuneIndex={fortuneIndex} revealed={fortuneRevealed} outcome={outcome} onOutcome={setOutcome} onCycle={cycleFortune} onReveal={() => setFortuneRevealed(true)} onCapture={() => { setCategory(fortune.category); setView("capture"); }} onAbout={() => moveTab("about")} />}
         {mainVisible && tab === "collection" && <CollectionScreen records={records} filter={filter} searchOpen={searchOpen} search={search} onFilter={setFilter} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCard} onGuide={() => setView("guide")} onExamples={() => setView("examples")} />}
         {mainVisible && tab === "records" && <RecordsScreen records={records} selectedMonth={selectedMonth} onMonth={setSelectedMonth} onReport={() => setView("report")} onOpen={openCard} />}
         {mainVisible && tab === "about" && <AboutScreen onGuide={() => setView("guide")} onExamples={() => setView("examples")} onReset={resetRecords} confirming={confirmReset} />}

@@ -63,7 +63,7 @@ img { display: block; }
 .fortune-refresh .line-icon { width: 22px; height: 22px; }
 
 .fortune-card, .result-card, .example-card { border: 1.4px solid #8d877e; border-radius: 16px; background: linear-gradient(135deg, #fffef9 0%, #fbf6ea 100%); box-shadow: 0 2px 0 rgba(80,72,61,.04); }
-.fortune-card { height: 420px; padding: 15px 18px 7px; }
+.fortune-card { height: 475px; padding: 15px 18px 7px; }
 .fortune-kicker { height: 49px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #ece6dc; font-size: 16px; font-weight: 840; letter-spacing: -.035em; }
 .crystal-ball { position: relative; width: 27px; height: 28px; flex: 0 0 auto; }
 .crystal-ball::before { content: ""; position: absolute; left: 4px; top: 1px; width: 18px; height: 18px; border: 1.5px solid #292522; border-radius: 50%; background: radial-gradient(circle at 36% 30%, #d8b9ff 0 14%, #a374dc 48%, #8358bd 100%); }
@@ -71,6 +71,60 @@ img { display: block; }
 .help-circle { margin-left: auto; width: 23px; height: 23px; display: grid; place-items: center; border: 1.4px solid #716c65; border-radius: 50%; font-size: 12px; font-weight: 850; }
 .fortune-card h2 { margin: 22px 0 9px; max-width: 350px; font-size: 23px; line-height: 1.48; letter-spacing: -.055em; font-weight: 860; }
 .fortune-card > p { margin: 0; color: #7d776f; font-size: 13px; font-weight: 760; }
+
+.fortune-ball { position: relative; height: 267px; margin: -7px -9px 0; overflow: hidden; border-radius: 12px; outline: none; cursor: grab; touch-action: none; user-select: none; }
+.fortune-ball-loading { height: 267px; margin: -7px -9px 0; display: grid; place-items: center; color: #867e72; font-size: 11px; font-weight: 760; }
+.fortune-ball:active { cursor: grabbing; }
+.fortune-ball:focus-visible { box-shadow: inset 0 0 0 2px #d6a928; }
+.fortune-ball-canvas { position: absolute; inset: 0; }
+.fortune-ball-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+.fortune-ball-guide { position: absolute; z-index: 5; left: 50%; bottom: 7px; width: 172px; display: grid; gap: 7px; transform: translateX(-50%); text-align: center; pointer-events: none; }
+.fortune-ball-guide > span { font-size: 11px; font-weight: 820; letter-spacing: -.025em; text-shadow: 0 1px 0 #fffdf8; }
+.fortune-ball-guide > i { width: 100%; height: 5px; overflow: hidden; border: 1px solid #bda871; border-radius: 999px; background: rgba(255,255,255,.75); }
+.fortune-ball-guide > i b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e2ad26, #f05a42); transition: width .18s ease; }
+.fortune-ball.is-broken { overflow: visible; }
+.fortune-ball.is-broken::after { content: ""; position: absolute; z-index: 4; left: 50%; top: 48%; width: 190px; height: 126px; pointer-events: none; border-radius: 50%; background: radial-gradient(ellipse, rgba(246,226,180,.7), rgba(219,187,128,.18) 47%, transparent 72%); transform: translate(-50%, -50%) scale(.4); animation: fracture-dust .54s ease-out both; }
+.fortune-ball.is-broken .fortune-ball-canvas { animation: fracture-shake .34s cubic-bezier(.36,.07,.19,.97) both; }
+.fortune-ball.is-broken .fortune-ball-guide { bottom: 4px; }
+.fortune-ball.is-broken .fortune-ball-guide > span { color: #7c5d13; }
+@keyframes fracture-shake {
+  0%, 100% { transform: translate3d(0,0,0) rotate(0); }
+  18% { transform: translate3d(-5px,2px,0) rotate(-.7deg); }
+  36% { transform: translate3d(5px,-2px,0) rotate(.65deg); }
+  54% { transform: translate3d(-3px,1px,0) rotate(-.35deg); }
+  72% { transform: translate3d(3px,0,0) rotate(.25deg); }
+}
+@keyframes fracture-dust {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(.35); }
+  22% { opacity: .95; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
+}
+.fortune-slip-drag { position: absolute; z-index: 6; left: 0; right: 0; top: 61px; width: min(88%, 308px); min-height: 154px; margin: 0 auto; display: grid; place-items: center; touch-action: none; pointer-events: none; }
+.fortune-slip-drag > * { pointer-events: auto; cursor: grab; touch-action: none; }
+.fortune-slip-drag > *:active { cursor: grabbing; }
+/* 접힌 포춘쿠키 쪽지. 왼쪽은 접힌 등, 오른쪽은 열린 단면, 가운데는 접힌 자국. */
+.fortune-note { position: relative; width: 78px; height: 50px; border: 1px solid #c8b48c; border-radius: 2px; box-shadow: 0 7px 16px rgba(70,52,28,.3), 0 1px 2px rgba(70,52,28,.22), inset 0 1px 0 rgba(255,255,255,.95); transform: rotate(-7deg);
+  background:
+    linear-gradient(90deg, transparent 0 87%, rgba(158,132,84,.16) 87% 90%, transparent 90% 94%, rgba(158,132,84,.13) 94% 97%, transparent 97%),
+    linear-gradient(transparent 0 44%, rgba(255,255,255,.92) 44% 47%, rgba(147,121,72,.3) 47% 50%, transparent 50%),
+    repeating-linear-gradient(97deg, rgba(163,138,92,.05) 0 1px, transparent 1px 4px),
+    linear-gradient(158deg, #fffefb, #fbf4e3 52%, #f1e5c9);
+}
+.fortune-note::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 8px; border-radius: 4px 1px 1px 4px; background: linear-gradient(90deg, #f2e6ca, rgba(242,230,202,0)); }
+.fortune-note::after { content: ""; position: absolute; left: 15px; right: 13px; top: 63%; height: 2px; border-radius: 1px; background: rgba(196,66,42,.4); }
+/* 펼쳐진 종이에도 접혔던 자국과 종이 결을 남긴다. */
+.fortune-slip { position: relative; width: 100%; min-height: 154px; padding: 18px 24px 17px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #8f816e; border-radius: 4px; box-shadow: 0 9px 24px rgba(70,52,28,.19), inset 0 0 24px rgba(190,150,78,.08); transform-origin: center; text-align: center;
+  background:
+    linear-gradient(90deg, transparent 0 49.5%, rgba(147,121,72,.11) 49.5% 50%, rgba(255,255,255,.75) 50% 50.6%, transparent 50.6%),
+    linear-gradient(transparent 0 49.4%, rgba(147,121,72,.15) 49.4% 50%, rgba(255,255,255,.8) 50% 50.7%, transparent 50.7%),
+    repeating-linear-gradient(97deg, rgba(163,138,92,.038) 0 1px, transparent 1px 4px),
+    linear-gradient(165deg, #fffefa, #f5ecd5);
+}
+.fortune-slip::before, .fortune-slip::after { content: "✦"; position: absolute; top: 13px; color: #c79724; font-size: 11px; }
+.fortune-slip::before { left: 13px; }.fortune-slip::after { right: 13px; }
+.fortune-slip span { display: block; color: #90732e; font-size: 9px; font-weight: 850; letter-spacing: .08em; }
+.fortune-slip strong { display: block; width: 100%; margin-top: 12px; font-size: 16px; line-height: 1.5; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.fortune-slip small { display: block; margin-top: 10px; color: #746a5d; font-size: 10px; font-weight: 720; }
 
 .fortune-scene { position: relative; height: 218px; overflow: visible; perspective: 620px; }
 .fortune-scene .object-art { position: absolute; z-index: 1; left: 45%; bottom: 4px; transform: translateX(-50%); }
@@ -117,10 +171,12 @@ img { display: block; }
 .object-art.compact i, .object-art.compact b, .object-art.compact em { border-width: 1px; }
 
 .outcome-section { margin-top: 28px; }
+.outcome-section.is-locked { opacity: .38; filter: grayscale(.55); }
 .outcome-section h2, .capture-screen > h2, .records-screen > h2 { margin: 0 0 14px; font-size: 16px; letter-spacing: -.045em; font-weight: 850; }
 .outcome-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .outcome-button { height: 99px; padding: 12px 4px 9px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; border: 1px solid #d8d2c9; border-radius: 13px; background: #f2f0ec; box-shadow: 0 2px 3px rgba(53,48,41,.04); font-size: 13px; font-weight: 830; }
 .outcome-button.selected { border-color: #d7a72a; background: var(--yellow-soft); box-shadow: inset 0 0 0 1px #e9bd49; }
+.outcome-button:disabled, .photo-record-button:disabled { cursor: not-allowed; }
 .outcome-face { position: relative; width: 41px; height: 41px; display: block; flex: 0 0 auto; border: 1.8px solid #1e1c1a; border-radius: 50%; background: rgba(255,255,255,.42); }
 .outcome-face .eye { position: absolute; top: 12px; width: 3px; height: 4px; border-radius: 50%; background: #1e1c1a; }.outcome-face .eye.left { left: 11px; }.outcome-face .eye.right { right: 11px; }
 .outcome-face .expression { position: absolute; left: 50%; bottom: 8px; width: 14px; height: 7px; border-bottom: 1.8px solid #1e1c1a; border-radius: 0 0 50% 50%; transform: translateX(-50%); }
@@ -205,6 +261,7 @@ img { display: block; }
   .screen-content { padding-left: 15px; padding-right: 15px; }
   .fortune-card { padding-left: 15px; padding-right: 15px; }
   .fortune-card h2 { font-size: 21px; }
+  .fortune-slip-drag { width: 94%; }
   .outcome-grid { gap: 6px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
