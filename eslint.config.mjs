@@ -13,6 +13,7 @@ const eslintConfig = defineConfig([
     "dist/**",
     "out/**",
     "build/**",
+    "miniapp-dist/**",
     "next-env.d.ts",
   ]),
   eslint.configs.recommended,
