@@ -105,26 +105,9 @@ button { color: inherit; }
 .fortune-card h3 { margin: 18px 0 8px; max-width: 330px; font-size: 23px; line-height: 1.42; letter-spacing: -.045em; }
 .fortune-card > p { margin: 0; color: #777167; font-size: 13px; font-weight: 650; }
 
-.scene { position: relative; height: 172px; overflow: hidden; }
-.elevator {
-  position: absolute;
-  left: 50%; bottom: 16px;
-  width: 104px; height: 119px;
-  transform: translateX(-50%);
-  border: 5px solid #47433e;
-  border-bottom-width: 7px;
-  background: linear-gradient(90deg, #c2c0bb 0 49%, #d7d5cf 49% 51%, #aaa8a4 51%);
-  box-shadow: inset 0 0 0 3px #edeae2, 7px 5px 0 rgba(70,62,53,.10);
-}
-.floor-light { position: absolute; top: -14px; left: 35px; width: 24px; height: 8px; border: 2px solid #45413c; background: #ffcf4c; border-radius: 3px; }
-.door-line { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; background: #56524d; }
-.door-handle { position: absolute; top: 54%; width: 3px; height: 12px; background: #6c6862; }
-.door-handle-left { left: 43%; } .door-handle-right { right: 43%; }
-.spark { position: absolute; color: #d8a326; font-size: 19px; }
-.spark-one { left: 22%; top: 22px; transform: rotate(-14deg); }
-.spark-two { right: 24%; top: 30px; font-size: 30px; }
-.scene-mascot { position: absolute; right: 14%; bottom: 9px; }
-.speech { position: absolute; right: -30px; top: -42px; min-width: 68px; padding: 7px 8px; background: white; border: 1px solid #6f6a62; border-radius: 50%; font-size: 10px; font-weight: 800; transform: rotate(-3deg); }
+.fortune-scene { position: relative; height: 190px; margin: 12px -10px 0; overflow: hidden; border-radius: 15px; background: #fffaf0; }
+.fortune-scene img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center; mix-blend-mode: multiply; }
+.fortune-scene figcaption { position: absolute; right: 10px; bottom: 10px; max-width: 118px; padding: 7px 10px; border: 1.5px solid #514b43; border-radius: 999px 999px 999px 6px; background: rgba(255,253,247,.94); box-shadow: 2px 2px 0 rgba(37,35,31,.12); font-size: 10px; font-weight: 800; transform: rotate(-2deg); }
 
 .mascot {
   position: relative;

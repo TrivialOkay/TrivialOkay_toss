@@ -11,6 +11,8 @@ type Fortune = {
   copy: string;
   scene: string;
   aside: string;
+  image: string;
+  imageAlt: string;
 };
 
 type RecordItem = {
@@ -31,6 +33,8 @@ const fortunes: Fortune[] = [
     copy: "큰 기대는 금물! 그래도 타이밍만큼은 꽤 좋겠어요.",
     scene: "엘리베이터가 나를 기다림",
     aside: "어? 열렸네!",
+    image: "./fortune-scenes/elevator-opens.webp",
+    imageAlt: "버튼을 누르기 직전에 열린 엘리베이터를 보고 놀란 별일이",
   },
   {
     id: 24,
@@ -38,6 +42,8 @@ const fortunes: Fortune[] = [
     copy: "오늘은 아주 작은 선점 효과가 따라다녀요.",
     scene: "마지막 하나, 내가 가져감",
     aside: "빵이 날 골랐어",
+    image: "./fortune-scenes/last-bread.webp",
+    imageAlt: "빵 진열대의 마지막 빵을 품에 안고 기뻐하는 별일이",
   },
   {
     id: 25,
@@ -45,6 +51,8 @@ const fortunes: Fortune[] = [
     copy: "세상을 바꾸진 못해도 배고픔은 조금 빨리 끝나요.",
     scene: "배달이 예상보다 빨리 옴",
     aside: "기사님 최고",
+    image: "./fortune-scenes/early-delivery.webp",
+    imageAlt: "예상보다 일찍 도착한 배달을 반갑게 맞이하는 별일이",
   },
   {
     id: 26,
@@ -52,6 +60,8 @@ const fortunes: Fortune[] = [
     copy: "오늘의 손끝에는 하찮지만 분명한 재능이 있어요.",
     scene: "충전선이 순순히 풀림",
     aside: "웬일이지?",
+    image: "./fortune-scenes/untangled-cable.webp",
+    imageAlt: "한 번에 풀린 충전선 양끝을 들고 놀라는 별일이",
   },
 ];
 
@@ -162,22 +172,14 @@ function Mascot({
   );
 }
 
-function ElevatorScene({ speech }: { speech: string }) {
+function FortuneScene({ fortune }: { fortune: Fortune }) {
   return (
-    <div className="scene" aria-label="열린 엘리베이터 앞에서 기다리는 별일이 캐릭터">
-      <span className="spark spark-one">✦</span>
-      <span className="spark spark-two">·</span>
-      <div className="elevator">
-        <span className="floor-light" />
-        <span className="door-line" />
-        <span className="door-handle door-handle-left" />
-        <span className="door-handle door-handle-right" />
-      </div>
-      <div className="scene-mascot">
-        <Mascot small />
-        <span className="speech">{speech}</span>
-      </div>
-    </div>
+    <figure className="fortune-scene">
+      {/* The miniapp is built with Vite, and these local WebP assets are already size-optimized. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={fortune.image} alt={fortune.imageAlt} />
+      <figcaption>{fortune.aside}</figcaption>
+    </figure>
   );
 }
 
@@ -193,6 +195,9 @@ export default function Home() {
   const [toast, setToast] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const fortune = fortunes[fortuneIndex];
+  const activeFortune = activeCard
+    ? fortunes.find((item) => item.id === activeCard.fortuneId) ?? fortune
+    : fortune;
 
   useEffect(() => {
     if (!toast) return;
@@ -301,7 +306,7 @@ export default function Home() {
                 </div>
                 <h3>{fortune.title}</h3>
                 <p>별일이는 책임지지 않습니다.</p>
-                <ElevatorScene speech={fortune.aside} />
+                <FortuneScene fortune={fortune} />
               </article>
 
               <div className="question-block">
@@ -364,10 +369,10 @@ export default function Home() {
                   <span>관찰 판정</span>
                   <strong>{outcomeMeta[activeCard.outcome].verdict}</strong>
                 </div>
-                <ElevatorScene speech={fortune.aside} />
+                <FortuneScene fortune={activeFortune} />
                 <div className="interpretation">
                   <strong>별일의 쓸데없는 해석</strong>
-                  <p>{fortune.copy}</p>
+                  <p>{activeFortune.copy}</p>
                 </div>
                 {activeCard.note && <p className="saved-note">“{activeCard.note}”</p>}
                 <dl className="card-stats">
