@@ -83,22 +83,8 @@ img { display: block; }
 .fortune-ball-guide > i { width: 100%; height: 5px; overflow: hidden; border: 1px solid #bda871; border-radius: 999px; background: rgba(255,255,255,.75); }
 .fortune-ball-guide > i b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #e2ad26, #f05a42); transition: width .18s ease; }
 .fortune-ball.is-broken { overflow: visible; }
-.fortune-ball.is-broken::after { content: ""; position: absolute; z-index: 4; left: 50%; top: 48%; width: 190px; height: 126px; pointer-events: none; border-radius: 50%; background: radial-gradient(ellipse, rgba(246,226,180,.7), rgba(219,187,128,.18) 47%, transparent 72%); transform: translate(-50%, -50%) scale(.4); animation: fracture-dust .54s ease-out both; }
-.fortune-ball.is-broken .fortune-ball-canvas { animation: fracture-shake .34s cubic-bezier(.36,.07,.19,.97) both; }
 .fortune-ball.is-broken .fortune-ball-guide { bottom: 4px; }
 .fortune-ball.is-broken .fortune-ball-guide > span { color: #7c5d13; }
-@keyframes fracture-shake {
-  0%, 100% { transform: translate3d(0,0,0) rotate(0); }
-  18% { transform: translate3d(-5px,2px,0) rotate(-.7deg); }
-  36% { transform: translate3d(5px,-2px,0) rotate(.65deg); }
-  54% { transform: translate3d(-3px,1px,0) rotate(-.35deg); }
-  72% { transform: translate3d(3px,0,0) rotate(.25deg); }
-}
-@keyframes fracture-dust {
-  0% { opacity: 0; transform: translate(-50%, -50%) scale(.35); }
-  22% { opacity: .95; }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
-}
 .fortune-slip-drag { position: absolute; z-index: 6; left: 0; right: 0; top: 61px; width: min(88%, 308px); min-height: 154px; margin: 0 auto; display: grid; place-items: center; touch-action: none; pointer-events: none; }
 .fortune-slip-drag > * { pointer-events: auto; cursor: grab; touch-action: none; }
 .fortune-slip-drag > *:active { cursor: grabbing; }

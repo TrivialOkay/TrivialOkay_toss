@@ -47,12 +47,14 @@ VARIANTS = {
         "roughness": 0.66,
     },
     "brick_cake": {
-        "label": "G Brick Cake",
-        "shape": "cake",
-        "outer": (0.17, 0.035, 0.022, 1.0),
-        "inner": (0.67, 0.31, 0.18, 1.0),
-        "cream": (0.78, 0.46, 0.29, 1.0),
-        "roughness": 0.86,
+        "label": "G Crispy Tiramisu",
+        "shape": "tiramisu",
+        "outer": (0.16, 0.045, 0.018, 1.0),
+        "inner": (0.74, 0.46, 0.25, 1.0),
+        "cream": (0.96, 0.84, 0.62, 1.0),
+        "coffee": (0.30, 0.105, 0.045, 1.0),
+        "cocoa": (0.075, 0.018, 0.008, 1.0),
+        "roughness": 0.92,
     },
     "slice_cake": {
         "label": "H Strawberry Slice Cake",
@@ -64,7 +66,6 @@ VARIANTS = {
         "roughness": 0.68,
     },
 }
-
 
 def clear_scene():
     bpy.ops.object.select_all(action="SELECT")
@@ -186,11 +187,12 @@ def add_cake_wedge(name, z_min, z_max, mat, inset=0.0, bevel=0.045):
     return obj
 
 
-def add_face(parent, face_mat, z_offset=0.0):
+def add_face(parent, face_mat, z_offset=0.0, mouth_z_offset=None):
     for x in (-0.30, 0.30):
         eye = add_uv_sphere("eye", 0.095, (x, -0.945, 0.22 + z_offset), face_mat, scale=(1.0, 0.28, 0.62), segments=20, rings=12)
         eye.parent = parent
-    mouth = add_rounded_cube("mouth", (0, -0.98, -0.08 + z_offset), (0.19, 0.035, 0.035), face_mat, bevel=0.035)
+    mouth_offset = z_offset if mouth_z_offset is None else mouth_z_offset
+    mouth = add_rounded_cube("mouth", (0, -0.98, -0.08 + mouth_offset), (0.19, 0.035, 0.035), face_mat, bevel=0.035)
     mouth.parent = parent
 
 
@@ -218,13 +220,52 @@ def create_intact(key, cfg):
         core.parent = root
     elif cfg["shape"] == "cube":
         root = add_rounded_cube(f"wakppu_{key}", (0, 0, 0), (0.93, 0.88, 0.93), outer, bevel=0.22)
-    elif cfg["shape"] == "cake":
-        root = add_rounded_cube(f"wakppu_{key}", (0, 0, -0.64), (0.92, 0.86, 0.30), outer, bevel=0.13)
-        cream = material(f"{key}_cream", cfg["cream"], 0.72)
-        layer = add_rounded_cube("cream_layer", (0, 0, 0), (0.94, 0.88, 0.14), cream, bevel=0.10)
-        layer.parent = root
-        top = add_rounded_cube("cake_top", (0, 0, 0.64), (0.92, 0.86, 0.30), outer, bevel=0.13)
-        top.parent = root
+    elif cfg["shape"] == "tiramisu":
+        cream = material(f"{key}_cream", cfg["cream"], 0.88)
+        coffee = material(f"{key}_coffee_soak", cfg["coffee"], 0.8)
+        cocoa = material(f"{key}_cocoa", cfg["cocoa"], 0.98)
+
+        # Keep the root transform at the model origin so exported child layers retain
+        # their intended positions. The base mesh itself is shifted down instead.
+        root = add_rounded_cube(f"wakppu_{key}", (0, 0, 0), (0.92, 0.86, 0.12), cocoa, bevel=0.065)
+        for vertex in root.data.vertices:
+            vertex.co.z -= 0.76
+
+        tiramisu_layers = (
+            ("coffee_soak_low", -0.42, (0.925, 0.865, 0.03), coffee, 0.025),
+            ("mascarpone_low", -0.27, (0.94, 0.88, 0.12), cream, 0.075),
+            ("coffee_sponge_middle", -0.03, (0.92, 0.86, 0.14), coffee, 0.09),
+            ("coffee_soak_high", 0.14, (0.925, 0.865, 0.03), coffee, 0.025),
+            ("mascarpone_high", 0.31, (0.94, 0.88, 0.13), cream, 0.08),
+            ("mascarpone_top", 0.505, (0.93, 0.87, 0.075), cream, 0.065),
+            ("cocoa_powder_top", 0.602, (0.925, 0.865, 0.022), cocoa, 0.018),
+        )
+        for name, z, scale, layer_mat, bevel in tiramisu_layers:
+            layer = add_rounded_cube(name, (0, 0, z), scale, layer_mat, bevel=bevel)
+            layer.parent = root
+
+        # Thin cocoa shells around the sides/back read as a crisp exterior while
+        # leaving the front cross-section open to show the soft layered center.
+        crisp_shells = (
+            ("cocoa_shell_left", (-0.946, 0.0, -0.07), (0.026, 0.89, 0.66)),
+            ("cocoa_shell_right", (0.946, 0.0, -0.07), (0.026, 0.89, 0.66)),
+            ("cocoa_shell_back", (0.0, 0.886, -0.07), (0.92, 0.026, 0.66)),
+        )
+        for name, location, scale in crisp_shells:
+            shell = add_rounded_cube(name, location, scale, cocoa, bevel=0.018)
+            shell.parent = root
+
+        # Sparse, low-poly cocoa grains break up the otherwise perfectly flat top.
+        cocoa_grains = (
+            (-0.64, -0.48, 0.632, 0.018), (-0.39, 0.18, 0.634, 0.014),
+            (-0.12, -0.30, 0.631, 0.016), (0.16, 0.39, 0.633, 0.013),
+            (0.43, -0.12, 0.632, 0.017), (0.66, 0.46, 0.631, 0.014),
+            (-0.55, 0.52, 0.633, 0.012), (0.02, 0.04, 0.634, 0.015),
+            (0.58, -0.52, 0.633, 0.012), (0.33, 0.62, 0.632, 0.014),
+        )
+        for index, (x, y, z, radius) in enumerate(cocoa_grains):
+            grain = add_uv_sphere(f"cocoa_grain_{index:02d}", radius, (x, y, z), cocoa, scale=(1.2, 0.9, 0.35), segments=8, rings=4)
+            grain.parent = root
     elif cfg["shape"] == "slice_cake":
         cream = material(f"{key}_cream", cfg["cream"], 0.76)
         strawberry = material(f"{key}_strawberry", cfg["accent"], 0.36)
@@ -250,7 +291,10 @@ def create_intact(key, cfg):
     if cfg["shape"] == "slice_cake":
         add_wedge_face(root, face)
     else:
-        add_face(root, face, z_offset=0.08 if cfg["shape"] == "cake" else 0)
+        if cfg["shape"] in ("cake", "tiramisu"):
+            add_face(root, face, z_offset=0.08, mouth_z_offset=0.25)
+        else:
+            add_face(root, face)
     return root
 
 
@@ -342,7 +386,15 @@ def create_broken_sphere(key, cfg):
         outer_vertices = [source_vertices[source_index].copy() for source_index in used]
         for vertex in outer_vertices:
             vertex.z *= squash
-        inner_vertices = [Vector((vertex.x * 0.73, vertex.y * 0.73, vertex.z * 0.73)) for vertex in outer_vertices]
+        # Keep the same vertex/face count, but let a few shards reach farther into
+        # the core. This reads as a partly solid interior without extra draw calls
+        # or additional physics bodies in the mobile mini-app.
+        core_depths = (0.62, 0.55, 0.64, 0.48, 0.59, 0.52, 0.61, 0.44)
+        inner_radius = core_depths[index % len(core_depths)]
+        inner_vertices = [
+            Vector((vertex.x * inner_radius, vertex.y * inner_radius, vertex.z * inner_radius))
+            for vertex in outer_vertices
+        ]
         vertices = [tuple(vertex) for vertex in outer_vertices + inner_vertices]
         layer_size = len(outer_vertices)
         faces = []
@@ -530,7 +582,7 @@ def build_exports():
         clear_scene()
         if cfg["shape"] == "slice_cake":
             create_broken_slice(key, cfg)
-        elif cfg["shape"] in ("cube", "cake"):
+        elif cfg["shape"] in ("cube", "cake", "tiramisu"):
             create_broken_cube(key, cfg)
         else:
             create_broken_sphere(key, cfg)

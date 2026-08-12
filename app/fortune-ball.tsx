@@ -4,12 +4,12 @@
 
 import { ContactShadows, Line, useGLTF, useTexture } from "@react-three/drei";
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
-import { CuboidCollider, Physics, RigidBody, type RapierRigidBody } from "@react-three/rapier";
+import { BallCollider, CuboidCollider, Physics, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
-import { Box3, DoubleSide, PlaneGeometry, Quaternion, SRGBColorSpace, Vector3, type Group, type Material, type Mesh } from "three";
+import { Box3, Quaternion, RepeatWrapping, SRGBColorSpace, Vector3, type Group, type Material, type Mesh } from "three";
 
-export type BallKind = "ceramic" | "crystal" | "mochi" | "dubai" | "butter_rice_cake" | "brick_cake" | "slice_cake";
+export type BallKind = "ceramic" | "crystal" | "mochi" | "dubai" | "butter_bar" | "butter_rice_cake" | "brick_cake" | "slice_cake";
 
 type FortuneBallProps = {
   fortune: string;
@@ -36,17 +36,72 @@ type DeviceTiltRef = MutableRefObject<DeviceTilt>;
 type CrackImpact = {
   position: [number, number, number];
   quaternion: [number, number, number, number];
+  seed: number;
 };
 
-const crackBranches: Array<{ stage: number; points: Array<[number, number, number]> }> = [
-  { stage: 1, points: [[0, 0, 0], [0.035, 0.018, 0], [0.075, 0.006, 0], [0.12, 0.055, 0], [0.18, 0.04, 0]] },
-  { stage: 1, points: [[0, 0, 0], [-0.025, 0.04, 0], [-0.07, 0.06, 0], [-0.09, 0.13, 0]] },
-  { stage: 1, points: [[0, 0, 0], [-0.03, -0.035, 0], [-0.015, -0.09, 0], [-0.075, -0.145, 0]] },
-  { stage: 2, points: [[0.018, 0.01, 0], [0.065, -0.035, 0], [0.11, -0.025, 0], [0.16, -0.085, 0], [0.22, -0.07, 0]] },
-  { stage: 2, points: [[-0.035, 0.035, 0], [-0.095, 0.02, 0], [-0.14, 0.065, 0], [-0.2, 0.045, 0]] },
-  { stage: 3, points: [[-0.025, -0.04, 0], [-0.09, -0.075, 0], [-0.135, -0.13, 0], [-0.205, -0.145, 0]] },
-  { stage: 3, points: [[0.045, 0.02, 0], [0.075, 0.085, 0], [0.13, 0.12, 0], [0.14, 0.2, 0]] },
-];
+type CrackPath = {
+  startStage: number;
+  weight: "primary" | "secondary";
+  points: Array<[number, number, number]>;
+};
+
+function seededRandom(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function createCrackPaths(seed: number): CrackPath[] {
+  const random = seededRandom(seed);
+  const paths: CrackPath[] = [];
+  const branchCount = 9;
+  const angleOffset = random() * Math.PI * 2;
+
+  for (let branchIndex = 0; branchIndex < branchCount; branchIndex += 1) {
+    const startStage = branchIndex < 4 ? 1 : branchIndex < 7 ? 2 : 3;
+    let angle = angleOffset + branchIndex * (Math.PI * 2 / branchCount) + (random() - 0.5) * 0.55;
+    const length = 0.46 + random() * 0.25;
+    const steps = 17 + Math.floor(random() * 7);
+    const points: Array<[number, number, number]> = [[0, 0, 0.001]];
+    let x = 0;
+    let y = 0;
+
+    for (let stepIndex = 1; stepIndex <= steps; stepIndex += 1) {
+      const stepLength = length / steps * (0.72 + random() * 0.56);
+      angle += (random() - 0.5) * 0.34;
+      x += Math.cos(angle) * stepLength;
+      y += Math.sin(angle) * stepLength;
+      points.push([x, y, 0.001]);
+
+      if ((stepIndex === 5 || stepIndex === 10 || stepIndex === 15) && random() > 0.34) {
+        const progress = stepIndex / steps;
+        const offshootStage = Math.max(startStage, progress > 0.6 ? 3 : progress > 0.34 ? 2 : 1);
+        let offshootAngle = angle + (random() > 0.5 ? 1 : -1) * (0.62 + random() * 0.72);
+        const offshootSteps = 4 + Math.floor(random() * 4);
+        const offshootLength = length * (0.14 + random() * 0.2);
+        const offshoot: Array<[number, number, number]> = [[x, y, 0.0015]];
+        let offshootX = x;
+        let offshootY = y;
+        for (let offshootIndex = 0; offshootIndex < offshootSteps; offshootIndex += 1) {
+          offshootAngle += (random() - 0.5) * 0.62;
+          const offshootStep = offshootLength / offshootSteps * (0.72 + random() * 0.5);
+          offshootX += Math.cos(offshootAngle) * offshootStep;
+          offshootY += Math.sin(offshootAngle) * offshootStep;
+          offshoot.push([offshootX, offshootY, 0.0015]);
+        }
+        paths.push({ startStage: offshootStage, weight: "secondary", points: offshoot });
+      }
+    }
+    paths.push({ startStage, weight: "primary", points });
+  }
+
+  return paths;
+}
 
 const fragmentSpecs: FragmentSpec[] = Array.from({ length: 16 }, (_, index) => {
   const angle = index * 2.399963;
@@ -61,18 +116,13 @@ const fragmentSpecs: FragmentSpec[] = Array.from({ length: 16 }, (_, index) => {
   };
 });
 
-const angularKinds = new Set<BallKind>(["butter_rice_cake", "brick_cake", "slice_cake"]);
-
-// 파편이 Arena 벽에 부딪히지 않고 시야 안에 떨어지도록 초기 속도를 눌러 준다.
-// 중력이 세지면 낙하 시간이 짧아져 덜 퍼지므로 그만큼 값을 올려 잡았다.
-const SPREAD = 0.68; // 수평
-const LIFT = 0.9; // 수직 — 프레임 위로 솟구쳤다 돌아오는 것 방지
+const angularKinds = new Set<BallKind>(["butter_bar", "butter_rice_cake", "brick_cake", "slice_cake"]);
 
 // 무게감: 중력을 키우고 반발을 줄여 툭 떨어져 눌러앉게 한다.
 const GRAVITY = -9.4;
 // 손가락으로 밀었을 때 방향 전환이 바로 느껴지도록 회전 임펄스를 넉넉히 준다.
 const TORQUE = 2.1;
-const WAKPPU_ASSET_VERSION = "20260813-seamless-2";
+const WAKPPU_ASSET_VERSION = "20260813-physical-jelly-1";
 
 function modelPath(kind: BallKind, broken = false) {
   return `/models/wakppu/${kind}${broken ? "-broken" : ""}.glb?v=${WAKPPU_ASSET_VERSION}`;
@@ -161,30 +211,29 @@ function useTiltPhysics(body: MutableRefObject<RapierRigidBody | null>, tilt: De
   });
 }
 
-function texturePath(kind: BallKind) {
-  return `/textures/wakppu/${kind}-interior.webp`;
-}
-
 function playBreakFeedback() {
-  navigator.vibrate?.(35);
+  navigator.vibrate?.([12, 20, 8]);
   try {
     const context = new AudioContext();
-    const duration = 0.18;
+    const duration = 0.26;
     const buffer = context.createBuffer(1, Math.floor(context.sampleRate * duration), context.sampleRate);
     const samples = buffer.getChannelData(0);
     for (let index = 0; index < samples.length; index += 1) {
-      const fade = 1 - index / samples.length;
-      samples[index] = (Math.random() * 2 - 1) * fade * fade;
+      const time = index / context.sampleRate;
+      const crackA = Math.exp(-time * 80);
+      const crackB = time > 0.075 ? Math.exp(-(time - 0.075) * 95) * 0.64 : 0;
+      const crackC = time > 0.15 ? Math.exp(-(time - 0.15) * 110) * 0.42 : 0;
+      samples[index] = (Math.random() * 2 - 1) * (crackA + crackB + crackC);
     }
 
     const source = context.createBufferSource();
     const filter = context.createBiquadFilter();
     const gain = context.createGain();
     source.buffer = buffer;
-    filter.type = "bandpass";
-    filter.frequency.value = 920;
-    filter.Q.value = 0.7;
-    gain.gain.setValueAtTime(0.14, context.currentTime);
+    filter.type = "highpass";
+    filter.frequency.value = 1250;
+    filter.Q.value = 0.45;
+    gain.gain.setValueAtTime(0.07, context.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
     source.connect(filter).connect(gain).connect(context.destination);
     source.start();
@@ -195,40 +244,192 @@ function playBreakFeedback() {
   }
 }
 
-function InteriorReveal({ kind, damage }: { kind: BallKind; damage: number }) {
-  const sourceTexture = useTexture(texturePath(kind));
-  const texture = useMemo(() => {
-    const copy = sourceTexture.clone();
-    copy.colorSpace = SRGBColorSpace;
-    copy.needsUpdate = true;
-    return copy;
-  }, [sourceTexture]);
-  useEffect(() => {
-    return () => texture.dispose();
-  }, [texture]);
+function playCrunchFeedback(intensity = 0.5) {
+  navigator.vibrate?.(intensity > 0.7 ? 9 : 5);
+  try {
+    const AudioContextClass = window.AudioContext
+      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const duration = 0.085 + intensity * 0.085;
+    const buffer = context.createBuffer(1, Math.floor(context.sampleRate * duration), context.sampleRate);
+    const samples = buffer.getChannelData(0);
+    const teeth = 3 + Math.round(intensity * 3);
 
-  if (damage < 62) return null;
-  const progress = Math.min(1, (damage - 62) / 32);
-  const scale = 0.12 + progress * 0.88;
-  const z = angularKinds.has(kind) ? 1.015 : 1.085;
+    for (let index = 0; index < samples.length; index += 1) {
+      const time = index / context.sampleRate;
+      let envelope = 0;
+      for (let tooth = 0; tooth < teeth; tooth += 1) {
+        const start = tooth * duration / (teeth + 0.8);
+        if (time >= start) envelope += Math.exp(-(time - start) * (95 + tooth * 16));
+      }
+      const grain = Math.sin(time * Math.PI * 2 * (165 + intensity * 90)) * 0.22;
+      samples[index] = ((Math.random() * 2 - 1) * 0.78 + grain) * envelope;
+    }
+
+    const source = context.createBufferSource();
+    const lowpass = context.createBiquadFilter();
+    const bandpass = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 3400 + intensity * 1800;
+    bandpass.type = "bandpass";
+    bandpass.frequency.value = 820 + intensity * 720;
+    bandpass.Q.value = 0.7;
+    gain.gain.setValueAtTime(0.018 + intensity * 0.026, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
+    source.connect(lowpass).connect(bandpass).connect(gain).connect(context.destination);
+    source.start();
+    source.stop(context.currentTime + duration);
+    source.addEventListener("ended", () => { void context.close(); }, { once: true });
+  } catch {
+    // Web Audio를 지원하지 않거나 자동 재생이 제한돼도 조작은 그대로 진행함.
+  }
+}
+
+const crackColors: Record<BallKind, { shadow: string; edge: string }> = {
+  ceramic: { shadow: "#24160e", edge: "#f0d9b5" },
+  crystal: { shadow: "#241b39", edge: "#d9c9ff" },
+  mochi: { shadow: "#5e3935", edge: "#ffe1d8" },
+  dubai: { shadow: "#160b07", edge: "#b77747" },
+  butter_bar: { shadow: "#351b08", edge: "#ffd48b" },
+  butter_rice_cake: { shadow: "#473213", edge: "#ffe5a0" },
+  brick_cake: { shadow: "#2d160a", edge: "#f2d6a4" },
+  slice_cake: { shadow: "#4a2c10", edge: "#ffe2a0" },
+};
+
+function CrackMark({ kind, damage, impact, scale }: { kind: BallKind; damage: number; impact: CrackImpact; scale: number }) {
+  const paths = useMemo(() => createCrackPaths(impact.seed), [impact.seed]);
+  const colors = crackColors[kind];
+  const damageProgress = clamp((damage - 28) / 66, 0, 1);
 
   return (
-    <group position={[0.16, 0.12, z]} scale={scale} rotation={[0, 0, -0.12]}>
-      <mesh position={[0, 0, -0.012]}>
-        <ringGeometry args={[0.285, 0.365, 9]} />
-        <meshStandardMaterial color="#382416" roughness={1} />
-      </mesh>
-      <mesh>
-        <circleGeometry args={[0.305, 9]} />
-        <meshStandardMaterial map={texture} roughness={0.72} metalness={0.02} />
-      </mesh>
+    <group position={impact.position} quaternion={impact.quaternion} scale={scale}>
+      {paths.map((path, pathIndex) => {
+        const threshold = path.startStage === 1 ? 0 : path.startStage === 2 ? 0.3 : 0.68;
+        if (damageProgress < threshold) return null;
+        const growth = clamp((damageProgress - threshold) / Math.max(0.01, 1 - threshold), 0, 1);
+        const pointCount = Math.max(3, Math.ceil(path.points.length * (0.3 + growth * 0.7)));
+        const points = path.points.slice(0, pointCount).map(([x, y, z]) => [
+          x,
+          y,
+          angularKinds.has(kind) ? z : z - (x * x + y * y) * 0.52,
+        ] as [number, number, number]);
+        const split = Math.max(2, Math.floor(points.length * 0.62));
+        const nearPoints = points.slice(0, split + 1);
+        const farPoints = points.slice(Math.max(0, split - 1));
+        const primary = path.weight === "primary";
+        return (
+          <group key={pathIndex}>
+            <Line
+              points={nearPoints}
+              color={colors.shadow}
+              lineWidth={primary ? 0.72 : 0.34}
+              transparent
+              opacity={primary ? 0.86 : 0.62}
+              depthTest
+              depthWrite={false}
+              renderOrder={3}
+              raycast={() => null}
+            />
+            <Line
+              points={nearPoints.map(([x, y, z]) => [x - 0.0014, y + 0.0011, z + 0.0007] as [number, number, number])}
+              color={colors.edge}
+              lineWidth={primary ? 0.18 : 0.11}
+              transparent
+              opacity={primary ? 0.26 : 0.15}
+              depthTest
+              depthWrite={false}
+              renderOrder={4}
+              raycast={() => null}
+            />
+            {farPoints.length > 1 && (
+              <Line
+                points={farPoints}
+                color={colors.shadow}
+                lineWidth={primary ? 0.42 : 0.2}
+                transparent
+                opacity={primary ? 0.62 : 0.4}
+                depthTest
+                depthWrite={false}
+                renderOrder={3}
+                raycast={() => null}
+              />
+            )}
+          </group>
+        );
+      })}
     </group>
   );
 }
 
+function CrackMarks({ kind, damage, impacts }: { kind: BallKind; damage: number; impacts: CrackImpact[] }) {
+  if (damage < 28 || impacts.length === 0) return null;
+  const stage = damage >= 78 ? 3 : damage >= 52 ? 2 : 1;
+  const visibleImpacts = stage === 1 ? impacts.slice(0, 1) : impacts.slice(0, 2);
+
+  return visibleImpacts.map((impact, impactIndex) => (
+    <CrackMark
+      key={`${impact.seed}-${impactIndex}`}
+      kind={kind}
+      damage={damage}
+      impact={impact}
+      scale={impactIndex === 0 ? 1.08 : 0.88}
+    />
+  ));
+}
+
+function SurfaceChips({ kind, damage, impacts }: { kind: BallKind; damage: number; impacts: CrackImpact[] }) {
+  if (damage < 45 || impacts.length === 0) return null;
+  const colors = crackColors[kind];
+  const progress = clamp((damage - 45) / 50, 0, 1);
+  const visibleImpacts = damage >= 72 ? impacts.slice(0, 2) : impacts.slice(0, 1);
+  const shardCount = damage >= 82 ? 7 : damage >= 64 ? 5 : 3;
+
+  return visibleImpacts.map((impact, impactIndex) => (
+    <group
+      key={`chip-${impact.seed}-${impactIndex}`}
+      position={impact.position}
+      quaternion={impact.quaternion}
+      scale={impactIndex === 0 ? 1 : 0.78}
+    >
+      <mesh position={[0, 0, 0.006]} renderOrder={2} raycast={() => null}>
+        <circleGeometry args={[0.085 + progress * 0.055, 7]} />
+        <meshStandardMaterial color={colors.shadow} roughness={0.96} polygonOffset polygonOffsetFactor={-2} />
+      </mesh>
+      {Array.from({ length: shardCount }, (_, shardIndex) => {
+        const angle = (shardIndex / shardCount) * Math.PI * 2 + (impact.seed % 19) * 0.07;
+        const radius = 0.07 + (shardIndex % 3) * 0.018 + progress * 0.035;
+        const lift = 0.016 + progress * (0.025 + (shardIndex % 2) * 0.012);
+        const size = 0.026 + (shardIndex % 3) * 0.008;
+        return (
+          <mesh
+            key={shardIndex}
+            position={[Math.cos(angle) * radius, Math.sin(angle) * radius, lift]}
+            rotation={[angle * 0.23, progress * (0.45 + shardIndex * 0.11), angle]}
+            scale={[1.25, 0.72, 0.32 + progress * 0.34]}
+            raycast={() => null}
+          >
+            <tetrahedronGeometry args={[size, 0]} />
+            <meshStandardMaterial
+              color={shardIndex % 3 === 0 ? colors.edge : colors.shadow}
+              roughness={0.72}
+            />
+          </mesh>
+        );
+      })}
+    </group>
+  ));
+}
+
 function Ball({ kind, damage, onDamage, tilt }: { kind: BallKind; damage: number; onDamage: (amount: number) => void; tilt: DeviceTiltRef }) {
   const body = useRef<RapierRigidBody>(null);
+  const visual = useRef<Group>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
+  const deformation = useRef({ target: new Vector3(1, 1, 1), velocity: new Vector3() });
+  const impactHold = useRef(0);
+  const [crackImpacts, setCrackImpacts] = useState<CrackImpact[]>([]);
   const { scene } = useGLTF(modelPath(kind));
   const model = useMemo(() => {
     const copy = scene.clone(true);
@@ -240,12 +441,76 @@ function Ball({ kind, damage, onDamage, tilt }: { kind: BallKind; damage: number
   useTiltPhysics(body, tilt, 1.35);
   // 각진 종류는 cuboid 콜라이더라 구르지 않고 버티므로 회전력을 더 준다.
   const torque = angularKinds.has(kind) ? TORQUE * 1.45 : TORQUE;
+  const softness = kind === "mochi" ? 0.38 : angularKinds.has(kind) ? 0.08 : 0.16;
+
+  useFrame((_, delta) => {
+    if (!visual.current) return;
+    const frame = Math.min(delta, 0.034);
+    if (!pointer.current && impactHold.current > 0) {
+      impactHold.current -= frame;
+      if (impactHold.current <= 0) deformation.current.target.set(1, 1, 1);
+    }
+    const scale = visual.current.scale;
+    const { target, velocity } = deformation.current;
+    const damping = Math.exp(-18 * frame);
+    for (const axis of ["x", "y", "z"] as const) {
+      velocity[axis] = (velocity[axis] + (target[axis] - scale[axis]) * 230 * frame) * damping;
+      scale[axis] += velocity[axis] * frame;
+    }
+  });
+
+  function setSquash(x: number, y: number, z: number) {
+    deformation.current.target.set(
+      1 + (x - 1) * softness,
+      1 + (y - 1) * softness,
+      1 + (z - 1) * softness,
+    );
+  }
+
+  function releaseSquash() {
+    deformation.current.target.set(1, 1, 1);
+  }
+
+  function registerCrack(event: ThreeEvent<PointerEvent>) {
+    if (!visual.current) return;
+    visual.current.updateWorldMatrix(true, false);
+    event.object.updateWorldMatrix(true, false);
+
+    const worldNormal = event.face
+      ? event.face.normal.clone().transformDirection(event.object.matrixWorld)
+      : event.ray.direction.clone().negate();
+    const groupQuaternion = visual.current.getWorldQuaternion(new Quaternion()).invert();
+    const localNormal = worldNormal.applyQuaternion(groupQuaternion).normalize();
+    const localPosition = visual.current.worldToLocal(event.point.clone()).addScaledVector(localNormal, 0.018);
+    const rotation = new Quaternion()
+      .setFromUnitVectors(new Vector3(0, 0, 1), localNormal)
+      .multiply(new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), localPosition.x * 4.7 + localPosition.y * 3.1));
+    const impact: CrackImpact = {
+      position: [localPosition.x, localPosition.y, localPosition.z],
+      quaternion: [rotation.x, rotation.y, rotation.z, rotation.w],
+      seed: (
+        Math.floor((localPosition.x + 2) * 10000) * 73856093
+        ^ Math.floor((localPosition.y + 2) * 10000) * 19349663
+        ^ Math.floor((localPosition.z + 2) * 10000) * 83492791
+      ) >>> 0,
+    };
+
+    setCrackImpacts((current) => {
+      if (current.length === 0) return [impact];
+      if (damage < 40) return current;
+      const first = new Vector3(...current[0].position);
+      if (first.distanceTo(localPosition) < 0.18) return current;
+      return [current[0], impact];
+    });
+  }
 
   function spin(event: ThreeEvent<PointerEvent>) {
     event.stopPropagation();
     const { clientX, clientY } = event.nativeEvent;
     pointer.current = { x: clientX, y: clientY };
+    setSquash(1.09, 0.86, 1.07);
     (event.nativeEvent.target as Element).setPointerCapture?.(event.pointerId);
+    registerCrack(event);
     body.current?.applyTorqueImpulse({ x: -0.75 * torque, y: 1.15 * torque, z: 0.35 * torque }, true);
     body.current?.applyImpulse({ x: 0, y: 0.45, z: 0 }, true);
     onDamage(12);
@@ -258,6 +523,9 @@ function Ball({ kind, damage, onDamage, tilt }: { kind: BallKind; damage: number
     const dx = clientX - pointer.current.x;
     const dy = clientY - pointer.current.y;
     if (Math.abs(dx) + Math.abs(dy) < 3) return;
+    const horizontal = Math.min(1, Math.abs(dx) / 26);
+    const vertical = Math.min(1, Math.abs(dy) / 26);
+    setSquash(1 + horizontal * 0.14 - vertical * 0.055, 1 + vertical * 0.13 - horizontal * 0.075, 0.95);
     body.current?.applyTorqueImpulse({ x: dy * 0.018 * torque, y: dx * 0.02 * torque, z: -dx * 0.009 * torque }, true);
     body.current?.applyImpulse({ x: dx * 0.052, y: -dy * 0.052, z: 0.035 }, true);
     pointer.current = { x: clientX, y: clientY };
@@ -275,55 +543,32 @@ function Ball({ kind, damage, onDamage, tilt }: { kind: BallKind; damage: number
       linearDamping={0.08}
       angularDamping={0.24}
       canSleep={false}
+      onCollisionEnter={() => {
+        if (pointer.current) return;
+        setSquash(1.07, 0.89, 1.055);
+        impactHold.current = 0.075;
+      }}
     >
       <group
+        ref={visual}
         onPointerDown={spin}
         onPointerMove={drag}
         onPointerUp={(event) => {
           (event.nativeEvent.target as Element).releasePointerCapture?.(event.pointerId);
           pointer.current = null;
+          releaseSquash();
         }}
-        onPointerCancel={() => { pointer.current = null; }}
+        onPointerCancel={() => {
+          pointer.current = null;
+          releaseSquash();
+        }}
       >
         <primitive object={model} scale={1.08} />
-        <InteriorReveal kind={kind} damage={damage} />
+        <CrackMarks kind={kind} damage={damage} impacts={crackImpacts} />
+        <SurfaceChips kind={kind} damage={damage} impacts={crackImpacts} />
       </group>
     </RigidBody>
   );
-}
-
-function Debris({ kind }: { kind: BallKind }) {
-  const colors: Record<BallKind, string> = {
-    ceramic: "#d7c7a9",
-    crystal: "#c9b7ff",
-    mochi: "#f3d4c9",
-    dubai: "#6c3c22",
-    butter_rice_cake: "#f0d68a",
-    brick_cake: "#8b3f32",
-    slice_cake: "#f1c878",
-  };
-
-  return fragmentSpecs.slice(0, 7).map((fragment, index) => (
-    <RigidBody
-      key={`debris-${index}`}
-      colliders="hull"
-      position={[fragment.position[0] * 0.22, 0.28 + fragment.position[1] * 0.18, fragment.position[2] * 0.22]}
-      linearVelocity={[
-        fragment.velocity[0] * 1.42 * SPREAD,
-        (fragment.velocity[1] * 1.16 + 0.9) * LIFT,
-        fragment.velocity[2] * 1.42 * SPREAD,
-      ]}
-      angularVelocity={fragment.spin}
-      restitution={0.28}
-      friction={0.9}
-      linearDamping={0.3}
-    >
-      <mesh castShadow scale={[0.07 + (index % 3) * 0.018, 0.045 + (index % 2) * 0.02, 0.055]}>
-        <tetrahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial color={colors[kind]} roughness={0.86} />
-      </mesh>
-    </RigidBody>
-  ));
 }
 
 type LoadedFragment = {
@@ -333,10 +578,31 @@ type LoadedFragment = {
   rotation: [number, number, number];
 };
 
-function FragmentPiece({ piece, fragment, tilt }: { piece: LoadedFragment; fragment: FragmentSpec; tilt: DeviceTiltRef }) {
+function FragmentPiece({ piece, fragment, tilt, index }: { piece: LoadedFragment; fragment: FragmentSpec; tilt: DeviceTiltRef; index: number }) {
   const body = useRef<RapierRigidBody>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
+  const [released, setReleased] = useState(false);
   useTiltPhysics(body, tilt, 0.62);
+
+  useEffect(() => {
+    const delay = 100 + index * 45;
+    const timer = window.setTimeout(() => setReleased(true), delay);
+    return () => window.clearTimeout(timer);
+  }, [index]);
+
+  useEffect(() => {
+    if (!released) return;
+    body.current?.setLinvel({
+      x: 0,
+      y: -0.035,
+      z: 0,
+    }, true);
+    body.current?.setAngvel({
+      x: fragment.spin[0] * 0.025,
+      y: fragment.spin[1] * 0.018,
+      z: fragment.spin[2] * 0.025,
+    }, true);
+  }, [fragment, index, released]);
 
   function grab(event: ThreeEvent<PointerEvent>) {
     event.stopPropagation();
@@ -359,18 +625,14 @@ function FragmentPiece({ piece, fragment, tilt }: { piece: LoadedFragment; fragm
   return (
     <RigidBody
       ref={body}
+      type={released ? "dynamic" : "fixed"}
       colliders="hull"
       position={piece.position}
       rotation={piece.rotation}
-      linearVelocity={[
-        (fragment.velocity[0] + fragment.position[0] * 0.8) * SPREAD,
-        (fragment.velocity[1] + 0.8) * LIFT,
-        (fragment.velocity[2] + fragment.position[2] * 0.8) * SPREAD,
-      ]}
-      angularVelocity={fragment.spin}
-      restitution={0.2}
-      friction={0.86}
-      linearDamping={0.3}
+      restitution={0.03}
+      friction={0.94}
+      linearDamping={0.5}
+      angularDamping={0.82}
     >
       <mesh
         castShadow
@@ -419,62 +681,151 @@ function Fragments({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
         piece={piece}
         fragment={fragment}
         tilt={tilt}
+        index={index}
       />
     );
   });
 }
 
-/**
- * 실제로 접힌 종이 한 장. 평면을 "앞면 → 둥근 접힘 → 뒷면" 경로를 따라 휘어서
- * 크리스를 진짜 곡면으로 만든다. 상자를 겹쳐 쌓는 것과 달리 접힌 부분이 빛을
- * 부드럽게 받아 종이처럼 보이고, 뒷면을 앞면보다 짧게 잡아 열린 단면이 드러난다.
- */
-function useFoldedPaper(width: number, front: number, back: number, radius: number, curl: number) {
-  const geometry = useMemo(() => {
-    const bend = Math.PI * radius;
-    const total = front + bend + back;
-    const paper = new PlaneGeometry(width, total, 16, 64);
-    const position = paper.attributes.position;
+// Blender로 모델링한 한 장짜리 포춘쿠키 쪽지. 앞뒤 잎이 둥근 접힘으로 이어지고
+// 자유단 길이와 휨이 조금씩 다르다. scripts/fortune-note.py 로 다시 만들 수 있다.
+function JellyCore({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
+  const body = useRef<RapierRigidBody>(null);
+  const visual = useRef<Group>(null);
+  const sourceColorMap = useTexture(`/textures/wakppu/${kind}-interior.webp`);
+  const sourceNormalMap = useTexture(`/textures/wakppu/${kind}-interior-normal.webp`);
+  const colorMap = useMemo(() => {
+    const texture = sourceColorMap.clone();
+    texture.colorSpace = SRGBColorSpace;
+    texture.wrapS = RepeatWrapping;
+    texture.wrapT = RepeatWrapping;
+    texture.repeat.set(1.35, 1.35);
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    return texture;
+  }, [sourceColorMap]);
+  const normalMap = useMemo(() => {
+    const texture = sourceNormalMap.clone();
+    texture.wrapS = RepeatWrapping;
+    texture.wrapT = RepeatWrapping;
+    texture.repeat.set(1.35, 1.35);
+    texture.needsUpdate = true;
+    return texture;
+  }, [sourceNormalMap]);
+  const previousVelocity = useRef(new Vector3());
+  const wobble = useRef({ compression: 0, velocity: -2.8, lean: 0, leanVelocity: 0.9 });
+  useTiltPhysics(body, tilt, 0.62);
 
-    for (let index = 0; index < position.count; index += 1) {
-      const x = position.getX(index);
-      const s = total / 2 - position.getY(index); // 앞면 위 끝에서 0으로 시작하는 경로 길이
-      let y: number;
-      let z: number;
+  function excite(compression = 0.24, lean = 0.45) {
+    wobble.current.velocity -= compression * 9.5;
+    wobble.current.leanVelocity += lean;
+  }
 
-      if (s <= front) {
-        y = front - s;
-        z = radius;
-      } else if (s <= front + bend) {
-        const a = ((s - front) / bend) * Math.PI; // 0 → π, 아래로 볼록한 반원
-        y = -Math.sin(a) * radius;
-        z = Math.cos(a) * radius;
-      } else {
-        y = s - front - bend;
-        z = -radius;
-      }
+  useFrame((state, delta) => {
+    if (!visual.current || !body.current) return;
+    const frame = Math.min(delta, 0.032);
+    const current = wobble.current;
+    const velocity = body.current.linvel();
+    const lastVelocity = previousVelocity.current;
+    const verticalImpulse = velocity.y - lastVelocity.y;
 
-      // 손으로 접은 종이의 미세한 휨. 접힌 쪽은 뻣뻣하고 자유단으로 갈수록 말린다.
-      const away = Math.min(1, Math.abs(y) / front);
-      z += Math.cos((x / (width / 2)) * 1.35) * curl * (0.25 + 0.75 * away);
-      position.setXYZ(index, x, y, z);
+    if (verticalImpulse > 0.72) {
+      current.velocity -= Math.min(3.2, verticalImpulse * 0.48);
+      current.leanVelocity += (velocity.x - velocity.z) * 0.025;
     }
+    lastVelocity.set(velocity.x, velocity.y, velocity.z);
 
-    position.needsUpdate = true;
-    paper.computeVertexNormals();
-    return paper;
-  }, [width, front, back, radius, curl]);
+    current.velocity += (-92 * current.compression - 12.5 * current.velocity) * frame;
+    current.compression += current.velocity * frame;
+    current.compression = clamp(current.compression, -0.28, 0.32);
 
-  useEffect(() => () => geometry.dispose(), [geometry]);
-  return geometry;
+    current.leanVelocity += (-58 * current.lean - 9.5 * current.leanVelocity) * frame;
+    current.lean += current.leanVelocity * frame;
+    current.lean = clamp(current.lean, -0.22, 0.22);
+
+    const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2);
+    const stretch = Math.min(0.13, speed * 0.016);
+    const verticalScale = clamp(1 + current.compression + stretch, 0.68, 1.42);
+    const volumeScale = 1 / Math.sqrt(verticalScale);
+    const residual = Math.min(0.055, Math.abs(current.velocity) * 0.018);
+    const ripple = Math.sin(state.clock.elapsedTime * 15.5) * residual;
+    const mochiScale = kind === "mochi" ? 0.93 : 1;
+
+    visual.current.scale.set(
+      volumeScale * (1 + ripple),
+      verticalScale * mochiScale,
+      volumeScale * (1 - ripple),
+    );
+    visual.current.rotation.x = current.lean * 0.42;
+    visual.current.rotation.z = -current.lean * 0.7;
+  });
+
+  function poke(event: ThreeEvent<PointerEvent>) {
+    event.stopPropagation();
+    const direction = event.point.clone().normalize();
+    body.current?.applyImpulse({ x: direction.x * 0.38, y: 0.72, z: direction.z * 0.38 }, true);
+    body.current?.applyTorqueImpulse({ x: -direction.z * 0.22, y: 0.16, z: direction.x * 0.22 }, true);
+    excite(0.28, direction.x * 0.7 + 0.35);
+  }
+
+  return (
+    <RigidBody
+      ref={body}
+      colliders={false}
+      position={[0, 0.28, 0]}
+      mass={0.72}
+      restitution={0.42}
+      friction={0.78}
+      linearDamping={0.34}
+      angularDamping={0.46}
+      canSleep={false}
+      onCollisionEnter={() => excite(0.2, -wobble.current.lean * 0.8 + 0.24)}
+    >
+      <BallCollider args={[0.52]} />
+      <group ref={visual}>
+        <mesh castShadow receiveShadow onPointerDown={poke}>
+          <sphereGeometry args={[0.57, 36, 24]} />
+          <meshPhysicalMaterial
+            map={colorMap}
+            normalMap={normalMap}
+            normalScale={[0.18, 0.18]}
+            roughness={kind === "dubai" ? 0.34 : 0.24}
+            metalness={0}
+            transmission={0.08}
+            thickness={0.52}
+            ior={1.42}
+            clearcoat={0.82}
+            clearcoatRoughness={0.1}
+          />
+        </mesh>
+      </group>
+    </RigidBody>
+  );
+}
+
+const NOTE_ASSET_VERSION = "20260813-folded-reference-2";
+const NOTE_MODEL = `/models/fortune-note.glb?v=${NOTE_ASSET_VERSION}`;
+const NOTE_SCALE = 0.8;
+
+function useFortuneNoteModel() {
+  const { scene } = useGLTF(NOTE_MODEL);
+  return useMemo(() => {
+    const copy = scene.clone(true);
+    copy.traverse((child) => {
+      const mesh = child as Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    return copy;
+  }, [scene]);
 }
 
 function FortuneNote3D({ tilt, onPull }: { tilt: DeviceTiltRef; onPull: () => void }) {
   const body = useRef<RapierRigidBody>(null);
   const pointer = useRef<{ startX: number; startY: number } | null>(null);
   const home = useMemo(() => ({ x: 0, y: -0.08, z: 0.92 }), []);
-  const outer = useFoldedPaper(0.78, 0.56, 0.42, 0.05, 0.026);
-  const inner = useFoldedPaper(0.68, 0.48, 0.34, 0.036, 0.018);
+  const model = useFortuneNoteModel();
 
   useFrame(() => {
     if (pointer.current) return;
@@ -520,43 +871,15 @@ function FortuneNote3D({ tilt, onPull }: { tilt: DeviceTiltRef; onPull: () => vo
       restitution={0.12}
       friction={0.7}
     >
-      {/* 종이는 접힘(y≈-0.05)에서 위(y≈0.56)로 뻗으므로 콜라이더도 그 중심에 맞춘다 */}
-      <CuboidCollider args={[0.4, 0.33, 0.09]} position={[0, 0.255, 0]} />
+      {/* 새 접힌 쪽지 GLB의 반크기 약 0.428×0.475×0.012에 NOTE_SCALE을 반영한 콜라이더. */}
+      <CuboidCollider args={[0.35, 0.39, 0.04]} />
       <group
         onPointerDown={grab}
         onPointerMove={drag}
         onPointerUp={release}
         onPointerCancel={() => { pointer.current = null; }}
       >
-        {/* 바깥 장 — 종이 특유의 은은한 광택(sheen)까지 준다 */}
-        <mesh castShadow receiveShadow geometry={outer}>
-          <meshPhysicalMaterial
-            color="#fdf6e2"
-            roughness={0.95}
-            metalness={0}
-            sheen={0.5}
-            sheenRoughness={0.85}
-            sheenColor="#fff6de"
-            side={DoubleSide}
-          />
-        </mesh>
-        {/* 안쪽 한 겹 — 조금 작고 그늘져서 여러 번 접힌 두께가 보인다 */}
-        <mesh castShadow geometry={inner} position={[0.012, -0.026, 0]} rotation={[0, 0, -0.05]}>
-          <meshStandardMaterial color="#eee0bb" roughness={0.97} metalness={0} side={DoubleSide} />
-        </mesh>
-        {/* 접힌 등을 따라 잡히는 얇은 그늘 */}
-        <mesh position={[0, -0.05, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.052, 0.052, 0.78, 12, 1, true, 0, Math.PI]} />
-          <meshBasicMaterial color="#c9b48a" transparent opacity={0.28} side={DoubleSide} />
-        </mesh>
-        {/* 앞면에 인쇄된 운세가 두 줄 비친다.
-            휘어진 앞면(y=0.2에서 z≈0.064, y=0.1에서 z≈0.060)보다 살짝 앞에 둬야 묻히지 않는다. */}
-        {[{ y: 0.2, z: 0.069, x: -0.02, w: 0.34 }, { y: 0.1, z: 0.065, x: 0.04, w: 0.22 }].map((line) => (
-          <mesh key={line.y} position={[line.x, line.y, line.z]} rotation={[0, 0, -0.02]}>
-            <planeGeometry args={[line.w, 0.018]} />
-            <meshBasicMaterial color="#c4422a" transparent opacity={0.42} />
-          </mesh>
-        ))}
+        <primitive object={model} scale={NOTE_SCALE} />
       </group>
     </RigidBody>
   );
@@ -601,7 +924,7 @@ function Scene({ kind, damage, broken, pulled, onDamage, onPull, tilt }: { kind:
           {broken ? (
             <>
               <Fragments kind={kind} tilt={tilt} />
-              <Debris kind={kind} />
+              {!angularKinds.has(kind) && <JellyCore kind={kind} tilt={tilt} />}
               {!pulled && <FortuneNote3D tilt={tilt} onPull={onPull} />}
             </>
           ) : <Ball kind={kind} damage={damage} onDamage={onDamage} tilt={tilt} />}
@@ -615,17 +938,20 @@ function Scene({ kind, damage, broken, pulled, onDamage, onPull, tilt }: { kind:
 
 export function FortuneBall({ fortune, aside, ballKind, onReveal }: FortuneBallProps) {
   const [damage, setDamage] = useState(0);
+  const [crackPulse, setCrackPulse] = useState(0);
   const [pulled, setPulled] = useState(false);
   const broken = damage >= 100;
+  const damageRef = useRef(0);
   const announced = useRef(false);
   const feedbackPlayed = useRef(false);
+  const lastCrunchAt = useRef(0);
   const { tilt, requestPermission } = useDeviceTilt();
   const reduceMotion = useReducedMotion();
   const rootRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const boundsRef = useRef<HTMLElement>(null);
   const slipX = useMotionValue(0);
   const slipY = useMotionValue(0);
-  const displayDamage = Math.min(100, Math.round(damage));
   const hint = useMemo(() => {
     if (pulled) return "오늘의 운세 발견";
     if (broken) return "파편을 밀거나 쪽지를 잡아당기기";
@@ -640,7 +966,26 @@ export function FortuneBall({ fortune, aside, ballKind, onReveal }: FortuneBallP
 
   useEffect(() => {
     useGLTF.preload(modelPath(ballKind, true));
+    useGLTF.preload(NOTE_MODEL);
+    if (!angularKinds.has(ballKind)) {
+      useTexture.preload(`/textures/wakppu/${ballKind}-interior.webp`);
+      useTexture.preload(`/textures/wakppu/${ballKind}-interior-normal.webp`);
+    }
   }, [ballKind]);
+
+  useEffect(() => {
+    if (crackPulse === 0 || broken || reduceMotion) return;
+    canvasRef.current?.animate([
+      { transform: "translate3d(0,0,0) rotate(0)" },
+      { transform: "translate3d(-2px,1px,0) rotate(-.25deg)", offset: 0.24 },
+      { transform: "translate3d(2px,-1px,0) rotate(.22deg)", offset: 0.5 },
+      { transform: "translate3d(-1px,0,0) rotate(-.1deg)", offset: 0.74 },
+      { transform: "translate3d(0,0,0) rotate(0)" },
+    ], {
+      duration: 150,
+      easing: "cubic-bezier(.36,.07,.19,.97)",
+    });
+  }, [crackPulse, broken, reduceMotion]);
 
   useEffect(() => {
     if (!pulled || announced.current) return;
@@ -649,15 +994,28 @@ export function FortuneBall({ fortune, aside, ballKind, onReveal }: FortuneBallP
   }, [pulled, onReveal]);
 
   function addDamage(amount: number) {
-    if (broken) return;
-    setDamage((value) => {
-      const next = Math.min(100, value + amount);
-      if (next >= 100 && value < 100 && !feedbackPlayed.current) {
-        feedbackPlayed.current = true;
-        playBreakFeedback();
-      }
-      return next;
-    });
+    const value = damageRef.current;
+    if (value >= 100) return;
+    const next = Math.min(100, value + amount);
+    damageRef.current = next;
+    setDamage(next);
+
+    const now = performance.now();
+    if (next < 100 && now - lastCrunchAt.current > 72) {
+      lastCrunchAt.current = now;
+      const damageWeight = clamp(next / 100, 0.18, 0.92);
+      const inputWeight = clamp(amount / 12, 0.2, 1);
+      playCrunchFeedback(0.25 + damageWeight * 0.42 + inputWeight * 0.28);
+    }
+
+    if (next < 100 && [28, 52, 78].some((threshold) => value < threshold && next >= threshold)) {
+      setCrackPulse((pulse) => pulse + 1);
+      playCrunchFeedback(next >= 78 ? 0.92 : next >= 52 ? 0.75 : 0.58);
+    }
+    if (next >= 100 && !feedbackPlayed.current) {
+      feedbackPlayed.current = true;
+      playBreakFeedback();
+    }
   }
 
   // 키보드로 꺼낼 때만 쪽지를 위로 밀어 올린다. 포인터로 끌어낼 때는
@@ -701,7 +1059,7 @@ export function FortuneBall({ fortune, aside, ballKind, onReveal }: FortuneBallP
         else addDamage(22);
       }}
     >
-      <div className="fortune-ball-canvas" aria-hidden="true">
+      <div ref={canvasRef} className="fortune-ball-canvas" aria-hidden="true">
         <Scene
           kind={ballKind}
           damage={damage}
@@ -748,7 +1106,6 @@ export function FortuneBall({ fortune, aside, ballKind, onReveal }: FortuneBallP
 
       <div className="fortune-ball-guide" aria-live="polite">
         <span>{hint}</span>
-        {!broken && <i><b style={{ width: `${displayDamage}%` }} /></i>}
       </div>
     </div>
   );

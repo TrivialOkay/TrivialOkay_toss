@@ -17,7 +17,7 @@ SOURCES = {
     "mochi": Path(r"C:\Users\Json\.codex\generated_images\019ff630-3d27-7db3-9cea-157c32c8656b\exec-a3bbbbb0-d3c3-4341-ad4f-7efd22e36e2f.png"),
     "dubai": Path(r"C:\Users\Json\.codex\generated_images\019ff630-3d27-7db3-9cea-157c32c8656b\exec-e1203bd8-f039-4d87-9e7f-6e5e542fa5fa.png"),
     "butter_rice_cake": Path(r"C:\Users\Json\.codex\generated_images\019ff630-3d27-7db3-9cea-157c32c8656b\exec-22f73d0a-da2c-42eb-bcb4-8919de2c89f4.png"),
-    "brick_cake": Path(r"C:\Users\Json\.codex\generated_images\019ff630-3d27-7db3-9cea-157c32c8656b\exec-7bc45832-b2b7-4352-8d4c-afe9db1925bf.png"),
+    "brick_cake": Path(r"C:\Users\Json\.codex\generated_images\019ff630-3d27-7db3-9cea-157c32c8656b\exec-5e855434-801e-44bd-a742-5a318e17f2e8.png"),
     "slice_cake": Path(r"C:\Users\Json\.codex\generated_images\019ff630-3d27-7db3-9cea-157c32c8656b\exec-8254dcc9-6fd8-49bc-b55c-dff3d2335e12.png"),
 }
 

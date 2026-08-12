@@ -24,7 +24,7 @@ for (key, cfg), position in zip(VARIANTS.items(), positions):
     before = set(bpy.context.scene.objects)
     if cfg["shape"] == "slice_cake":
         create_broken_slice(key, cfg)
-    elif cfg["shape"] in ("cube", "cake"):
+    elif cfg["shape"] in ("cube", "cake", "tiramisu"):
         create_broken_cube(key, cfg)
     else:
         create_broken_sphere(key, cfg)

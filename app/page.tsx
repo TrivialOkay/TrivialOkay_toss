@@ -24,7 +24,7 @@ import {
 import { BottomNav, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, Stars, StatusBar } from "./byeoril-ui";
 
 const FortuneBall = lazy(() => import("./fortune-ball").then((module) => ({ default: module.FortuneBall })));
-const fortuneBallKinds = ["ceramic", "crystal", "mochi", "dubai", "butter_rice_cake", "brick_cake", "slice_cake"] as const;
+const fortuneBallKinds = ["ceramic", "crystal", "mochi", "dubai", "butter_bar", "brick_cake", "slice_cake"] as const;
 
 const storageKey = "byeoril-records-v2";
 const legacyStorageKey = "byeoril-records-v1";
