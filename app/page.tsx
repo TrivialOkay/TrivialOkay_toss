@@ -90,27 +90,27 @@ const sampleRecords: RecordItem[] = [
 
 const outcomeMeta: Record<
   Outcome,
-  { label: string; short: string; grade: string; stars: number; tone: string }
+  { label: string; short: string; grade: string; verdict: string; tone: string }
 > = {
   happened: {
     label: "일어남!",
     short: "적중",
     grade: "이왜진",
-    stars: 4,
+    verdict: "진짜 일어남",
     tone: "violet",
   },
   close: {
     label: "비슷했음",
     short: "근접",
     grade: "꽤 괜찮음",
-    stars: 3,
+    verdict: "거의 맞은 셈",
     tone: "green",
   },
   missed: {
     label: "안 일어남",
     short: "빗나감",
     grade: "혼함",
-    stars: 1,
+    verdict: "평화롭게 빗나감",
     tone: "gray",
   },
 };
@@ -140,14 +140,22 @@ function loadRecords(): RecordItem[] {
   }
 }
 
-function Mascot({ small = false }: { small?: boolean }) {
+function Mascot({
+  small = false,
+  mood = "happy",
+}: {
+  small?: boolean;
+  mood?: "happy" | "unsure" | "flat";
+}) {
+  const mouth = mood === "happy" ? "⌣" : mood === "unsure" ? "·" : "⌢";
+
   return (
-    <div className={`mascot ${small ? "mascot-small" : ""}`} aria-hidden="true">
+    <div className={`mascot mascot-${mood} ${small ? "mascot-small" : ""}`} aria-hidden="true">
       <span className="ear ear-left" />
       <span className="ear ear-right" />
       <span className="face-eye face-eye-left" />
       <span className="face-eye face-eye-right" />
-      <span className="face-mouth">⌣</span>
+      <span className="face-mouth">{mouth}</span>
       <span className="blush blush-left" />
       <span className="blush blush-right" />
     </div>
@@ -173,34 +181,18 @@ function ElevatorScene({ speech }: { speech: string }) {
   );
 }
 
-function Stars({ count }: { count: number }) {
-  return (
-    <span className="stars" aria-label={`별점 5점 중 ${count}점`}>
-      {Array.from({ length: 5 }, (_, index) => (
-        <span key={index} className={index < count ? "star-filled" : "star-empty"}>
-          ★
-        </span>
-      ))}
-    </span>
-  );
-}
-
 export default function Home() {
   const dailyIndex = new Date().getDate() % fortunes.length;
   const [tab, setTab] = useState<Tab>("today");
   const [fortuneIndex, setFortuneIndex] = useState(dailyIndex);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [note, setNote] = useState("");
-  const [records, setRecords] = useState<RecordItem[]>(sampleRecords);
+  const [records, setRecords] = useState<RecordItem[]>(loadRecords);
   const [activeCard, setActiveCard] = useState<RecordItem | null>(null);
   const [filter, setFilter] = useState<"전체" | "혼함" | "꽤 괜찮음" | "이왜진">("전체");
   const [toast, setToast] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const fortune = fortunes[fortuneIndex];
-
-  useEffect(() => {
-    setRecords(loadRecords());
-  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -299,12 +291,16 @@ export default function Home() {
 
               <article className="fortune-card paper-card">
                 <div className="card-kicker">
-                  <span className="crystal">●</span>
-                  오늘의 하찮은 운세
+                  <span className="crystal">✦</span>
+                  별일 관찰 예고
                   <span className="help-dot" title="거창하지 않은 오늘의 가능성이에요">?</span>
                 </div>
+                <div className="observation-meta">
+                  <span>관찰 번호 {String(fortune.id).padStart(3, "0")}</span>
+                  <span>신뢰도: 기분 따라 다름</span>
+                </div>
                 <h3>{fortune.title}</h3>
-                <p>큰 기대는 금물!</p>
+                <p>별일이는 책임지지 않습니다.</p>
                 <ElevatorScene speech={fortune.aside} />
               </article>
 
@@ -318,10 +314,11 @@ export default function Home() {
                       onClick={() => setOutcome(key)}
                       aria-pressed={outcome === key}
                     >
-                      <span className="outcome-face" aria-hidden="true">
-                        {key === "happened" ? "☺" : key === "close" ? "•‿•" : "⌢"}
-                      </span>
-                      {outcomeMeta[key].label}
+                      <Mascot
+                        small
+                        mood={key === "happened" ? "happy" : key === "close" ? "unsure" : "flat"}
+                      />
+                      <span>{outcomeMeta[key].label}</span>
                     </button>
                   ))}
                 </div>
@@ -340,9 +337,9 @@ export default function Home() {
               </div>
 
               <button className="primary-button" disabled={!outcome} onClick={saveCard}>
-                별일 카드 만들기
+                관찰 기록 남기기
               </button>
-              <p className="privacy-note">기록은 이 기기에만 저장돼요.</p>
+              <p className="privacy-note">통계적으로 큰 의미는 없지만 이 기기에 잘 보관해요.</p>
             </section>
           )}
 
@@ -363,7 +360,10 @@ export default function Home() {
                   </span>
                 </div>
                 <h3>{activeCard.title}</h3>
-                <Stars count={outcomeMeta[activeCard.outcome].stars} />
+                <div className={`verdict-stamp stamp-${outcomeMeta[activeCard.outcome].tone}`}>
+                  <span>관찰 판정</span>
+                  <strong>{outcomeMeta[activeCard.outcome].verdict}</strong>
+                </div>
                 <ElevatorScene speech={fortune.aside} />
                 <div className="interpretation">
                   <strong>별일의 쓸데없는 해석</strong>
