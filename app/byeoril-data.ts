@@ -36,7 +36,17 @@ export type CharacterArt =
   | "tiedLaces"
   | "cleanZipper"
   | "umbrellaSleeve"
-  | "pencilClick";
+  | "pencilClick"
+  | "evenChopsticks"
+  | "tangerineSpiral"
+  | "cleanYogurt"
+  | "neatSauce"
+  | "oneIce"
+  | "eraserBall"
+  | "openBag"
+  | "cardSleeve"
+  | "fullEarbuds"
+  | "oneStaple";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -602,6 +612,106 @@ export const fortunes: Fortune[] = [
     characterArt: "pencilClick",
     category: "일상",
   },
+  {
+    id: 74,
+    title: "나무젓가락이 양쪽 똑같이 갈라질 수도 있습니다.",
+    cardTitle: "나무젓가락이 정확히 반으로 갈라짐",
+    copy: "한쪽에 나무 살점이 몰리지 않고 두 짝 모두 반듯하게 독립했습니다. 왼손도 오른손도 서운할 일이 없습니다.",
+    aside: "왼쪽 오른쪽\n둘 다 젓가락.",
+    asset: "snack",
+    characterArt: "evenChopsticks",
+    category: "음식",
+  },
+  {
+    id: 75,
+    title: "귤껍질이 중간에 끊기지 않고 한 줄로 이어질 수도 있습니다.",
+    cardTitle: "귤껍질이 한 줄로 이어짐",
+    copy: "꼭지부터 마지막 조각까지 하나의 긴 리본으로 살아남았습니다. 먹는 시간보다 껍질 구경이 조금 더 길어졌습니다.",
+    aside: "끊긴 횟수\n0번.",
+    asset: "snack",
+    characterArt: "tangerineSpiral",
+    category: "음식",
+  },
+  {
+    id: 76,
+    title: "요거트 뚜껑에 한 방울도 안 묻어 있을 수도 있습니다.",
+    cardTitle: "요거트 뚜껑이 깨끗함",
+    copy: "핥을 것도 닦을 것도 없이 은박 뚜껑이 새것처럼 나왔습니다. 손가락에 묻을 예정이던 요거트까지 전부 컵 안에 있습니다.",
+    aside: "뚜껑 핥기\n오늘은 휴무.",
+    asset: "snack",
+    characterArt: "cleanYogurt",
+    category: "음식",
+  },
+  {
+    id: 77,
+    title: "소스가 손에 안 묻고 음식 위에만 착륙할 수도 있습니다.",
+    cardTitle: "소스가 음식에만 정확히 묻음",
+    copy: "봉지 옆구리도 손가락도 깨끗한 채 소스가 목표물 중앙에만 내려앉았습니다. 물티슈 한 장을 아꼈습니다.",
+    aside: "손가락은\n무사함.",
+    asset: "snack",
+    characterArt: "neatSauce",
+    category: "음식",
+  },
+  {
+    id: 78,
+    title: "얼음틀을 비틀었는데 얼음이 딱 한 알만 나올 수도 있습니다.",
+    cardTitle: "얼음이 딱 한 알만 나옴",
+    copy: "우르르 쏟아지지도 바닥으로 도망가지도 않고 필요한 한 알만 손바닥에 도착했습니다. 나머지는 얌전히 대기 중입니다.",
+    aside: "얼음 폭주\n없었음.",
+    asset: "coffee",
+    characterArt: "oneIce",
+    category: "음식",
+  },
+  {
+    id: 79,
+    title: "지우개 가루가 한 번에 동그랗게 뭉칠 수도 있습니다.",
+    cardTitle: "지우개 가루를 한 덩이로 합침",
+    copy: "책상 위에 흩어진 가루들이 손가락 한 번에 조그만 눈덩이가 됐습니다. 버리기 전까지 괜히 굴려 보게 됩니다.",
+    aside: "가루들도\n단체 행동.",
+    asset: "pen",
+    characterArt: "eraserBall",
+    category: "일상",
+  },
+  {
+    id: 80,
+    title: "비닐봉지 입구가 손가락 한 번에 열릴 수도 있습니다.",
+    cardTitle: "비닐봉지가 바로 입을 열어줌",
+    copy: "양쪽 면이 끝까지 붙어 버티지 않고 첫 손길에 순순히 갈라졌습니다. 손가락에 입김을 불 일도 없었습니다.",
+    aside: "비비기\n1초 컷.",
+    asset: "delivery",
+    characterArt: "openBag",
+    category: "일상",
+  },
+  {
+    id: 81,
+    title: "포토카드가 모서리 안 걸리고 슬리브에 쏙 들어갈 수도 있습니다.",
+    cardTitle: "포토카드가 슬리브에 첫입장 성공",
+    copy: "네 모서리 어디 하나 접히거나 걸리지 않고 투명한 집에 곧게 들어갔습니다. 소중한 종이의 입주가 평화로웠습니다.",
+    aside: "모서리 네 곳\n전원 무사.",
+    asset: "receipt",
+    characterArt: "cardSleeve",
+    category: "기타",
+  },
+  {
+    id: 82,
+    title: "양쪽 무선 이어폰이 동시에 가득 충전되어 있을 수도 있습니다.",
+    cardTitle: "양쪽 이어폰이 나란히 완충됨",
+    copy: "한쪽만 몰래 방전된 반전 없이 두 알 모두 같은 컨디션으로 기다리고 있었습니다. 오늘은 어느 귀도 차별받지 않습니다.",
+    aside: "왼쪽 오른쪽\n둘 다 준비됨.",
+    asset: "earbuds",
+    characterArt: "fullEarbuds",
+    category: "일상",
+  },
+  {
+    id: 83,
+    title: "스테이플러를 한 번 눌러 종이가 전부 묶일 수도 있습니다.",
+    cardTitle: "스테이플러가 첫 번에 제 일 함",
+    copy: "심이 비어 있지도 종이 위에서 구겨지지도 않고 한 번의 철컥으로 임무를 마쳤습니다. 두 번째 철컥은 필요 없습니다.",
+    aside: "헛철컥\n0회.",
+    asset: "pen",
+    characterArt: "oneStaple",
+    category: "일상",
+  },
 ];
 
 export const outcomeMeta: Record<
@@ -668,6 +778,16 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-74", date: monthDate(key, safeDay(24)), time: "12:18", fortuneId: 74, title: "나무젓가락이 정확히 반으로 갈라짐", outcome: "happened", category: "음식", note: "양쪽이 똑같이 반듯해서 사진까지 찍음", sample: true },
+    { id: "sample-75", date: monthDate(key, safeDay(25)), time: "20:11", fortuneId: 75, title: "귤껍질이 한 줄로 이어짐", outcome: "close", category: "음식", note: "마지막까지 안 끊기고 긴 리본처럼 나옴", sample: true },
+    { id: "sample-76", date: monthDate(key, safeDay(26)), time: "07:46", fortuneId: 76, title: "요거트 뚜껑이 깨끗함", outcome: "happened", category: "음식", note: "뚜껑 안쪽에 요거트가 하나도 없었음", sample: true },
+    { id: "sample-77", date: monthDate(key, safeDay(27)), time: "18:03", fortuneId: 77, title: "소스가 음식에만 정확히 묻음", outcome: "close", category: "음식", note: "손에 안 묻히고 너겟 가운데만 짜냄", sample: true },
+    { id: "sample-78", date: monthDate(key, safeDay(28)), time: "16:34", fortuneId: 78, title: "얼음이 딱 한 알만 나옴", outcome: "happened", category: "음식", note: "필요한 한 알만 손바닥으로 톡 나옴", sample: true },
+    { id: "sample-79", date: monthDate(key, safeDay(29)), time: "14:22", fortuneId: 79, title: "지우개 가루를 한 덩이로 합침", outcome: "happened", category: "일상", note: "손가락으로 한 번 굴려서 동그랗게 만듦", sample: true },
+    { id: "sample-80", date: monthDate(key, safeDay(30)), time: "19:47", fortuneId: 80, title: "비닐봉지가 바로 입을 열어줌", outcome: "close", category: "일상", note: "손가락 한 번 비비자 바로 열렸음", sample: true },
+    { id: "sample-81", date: monthDate(key, safeDay(31)), time: "22:15", fortuneId: 81, title: "포토카드가 슬리브에 첫입장 성공", outcome: "happened", category: "기타", note: "모서리 하나 안 걸리고 쏙 들어감", sample: true },
+    { id: "sample-82", date: monthDate(key, safeDay(1)), time: "08:09", fortuneId: 82, title: "양쪽 이어폰이 나란히 완충됨", outcome: "happened", category: "일상", note: "양쪽 모두 가득 충전돼서 기다리고 있었음", sample: true },
+    { id: "sample-83", date: monthDate(key, safeDay(2)), time: "10:53", fortuneId: 83, title: "스테이플러가 첫 번에 제 일 함", outcome: "close", category: "일상", note: "심도 있었고 종이도 한 번에 전부 묶임", sample: true },
     { id: "sample-68", date: monthDate(key, safeDay(18)), time: "15:08", fortuneId: 68, title: "과자 봉지가 일자로 열림", outcome: "happened", category: "음식", note: "봉지 윗부분이 끝까지 반듯하게 뜯어짐", sample: true },
     { id: "sample-69", date: monthDate(key, safeDay(19)), time: "09:14", fortuneId: 69, title: "손 씻고도 소매가 뽀송함", outcome: "close", category: "일상", note: "양쪽 소매에 물 한 방울도 안 묻음", sample: true },
     { id: "sample-70", date: monthDate(key, safeDay(20)), time: "21:07", fortuneId: 70, title: "운동화 끈이 하루 종일 버팀", outcome: "happened", category: "일상", note: "집에 올 때까지 한 번도 안 풀림", sample: true },

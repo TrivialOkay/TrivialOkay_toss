@@ -30,7 +30,7 @@ const storageKey = "byeoril-records-v2";
 const legacyStorageKey = "byeoril-records-v1";
 const migrationKey = "byeoril-records-v1-migrated";
 const sampleCatalogKey = "byeoril-sample-catalog-version";
-const sampleCatalogVersion = "2026-08-fortunes-53-smooth-moments";
+const sampleCatalogVersion = "2026-08-fortunes-63-tiny-treasures";
 
 function readStoredRecords(key: string) {
   const stored = window.localStorage.getItem(key);
@@ -316,7 +316,7 @@ function ReportScreen({ records, month, onBack, onMonth }: { records: RecordItem
 }
 
 function ExamplesScreen({ onBack }: { onBack: () => void }) {
-  const examples = [fortunes.find((fortune) => fortune.id === 68), fortunes.find((fortune) => fortune.id === 70), fortunes.find((fortune) => fortune.id === 72)].filter((fortune): fortune is (typeof fortunes)[number] => Boolean(fortune));
+  const examples = [fortunes.find((fortune) => fortune.id === 74), fortunes.find((fortune) => fortune.id === 79), fortunes.find((fortune) => fortune.id === 81)].filter((fortune): fortune is (typeof fortunes)[number] => Boolean(fortune));
   return (
     <><Header title="다른 카드 예시" onBack={onBack}/><section className="screen-content examples-screen">{examples.map((fortune, index) => <article className="example-card" key={fortune.id}><div><small>NO.{String(fortune.id).padStart(3, "0")}</small><span className={`grade-badge tone-${index === 0 ? "gray" : index === 1 ? "green" : "yellow"}`}>{index === 0 ? "혼함" : index === 1 ? "꽤 괜찮음" : "오늘 좀 됨"}</span></div><h2>{fortune.cardTitle}</h2><Stars count={index + 1} small/><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt}/><p>{fortune.aside.replaceAll("\n", " ")}</p></article>)}</section></>
   );
