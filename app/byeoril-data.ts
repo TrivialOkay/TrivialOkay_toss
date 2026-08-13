@@ -13,7 +13,12 @@ export type CharacterArt =
   | "crosswalk"
   | "usb"
   | "socks"
-  | "alarm";
+  | "alarm"
+  | "samgak"
+  | "microwave"
+  | "sticker"
+  | "vending"
+  | "tape";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -349,6 +354,56 @@ export const fortunes: Fortune[] = [
     characterArt: "alarm",
     category: "일상",
   },
+  {
+    id: 51,
+    title: "삼각김밥 포장지가 김 한 장 안 찢어지고 벗겨질 수도 있습니다.",
+    cardTitle: "삼각김밥 포장 완벽 해체",
+    copy: "설명서대로 했는데 진짜 설명서대로 됐습니다. 김까지 온전하니 오늘 손끝은 꽤 믿을 만합니다.",
+    aside: "김 한 장도\n안 찢어짐.",
+    asset: "snack",
+    characterArt: "samgak",
+    category: "음식",
+  },
+  {
+    id: 52,
+    title: "전자레인지가 멈췄을 때 컵 손잡이가 정면을 볼 수도 있습니다.",
+    cardTitle: "컵 손잡이가 나를 보고 멈춤",
+    copy: "뜨거운 컵을 돌려 잡는 마지막 수고까지 생략됐습니다. 회전판이 오늘만큼은 눈치가 있습니다.",
+    aside: "돌아서 잡을\n필요 없음.",
+    asset: "coffee",
+    characterArt: "microwave",
+    category: "일상",
+  },
+  {
+    id: 53,
+    title: "스티커가 모서리 하나 뜯기지 않고 통째로 떨어질 수도 있습니다.",
+    cardTitle: "스티커를 한 번에 완벽 제거함",
+    copy: "끈적이도 찢어진 조각도 남지 않았습니다. 괜히 한 번 더 매끈한 자리를 쓰다듬게 됩니다.",
+    aside: "흔적도 없이\n깔끔.",
+    asset: "receipt",
+    characterArt: "sticker",
+    category: "일상",
+  },
+  {
+    id: 54,
+    title: "자판기 버튼을 누르자마자 음료가 바로 떨어질 수도 있습니다.",
+    cardTitle: "자판기가 고민 없이 음료 줌",
+    copy: "웅— 하는 뜸도 없이 바로 쿵. 기계와 마음이 통한 건 아니지만 대답은 아주 빨랐습니다.",
+    aside: "쿵 소리까지\n즉답.",
+    asset: "delivery",
+    characterArt: "vending",
+    category: "음식",
+  },
+  {
+    id: 55,
+    title: "택배 상자 테이프 시작점을 손톱으로 한 번에 찾을 수도 있습니다.",
+    cardTitle: "테이프 시작점을 바로 찾음",
+    copy: "상자를 빙빙 돌릴 필요도, 손톱으로 온 표면을 긁을 필요도 없었습니다. 개봉까지 단 3초.",
+    aside: "뜯는 데\n3초.",
+    asset: "delivery",
+    characterArt: "tape",
+    category: "일상",
+  },
 ];
 
 export const outcomeMeta: Record<
@@ -415,6 +470,11 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-51", date: monthDate(key, safeDay(1)), time: "12:04", fortuneId: 51, title: "삼각김밥 포장 완벽 해체", outcome: "happened", category: "음식", note: "김 한 장도 안 찢어지고 쏙 빠짐", sample: true },
+    { id: "sample-52", date: monthDate(key, safeDay(2)), time: "19:32", fortuneId: 52, title: "컵 손잡이가 나를 보고 멈춤", outcome: "close", category: "일상", note: "문 열자 손잡이가 딱 앞에 있었음", sample: true },
+    { id: "sample-53", date: monthDate(key, safeDay(3)), time: "14:48", fortuneId: 53, title: "스티커를 한 번에 완벽 제거함", outcome: "happened", category: "일상", note: "끈적이 하나 없이 통째로 떨어짐", sample: true },
+    { id: "sample-54", date: monthDate(key, safeDay(4)), time: "17:05", fortuneId: 54, title: "자판기가 고민 없이 음료 줌", outcome: "happened", category: "음식", note: "버튼 누르자마자 바로 쿵 소리 남", sample: true },
+    { id: "sample-55", date: monthDate(key, safeDay(5)), time: "18:27", fortuneId: 55, title: "테이프 시작점을 바로 찾음", outcome: "close", category: "일상", note: "상자 안 돌리고 바로 꼬리 발견", sample: true },
     { id: "sample-46", date: monthDate(key, safeDay(27)), time: "11:02", fortuneId: 46, title: "빵이 아직 따뜻했음", outcome: "happened", category: "음식", note: "봉투 너머로 따뜻함이 느껴짐", sample: true },
     { id: "sample-47", date: monthDate(key, safeDay(28)), time: "08:26", fortuneId: 47, title: "서자마자 초록불 됨", outcome: "close", category: "교통", note: "발 멈추자마자 초록불로 바뀜", sample: true },
     { id: "sample-48", date: monthDate(key, safeDay(29)), time: "16:44", fortuneId: 48, title: "USB 방향을 감으로 맞춤", outcome: "happened", category: "일상", note: "확인도 안 하고 꽂았는데 맞았음", sample: true },
