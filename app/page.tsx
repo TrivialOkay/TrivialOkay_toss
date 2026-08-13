@@ -101,6 +101,26 @@ function Header({ title, onBack, right }: { title: string; onBack?: () => void; 
   );
 }
 
+const monthlyThemeNames = [
+  "따뜻한 겨울", "포근한 마음", "새싹의 시작", "벚꽃 나들이",
+  "봄 소풍", "장마 산책", "수박 한입", "한여름 물놀이",
+  "보름달 간식", "단풍 놀이", "군고구마 온기", "연말 선물",
+] as const;
+
+function MonthlyMascot({ month, className = "" }: { month: number; className?: string }) {
+  const safeMonth = Math.min(12, Math.max(1, month));
+  const fileMonth = String(safeMonth).padStart(2, "0");
+  return (
+    <img
+      className={`monthly-mascot ${className}`.trim()}
+      src={`/monthly-mascots/month-${fileMonth}.png`}
+      alt=""
+      aria-hidden="true"
+      title={`${safeMonth}월 · ${monthlyThemeNames[safeMonth - 1]}`}
+    />
+  );
+}
+
 function TodayScreen({
   fortuneIndex,
   revealed,
@@ -217,6 +237,7 @@ function CardScreen({ record, onBack, onShare, onCollection, onReplay, onDelete 
 }
 
 function CollectionScreen({ records, filter, searchOpen, search, onFilter, onSearchOpen, onSearch, onOpen, onGuide, onExamples }: { records: RecordItem[]; filter: string; searchOpen: boolean; search: string; onFilter: (value: string) => void; onSearchOpen: () => void; onSearch: (value: string) => void; onOpen: (record: RecordItem) => void; onGuide: () => void; onExamples: () => void }) {
+  const summaryMonth = new Date().getMonth() + 1;
   const filtered = records.filter((record) => {
     const matchesGrade = filter === "전체" || gradeFor(record).grade === filter;
     const matchesSearch = !search.trim() || record.title.includes(search.trim());
@@ -226,7 +247,7 @@ function CollectionScreen({ records, filter, searchOpen, search, onFilter, onSea
     <>
       <Header title="별일 도감" right={<><button className="icon-button" onClick={onGuide} aria-label="별일 등급 안내"><Icon name="help" /></button><button className="icon-button" onClick={onSearchOpen} aria-label="도감 검색"><Icon name="search" /></button></>} />
       <section className="screen-content collection-screen">
-        <button className="month-summary" onClick={onExamples}><span><small>{new Date().getMonth() + 1}월의 한 줄 요약</small><strong>대단한 일은 없었습니다.<br/>그래도 꽤 괜찮았어요.</strong></span><Mascot className="summary-mascot" /></button>
+        <button className="month-summary" data-theme-month={summaryMonth} onClick={onExamples}><span><small>{summaryMonth}월의 한 줄 요약</small><strong>대단한 일은 없었습니다.<br/>그래도 꽤 괜찮았어요.</strong></span><MonthlyMascot month={summaryMonth} className="summary-mascot" /></button>
         {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="별일을 검색해보세요"/></label>}
         <div className="filter-row" role="group" aria-label="도감 필터">{collectionFilters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => onFilter(item)}>{item}</button>)}</div>
         <div className="collection-list">
@@ -264,6 +285,7 @@ function RecordsScreen({ records, selectedMonth, onMonth, onReport, onOpen }: { 
 }
 
 function ReportScreen({ records, month, onBack, onMonth }: { records: RecordItem[]; month: string; onBack: () => void; onMonth: (value: string) => void }) {
+  const reportMonth = Number(month.slice(5));
   const monthRecords = records.filter((record) => record.date.startsWith(month));
   const gradeCounts = gradeGuide.reduce<Record<string, number>>((result, item) => {
     result[item.grade] = monthRecords.filter((record) => gradeFor(record).grade === item.grade).length;
@@ -281,7 +303,7 @@ function ReportScreen({ records, month, onBack, onMonth }: { records: RecordItem
       <Header title="월간 리포트" onBack={onBack} right={<Icon name="chart" />} />
       <section className="screen-content report-screen">
         <div className="month-switcher"><button onClick={() => onMonth(shiftMonth(month, -1))}><Icon name="back" /></button><strong>{monthLabel(month)}</strong><button onClick={() => onMonth(shiftMonth(month, 1))}><Icon name="chevron-right" /></button></div>
-        <div className="report-hero"><h2>대단한 일은 없었습니다.<br/>그래도 꽤 괜찮았어요.</h2><Mascot className="report-mascot" resting /></div>
+        <div className="report-hero" data-theme-month={reportMonth}><h2>대단한 일은 없었습니다.<br/>그래도 꽤 괜찮았어요.</h2><MonthlyMascot month={reportMonth} className="report-mascot" /></div>
         <h3>별일 농도 분포</h3>
         <div className="bar-chart">{[
           ["혼함", gradeCounts["혼함"], "gray"], ["꽤 괜찮음", gradeCounts["꽤 괜찮음"], "green"], ["이왜진", gradeCounts["이왜진"], "violet"], ["오늘 좀 됨", gradeCounts["오늘 좀 됨"], "blue"], ["우주 개입", gradeCounts["우주 개입"], "pink"],
