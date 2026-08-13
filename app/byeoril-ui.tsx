@@ -34,6 +34,11 @@ const characterArtSources: Record<CharacterArt, string> = {
   message: "/mascot-poses/mascot-message.png",
   bus: "/mascot-poses/mascot-bus.png",
   resting: "/byeoril-mascot-resting.png",
+  breadHug: "/mascot-poses/mascot-bread-hug.png",
+  crosswalk: "/mascot-poses/mascot-crosswalk.png",
+  usb: "/mascot-poses/mascot-usb.png",
+  socks: "/mascot-poses/mascot-socks.png",
+  alarm: "/mascot-poses/mascot-alarm.png",
 };
 
 export function Stars({ count, small = false }: { count: number; small?: boolean }) {

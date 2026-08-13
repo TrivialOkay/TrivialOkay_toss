@@ -2,7 +2,18 @@ export type Tab = "today" | "collection" | "records" | "about";
 export type View = "main" | "capture" | "card" | "report" | "examples" | "guide";
 export type Outcome = "happened" | "close" | "missed";
 export type Category = "교통" | "음식" | "사람" | "일상" | "기타";
-export type CharacterArt = "umbrella" | "coffee" | "fries" | "message" | "bus" | "resting";
+export type CharacterArt =
+  | "umbrella"
+  | "coffee"
+  | "fries"
+  | "message"
+  | "bus"
+  | "resting"
+  | "breadHug"
+  | "crosswalk"
+  | "usb"
+  | "socks"
+  | "alarm";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -66,6 +77,7 @@ export const fortunes: Fortune[] = [
     copy: "빵이 당신을 고른 건 아닙니다. 그래도 마지막 한 개를 지켜낸 건 제법입니다.",
     aside: "왜 항상 나야.\n(그래도 고마워)",
     asset: "bread",
+    characterArt: "breadHug",
     category: "음식",
   },
   {
@@ -93,6 +105,7 @@ export const fortunes: Fortune[] = [
     copy: "방향 감각이 돌아온 건 잠깐일 수 있습니다. 지금을 즐기세요.",
     aside: "오늘은\n한 번에!",
     asset: "usb",
+    characterArt: "usb",
     category: "일상",
   },
   {
@@ -102,6 +115,7 @@ export const fortunes: Fortune[] = [
     copy: "도시 전체가 도운 것은 아니지만, 적어도 이 교차로는 당신 편이었습니다.",
     aside: "8초 동안\n초록빛 번.",
     asset: "signal",
+    characterArt: "crosswalk",
     category: "교통",
   },
   {
@@ -160,6 +174,7 @@ export const fortunes: Fortune[] = [
     copy: "사라진 양말의 미스터리는 오늘만 휴업입니다. 두 짝 모두 무사합니다.",
     aside: "오늘은\n둘이 같이 옴.",
     asset: "laundry",
+    characterArt: "socks",
     category: "일상",
   },
   {
@@ -272,7 +287,7 @@ export const fortunes: Fortune[] = [
     copy: "푹 잔 증거인지는 모르겠지만 시끄러운 알람 한 번은 피했습니다.",
     aside: "내 몸에도\n시계가 있었네.",
     asset: "alarm",
-    characterArt: "resting",
+    characterArt: "alarm",
     category: "일상",
   },
   {
@@ -282,6 +297,56 @@ export const fortunes: Fortune[] = [
     copy: "허리를 완전히 숙이지 않아도 되는 거리에서 작은 탈주가 끝났습니다.",
     aside: "거기서\n멈춰줘서 고맙.",
     asset: "pen",
+    category: "일상",
+  },
+  {
+    id: 46,
+    title: "빵집에서 방금 나온 따뜻한 빵을 만날 수도 있습니다.",
+    cardTitle: "빵이 아직 따뜻했음",
+    copy: "빵이 당신을 기다린 건 아니지만 가장 포근할 때 안아 들었습니다.",
+    aside: "손난로보다\n맛있는 온도.",
+    asset: "bread",
+    characterArt: "breadHug",
+    category: "음식",
+  },
+  {
+    id: 47,
+    title: "횡단보도 앞에 서자마자 초록불이 켜질 수도 있습니다.",
+    cardTitle: "서자마자 초록불 됨",
+    copy: "달려오지 않아도 되는 날이 드물게 있습니다. 오늘은 도시가 타이밍을 맞췄습니다.",
+    aside: "숨 고를 새도\n없이 출발.",
+    asset: "signal",
+    characterArt: "crosswalk",
+    category: "교통",
+  },
+  {
+    id: 48,
+    title: "USB 방향을 고민하지 않고 바로 맞힐 수도 있습니다.",
+    cardTitle: "USB 방향을 감으로 맞춤",
+    copy: "과학적 근거는 없지만 오늘의 손목에는 미세한 방향 감각이 있었습니다.",
+    aside: "뒤집을 필요\n없었다!",
+    asset: "usb",
+    characterArt: "usb",
+    category: "일상",
+  },
+  {
+    id: 49,
+    title: "건조기 속 양말이 한 짝도 사라지지 않을 수도 있습니다.",
+    cardTitle: "양말 전원이 무사 귀환함",
+    copy: "세탁기의 비밀 통로는 오늘 쉬는 날입니다. 모든 짝이 집으로 돌아왔습니다.",
+    aside: "오늘은\n실종자 없음.",
+    asset: "laundry",
+    characterArt: "socks",
+    category: "일상",
+  },
+  {
+    id: 50,
+    title: "알람을 한 번만 끄고 바로 일어날 수도 있습니다.",
+    cardTitle: "알람 한 번에 몸을 일으킴",
+    copy: "다섯 번의 다시 알림이 할 일을 잃었습니다. 이 정도면 아침의 작은 승리입니다.",
+    aside: "다시 알림은\n오늘 휴무.",
+    asset: "alarm",
+    characterArt: "alarm",
     category: "일상",
   },
 ];
@@ -350,6 +415,11 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-46", date: monthDate(key, safeDay(27)), time: "11:02", fortuneId: 46, title: "빵이 아직 따뜻했음", outcome: "happened", category: "음식", note: "봉투 너머로 따뜻함이 느껴짐", sample: true },
+    { id: "sample-47", date: monthDate(key, safeDay(28)), time: "08:26", fortuneId: 47, title: "서자마자 초록불 됨", outcome: "close", category: "교통", note: "발 멈추자마자 초록불로 바뀜", sample: true },
+    { id: "sample-48", date: monthDate(key, safeDay(29)), time: "16:44", fortuneId: 48, title: "USB 방향을 감으로 맞춤", outcome: "happened", category: "일상", note: "확인도 안 하고 꽂았는데 맞았음", sample: true },
+    { id: "sample-49", date: monthDate(key, safeDay(30)), time: "20:13", fortuneId: 49, title: "양말 전원이 무사 귀환함", outcome: "close", category: "일상", note: "세탁 끝나고 짝이 전부 맞았음", sample: true },
+    { id: "sample-50", date: monthDate(key, safeDay(31)), time: "07:01", fortuneId: 50, title: "알람 한 번에 몸을 일으킴", outcome: "missed", category: "일상", note: "다시 알림 안 누르고 일어남", sample: true },
     { id: "sample-37", date: monthDate(key, safeDay(18)), time: "15:11", fortuneId: 37, title: "과자 왕건이를 발견함", outcome: "happened", category: "음식", note: "봉지 안에 큰 조각 하나 남아 있었음", sample: true },
     { id: "sample-38", date: monthDate(key, safeDay(19)), time: "10:27", fortuneId: 38, title: "주머니에서 500원 나옴", outcome: "close", category: "기타", note: "겨울 주머니에서 동전 발견", sample: true },
     { id: "sample-39", date: monthDate(key, safeDay(20)), time: "08:03", fortuneId: 39, title: "내릴 때 세 걸음만 걸었음", outcome: "happened", category: "교통", note: "하차문 바로 앞자리에 앉음", sample: true },
