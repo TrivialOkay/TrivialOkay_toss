@@ -7,7 +7,7 @@ import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { BallCollider, CuboidCollider, Physics, RigidBody, type RapierRigidBody } from "@react-three/rapier";
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
-import { Box3, Quaternion, RepeatWrapping, SRGBColorSpace, Vector3, type Group, type Material, type Mesh } from "three";
+import { Box3, Quaternion, RepeatWrapping, SRGBColorSpace, Vector3, type Group, type Material, type Mesh, type Texture } from "three";
 
 export type BallKind = "ceramic" | "crystal" | "mochi" | "dubai" | "butter_bar" | "butter_rice_cake" | "brick_cake" | "slice_cake";
 
@@ -122,7 +122,8 @@ const angularKinds = new Set<BallKind>(["butter_bar", "butter_rice_cake", "brick
 const GRAVITY = -9.4;
 // 손가락으로 밀었을 때 방향 전환이 바로 느껴지도록 회전 임펄스를 넉넉히 준다.
 const TORQUE = 2.1;
-const WAKPPU_ASSET_VERSION = "20260813-physical-jelly-1";
+const WAKPPU_ASSET_VERSION = "20260814-dubai-shell-dough-1";
+const DUBAI_CORE_MODEL = `/models/wakppu/dubai-core.glb?v=${WAKPPU_ASSET_VERSION}`;
 
 function modelPath(kind: BallKind, broken = false) {
   return `/models/wakppu/${kind}${broken ? "-broken" : ""}.glb?v=${WAKPPU_ASSET_VERSION}`;
@@ -578,31 +579,32 @@ type LoadedFragment = {
   rotation: [number, number, number];
 };
 
-function FragmentPiece({ piece, fragment, tilt, index }: { piece: LoadedFragment; fragment: FragmentSpec; tilt: DeviceTiltRef; index: number }) {
+function FragmentPiece({ kind, piece, fragment, tilt, index }: { kind: BallKind; piece: LoadedFragment; fragment: FragmentSpec; tilt: DeviceTiltRef; index: number }) {
   const body = useRef<RapierRigidBody>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
   const [released, setReleased] = useState(false);
+  const brittleShell = kind === "dubai";
   useTiltPhysics(body, tilt, 0.62);
 
   useEffect(() => {
-    const delay = 100 + index * 45;
+    const delay = brittleShell ? 32 + index * 11 : 100 + index * 45;
     const timer = window.setTimeout(() => setReleased(true), delay);
     return () => window.clearTimeout(timer);
-  }, [index]);
+  }, [brittleShell, index]);
 
   useEffect(() => {
     if (!released) return;
     body.current?.setLinvel({
-      x: 0,
-      y: -0.035,
-      z: 0,
+      x: brittleShell ? fragment.velocity[0] * 0.2 : 0,
+      y: brittleShell ? 0.24 + fragment.velocity[1] * 0.13 : -0.035,
+      z: brittleShell ? fragment.velocity[2] * 0.2 : 0,
     }, true);
     body.current?.setAngvel({
-      x: fragment.spin[0] * 0.025,
-      y: fragment.spin[1] * 0.018,
-      z: fragment.spin[2] * 0.025,
+      x: fragment.spin[0] * (brittleShell ? 0.42 : 0.025),
+      y: fragment.spin[1] * (brittleShell ? 0.36 : 0.018),
+      z: fragment.spin[2] * (brittleShell ? 0.42 : 0.025),
     }, true);
-  }, [fragment, index, released]);
+  }, [brittleShell, fragment, index, released]);
 
   function grab(event: ThreeEvent<PointerEvent>) {
     event.stopPropagation();
@@ -629,10 +631,11 @@ function FragmentPiece({ piece, fragment, tilt, index }: { piece: LoadedFragment
       colliders="hull"
       position={piece.position}
       rotation={piece.rotation}
-      restitution={0.03}
-      friction={0.94}
-      linearDamping={0.5}
-      angularDamping={0.82}
+      mass={brittleShell ? 0.16 : undefined}
+      restitution={brittleShell ? 0.18 : 0.03}
+      friction={brittleShell ? 0.68 : 0.94}
+      linearDamping={brittleShell ? 0.16 : 0.5}
+      angularDamping={brittleShell ? 0.28 : 0.82}
     >
       <mesh
         castShadow
@@ -678,6 +681,7 @@ function Fragments({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
     return (
       <FragmentPiece
         key={index}
+        kind={kind}
         piece={piece}
         fragment={fragment}
         tilt={tilt}
@@ -687,11 +691,136 @@ function Fragments({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
   });
 }
 
-// Blender로 모델링한 한 장짜리 포춘쿠키 쪽지. 앞뒤 잎이 둥근 접힘으로 이어지고
-// 자유단 길이와 휨이 조금씩 다르다. scripts/fortune-note.py 로 다시 만들 수 있다.
-function JellyCore({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
+// Rapier 강체 위에 점탄성 표면 변형을 얹은 내부 반죽.
+const doughColors: Record<BallKind, string> = {
+  ceramic: "#d7b985",
+  crystal: "#c8b5d8",
+  mochi: "#e5c9bb",
+  dubai: "#8e5d3a",
+  butter_bar: "#d5aa58",
+  butter_rice_cake: "#dec98e",
+  brick_cake: "#bd8b55",
+  slice_cake: "#d9b56f",
+};
+
+type DoughBodyProps = {
+  kind: BallKind;
+  tilt: DeviceTiltRef;
+  colorMap?: Texture;
+  normalMap?: Texture;
+  model?: Group;
+  colliderRadius?: number;
+  visualRadius?: number;
+};
+
+function DoughBody({
+  kind,
+  tilt,
+  colorMap,
+  normalMap,
+  model,
+  colliderRadius = 0.52,
+  visualRadius = 0.57,
+}: DoughBodyProps) {
   const body = useRef<RapierRigidBody>(null);
   const visual = useRef<Group>(null);
+  const previousVelocity = useRef(new Vector3());
+  const dough = useRef({ compression: 0.08, velocity: 0, lean: 0, leanVelocity: 0 });
+  useTiltPhysics(body, tilt, 0.28);
+
+  function knead(compression = 0.2, lean = 0.3) {
+    dough.current.velocity += compression * 5.2;
+    dough.current.leanVelocity += lean;
+  }
+
+  useFrame((state, delta) => {
+    if (!visual.current || !body.current) return;
+    const frame = Math.min(delta, 0.032);
+    const current = dough.current;
+    const velocity = body.current.linvel();
+    const lastVelocity = previousVelocity.current;
+    const verticalImpulse = velocity.y - lastVelocity.y;
+
+    if (verticalImpulse > 0.34) {
+      current.velocity += Math.min(1.7, verticalImpulse * 0.32);
+      current.leanVelocity += (velocity.x - velocity.z) * 0.018;
+    }
+    lastVelocity.set(velocity.x, velocity.y, velocity.z);
+
+    // Rapier에는 소프트바디가 없으므로, 충돌은 무거운 강체가 받고 표면만
+    // 부피를 보존하며 천천히 퍼지고 복원되게 해 반죽의 점탄성을 만든다.
+    const horizontalSpeed = Math.hypot(velocity.x, velocity.z);
+    const restingCompression = 0.13 + Math.min(0.035, horizontalSpeed * 0.012);
+    current.velocity += ((restingCompression - current.compression) * 24 - current.velocity * 9.6) * frame;
+    current.compression += current.velocity * frame;
+    current.compression = clamp(current.compression, 0.04, 0.27);
+
+    current.leanVelocity += (-24 * current.lean - 8.4 * current.leanVelocity) * frame;
+    current.lean += current.leanVelocity * frame;
+    current.lean = clamp(current.lean, -0.16, 0.16);
+
+    const verticalScale = 1 - current.compression;
+    const spread = 1 / Math.sqrt(verticalScale);
+    const slowFold = Math.sin(state.clock.elapsedTime * 3.1) * Math.min(0.018, Math.abs(current.velocity) * 0.01);
+
+    visual.current.scale.set(
+      spread * (1 + slowFold + current.lean * 0.055),
+      verticalScale,
+      spread * (1 - slowFold - current.lean * 0.055),
+    );
+    // 찌그러질 때 바닥 면은 제자리에 남겨 공중에서 줄어드는 느낌을 막는다.
+    visual.current.position.y = -visualRadius * current.compression;
+    visual.current.rotation.x = current.lean * 0.22;
+    visual.current.rotation.z = -current.lean * 0.38;
+  });
+
+  function poke(event: ThreeEvent<PointerEvent>) {
+    event.stopPropagation();
+    const direction = event.point.clone().normalize();
+    body.current?.applyImpulse({ x: direction.x * 0.11, y: 0.16, z: direction.z * 0.11 }, true);
+    body.current?.applyTorqueImpulse({ x: -direction.z * 0.055, y: 0.025, z: direction.x * 0.055 }, true);
+    knead(0.22, direction.x * 0.32 + 0.12);
+  }
+
+  return (
+    <RigidBody
+      ref={body}
+      colliders={false}
+      position={[0, 0.28, 0]}
+      mass={model ? 3.4 : 2.7}
+      restitution={0.015}
+      friction={1.35}
+      linearDamping={1.15}
+      angularDamping={2.4}
+      canSleep={false}
+      onCollisionEnter={() => knead(0.18, -dough.current.lean * 0.45 + 0.08)}
+    >
+      <BallCollider args={[colliderRadius]} />
+      <group ref={visual} onPointerDown={poke}>
+        {model
+          ? <primitive object={model} />
+          : (
+            <mesh castShadow receiveShadow>
+              <sphereGeometry args={[0.57, 48, 32]} />
+              <meshPhysicalMaterial
+                map={colorMap}
+                normalMap={normalMap}
+                color={colorMap ? "#ffffff" : doughColors[kind]}
+                normalScale={[0.26, 0.26]}
+                roughness={0.86}
+                metalness={0}
+                transmission={0}
+                clearcoat={0.04}
+                clearcoatRoughness={0.82}
+              />
+            </mesh>
+          )}
+      </group>
+    </RigidBody>
+  );
+}
+
+function TexturedDoughCore({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
   const sourceColorMap = useTexture(`/textures/wakppu/${kind}-interior.webp`);
   const sourceNormalMap = useTexture(`/textures/wakppu/${kind}-interior-normal.webp`);
   const colorMap = useMemo(() => {
@@ -699,7 +828,7 @@ function JellyCore({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
     texture.colorSpace = SRGBColorSpace;
     texture.wrapS = RepeatWrapping;
     texture.wrapT = RepeatWrapping;
-    texture.repeat.set(1.35, 1.35);
+    texture.repeat.set(1.5, 1.5);
     texture.anisotropy = 4;
     texture.needsUpdate = true;
     return texture;
@@ -708,99 +837,43 @@ function JellyCore({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
     const texture = sourceNormalMap.clone();
     texture.wrapS = RepeatWrapping;
     texture.wrapT = RepeatWrapping;
-    texture.repeat.set(1.35, 1.35);
+    texture.repeat.set(1.5, 1.5);
     texture.needsUpdate = true;
     return texture;
   }, [sourceNormalMap]);
-  const previousVelocity = useRef(new Vector3());
-  const wobble = useRef({ compression: 0, velocity: -2.8, lean: 0, leanVelocity: 0.9 });
-  useTiltPhysics(body, tilt, 0.62);
 
-  function excite(compression = 0.24, lean = 0.45) {
-    wobble.current.velocity -= compression * 9.5;
-    wobble.current.leanVelocity += lean;
-  }
+  return <DoughBody kind={kind} tilt={tilt} colorMap={colorMap} normalMap={normalMap} />;
+}
 
-  useFrame((state, delta) => {
-    if (!visual.current || !body.current) return;
-    const frame = Math.min(delta, 0.032);
-    const current = wobble.current;
-    const velocity = body.current.linvel();
-    const lastVelocity = previousVelocity.current;
-    const verticalImpulse = velocity.y - lastVelocity.y;
-
-    if (verticalImpulse > 0.72) {
-      current.velocity -= Math.min(3.2, verticalImpulse * 0.48);
-      current.leanVelocity += (velocity.x - velocity.z) * 0.025;
-    }
-    lastVelocity.set(velocity.x, velocity.y, velocity.z);
-
-    current.velocity += (-92 * current.compression - 12.5 * current.velocity) * frame;
-    current.compression += current.velocity * frame;
-    current.compression = clamp(current.compression, -0.28, 0.32);
-
-    current.leanVelocity += (-58 * current.lean - 9.5 * current.leanVelocity) * frame;
-    current.lean += current.leanVelocity * frame;
-    current.lean = clamp(current.lean, -0.22, 0.22);
-
-    const speed = Math.sqrt(velocity.x ** 2 + velocity.y ** 2 + velocity.z ** 2);
-    const stretch = Math.min(0.13, speed * 0.016);
-    const verticalScale = clamp(1 + current.compression + stretch, 0.68, 1.42);
-    const volumeScale = 1 / Math.sqrt(verticalScale);
-    const residual = Math.min(0.055, Math.abs(current.velocity) * 0.018);
-    const ripple = Math.sin(state.clock.elapsedTime * 15.5) * residual;
-    const mochiScale = kind === "mochi" ? 0.93 : 1;
-
-    visual.current.scale.set(
-      volumeScale * (1 + ripple),
-      verticalScale * mochiScale,
-      volumeScale * (1 - ripple),
-    );
-    visual.current.rotation.x = current.lean * 0.42;
-    visual.current.rotation.z = -current.lean * 0.7;
-  });
-
-  function poke(event: ThreeEvent<PointerEvent>) {
-    event.stopPropagation();
-    const direction = event.point.clone().normalize();
-    body.current?.applyImpulse({ x: direction.x * 0.38, y: 0.72, z: direction.z * 0.38 }, true);
-    body.current?.applyTorqueImpulse({ x: -direction.z * 0.22, y: 0.16, z: direction.x * 0.22 }, true);
-    excite(0.28, direction.x * 0.7 + 0.35);
-  }
+function DubaiDoughCore({ tilt }: { tilt: DeviceTiltRef }) {
+  const { scene } = useGLTF(DUBAI_CORE_MODEL);
+  const model = useMemo(() => {
+    const copy = scene.clone(true);
+    copy.traverse((child) => {
+      const mesh = child as Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    return copy;
+  }, [scene]);
 
   return (
-    <RigidBody
-      ref={body}
-      colliders={false}
-      position={[0, 0.28, 0]}
-      mass={0.72}
-      restitution={0.42}
-      friction={0.78}
-      linearDamping={0.34}
-      angularDamping={0.46}
-      canSleep={false}
-      onCollisionEnter={() => excite(0.2, -wobble.current.lean * 0.8 + 0.24)}
-    >
-      <BallCollider args={[0.52]} />
-      <group ref={visual}>
-        <mesh castShadow receiveShadow onPointerDown={poke}>
-          <sphereGeometry args={[0.57, 36, 24]} />
-          <meshPhysicalMaterial
-            map={colorMap}
-            normalMap={normalMap}
-            normalScale={[0.18, 0.18]}
-            roughness={kind === "dubai" ? 0.34 : 0.24}
-            metalness={0}
-            transmission={0.08}
-            thickness={0.52}
-            ior={1.42}
-            clearcoat={0.82}
-            clearcoatRoughness={0.1}
-          />
-        </mesh>
-      </group>
-    </RigidBody>
+    <DoughBody
+      kind="dubai"
+      tilt={tilt}
+      model={model}
+      colliderRadius={0.76}
+      visualRadius={0.86}
+    />
   );
+}
+
+function DoughCore({ kind, tilt }: { kind: BallKind; tilt: DeviceTiltRef }) {
+  if (kind === "dubai") return <DubaiDoughCore tilt={tilt} />;
+  return angularKinds.has(kind)
+    ? <DoughBody kind={kind} tilt={tilt} />
+    : <TexturedDoughCore kind={kind} tilt={tilt} />;
 }
 
 const NOTE_ASSET_VERSION = "20260813-folded-reference-2";
@@ -924,7 +997,7 @@ function Scene({ kind, damage, broken, pulled, onDamage, onPull, tilt }: { kind:
           {broken ? (
             <>
               <Fragments kind={kind} tilt={tilt} />
-              {!angularKinds.has(kind) && <JellyCore kind={kind} tilt={tilt} />}
+              <DoughCore kind={kind} tilt={tilt} />
               {!pulled && <FortuneNote3D tilt={tilt} onPull={onPull} />}
             </>
           ) : <Ball kind={kind} damage={damage} onDamage={onDamage} tilt={tilt} />}
@@ -967,6 +1040,7 @@ export function FortuneBall({ fortune, aside, ballKind, onReveal }: FortuneBallP
   useEffect(() => {
     useGLTF.preload(modelPath(ballKind, true));
     useGLTF.preload(NOTE_MODEL);
+    if (ballKind === "dubai") useGLTF.preload(DUBAI_CORE_MODEL);
     if (!angularKinds.has(ballKind)) {
       useTexture.preload(`/textures/wakppu/${ballKind}-interior.webp`);
       useTexture.preload(`/textures/wakppu/${ballKind}-interior-normal.webp`);

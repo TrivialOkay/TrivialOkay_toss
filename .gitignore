@@ -48,14 +48,20 @@ yarn-error.log*
 /outputs/
 /work/
 /tmp/
+/.codex_tmp_*/
+*.pid
 
 # Local editor and OS files
 /.idea/
 /.vscode/
+/.vs/
 .DS_Store
 Thumbs.db
 Desktop.ini
 *.swp
 *.swo
 *.pem
-*.blend1
+
+# Blender backup and unsaved scratch files
+*.blend[0-9]
+**/Untitled.blend
