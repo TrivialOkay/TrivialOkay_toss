@@ -24,7 +24,13 @@ export type CharacterArt =
   | "onePercent"
   | "fourcut"
   | "shuffle"
-  | "tteokPair";
+  | "tteokPair"
+  | "perfectEgg"
+  | "hoodieStrings"
+  | "strawFirst"
+  | "oneTissue"
+  | "bellEscape"
+  | "cleanIcepop";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -470,6 +476,66 @@ export const fortunes: Fortune[] = [
     characterArt: "tteokPair",
     category: "음식",
   },
+  {
+    id: 62,
+    title: "삶은 달걀 껍질이 한 번에 크게 벗겨질 수도 있습니다.",
+    cardTitle: "삶은 달걀이 매끈하게 벗겨짐",
+    copy: "흰자 한 점 희생하지 않고 껍질만 두 조각으로 갈라졌습니다. 달걀 표면이 괜히 자랑스럽습니다.",
+    aside: "흰자 손실\n0그램.",
+    asset: "snack",
+    characterArt: "perfectEgg",
+    category: "음식",
+  },
+  {
+    id: 63,
+    title: "후드 끈 양쪽 길이가 처음부터 정확히 같을 수도 있습니다.",
+    cardTitle: "후드 끈 길이가 완벽 대칭",
+    copy: "한쪽을 당기면 반대쪽이 도망가던 균형 싸움이 오늘은 없었습니다. 목 아래에 작은 평화가 왔습니다.",
+    aside: "당길 필요\n없었음.",
+    asset: "laundry",
+    characterArt: "hoodieStrings",
+    category: "일상",
+  },
+  {
+    id: 64,
+    title: "종이 빨대가 첫 시도에 뚜껑 구멍을 정확히 통과할 수도 있습니다.",
+    cardTitle: "빨대가 첫 시도에 중앙 적중",
+    copy: "빨대 끝이 구겨지지도, 옆으로 미끄러지지도 않았습니다. 오늘의 조준은 음료 한 잔만큼 정확합니다.",
+    aside: "빨대 끝도\n멀쩡.",
+    asset: "coffee",
+    characterArt: "strawFirst",
+    category: "음식",
+  },
+  {
+    id: 65,
+    title: "휴지를 뽑았는데 딱 한 장만 깔끔하게 따라올 수도 있습니다.",
+    cardTitle: "휴지가 정확히 한 장만 나옴",
+    copy: "두 장이 붙어 나오지도, 반쯤 찢어지지도 않았습니다. 필요한 만큼만 나온 드문 절제의 순간입니다.",
+    aside: "뒤에 한 장도\n안 딸려옴.",
+    asset: "receipt",
+    characterArt: "oneTissue",
+    category: "일상",
+  },
+  {
+    id: 66,
+    title: "랜덤 발표가 내 차례 바로 전에 종이 울려 끝날 수도 있습니다.",
+    cardTitle: "내 차례 직전에 수업 끝남",
+    copy: "이름이 불리기 직전 종소리가 먼저 교실을 구했습니다. 준비한 말은 다음 시간까지 안전하게 보관됩니다.",
+    aside: "다음 타자였는데\n살았다.",
+    asset: "alarm",
+    characterArt: "bellEscape",
+    category: "사람",
+  },
+  {
+    id: 67,
+    title: "아이스바가 손에 흐르기 전에 마지막 한입까지 먹을 수도 있습니다.",
+    cardTitle: "아이스바를 깨끗하게 완주함",
+    copy: "손가락에 끈적임 한 방울 없이 막대만 남았습니다. 더위와의 짧은 경기에서 아주 깔끔하게 이겼습니다.",
+    aside: "손에 한 방울도\n안 묻음.",
+    asset: "snack",
+    characterArt: "cleanIcepop",
+    category: "음식",
+  },
 ];
 
 export const outcomeMeta: Record<
@@ -536,6 +602,12 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-62", date: monthDate(key, safeDay(12)), time: "07:32", fortuneId: 62, title: "삶은 달걀이 매끈하게 벗겨짐", outcome: "happened", category: "음식", note: "껍질이 크게 두 조각으로 떨어짐", sample: true },
+    { id: "sample-63", date: monthDate(key, safeDay(13)), time: "08:17", fortuneId: 63, title: "후드 끈 길이가 완벽 대칭", outcome: "close", category: "일상", note: "입자마자 양쪽 길이가 똑같았음", sample: true },
+    { id: "sample-64", date: monthDate(key, safeDay(14)), time: "13:05", fortuneId: 64, title: "빨대가 첫 시도에 중앙 적중", outcome: "happened", category: "음식", note: "빨대 하나도 안 구겨지고 바로 들어감", sample: true },
+    { id: "sample-65", date: monthDate(key, safeDay(15)), time: "16:28", fortuneId: 65, title: "휴지가 정확히 한 장만 나옴", outcome: "close", category: "일상", note: "두 장 안 붙고 한 장만 쏙 나옴", sample: true },
+    { id: "sample-66", date: monthDate(key, safeDay(16)), time: "11:49", fortuneId: 66, title: "내 차례 직전에 수업 끝남", outcome: "happened", category: "사람", note: "바로 다음 순서였는데 종 울림", sample: true },
+    { id: "sample-67", date: monthDate(key, safeDay(17)), time: "17:54", fortuneId: 67, title: "아이스바를 깨끗하게 완주함", outcome: "happened", category: "음식", note: "손에 안 흐르고 막대만 남았음", sample: true },
     { id: "sample-56", date: monthDate(key, safeDay(6)), time: "15:24", fortuneId: 56, title: "탄산 거품이 선을 지킴", outcome: "happened", category: "음식", note: "거품이 입구까지 왔다가 진짜 멈춤", sample: true },
     { id: "sample-57", date: monthDate(key, safeDay(7)), time: "22:03", fortuneId: 57, title: "컵라면 뚜껑이 혼자 버팀", outcome: "close", category: "음식", note: "아무것도 안 올렸는데 3분 버팀", sample: true },
     { id: "sample-58", date: monthDate(key, safeDay(8)), time: "19:41", fortuneId: 58, title: "배터리 1%가 집까지 버팀", outcome: "happened", category: "일상", note: "현관 들어올 때까지 안 꺼졌음", sample: true },
