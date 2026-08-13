@@ -29,6 +29,8 @@ const fortuneBallKinds = ["ceramic", "crystal", "mochi", "dubai", "butter_bar", 
 const storageKey = "byeoril-records-v2";
 const legacyStorageKey = "byeoril-records-v1";
 const migrationKey = "byeoril-records-v1-migrated";
+const sampleCatalogKey = "byeoril-sample-catalog-version";
+const sampleCatalogVersion = "2026-08-fortunes-16";
 
 function readStoredRecords(key: string) {
   const stored = window.localStorage.getItem(key);
@@ -58,14 +60,21 @@ function readStoredRecords(key: string) {
 
 function loadRecords() {
   try {
-    const current = readStoredRecords(storageKey) ?? makeSampleRecords();
-    if (window.localStorage.getItem(migrationKey) === "done") return current;
+    let current = readStoredRecords(storageKey) ?? makeSampleRecords();
 
-    const legacy = (readStoredRecords(legacyStorageKey) ?? []).filter((record) => !record.sample);
-    const merged = [...legacy, ...current].filter((record, index, records) => records.findIndex((item) => item.id === record.id) === index);
-    window.localStorage.setItem(storageKey, JSON.stringify(merged));
-    window.localStorage.setItem(migrationKey, "done");
-    return merged;
+    if (window.localStorage.getItem(migrationKey) !== "done") {
+      const legacy = (readStoredRecords(legacyStorageKey) ?? []).filter((record) => !record.sample);
+      current = [...legacy, ...current].filter((record, index, records) => records.findIndex((item) => item.id === record.id) === index);
+      window.localStorage.setItem(migrationKey, "done");
+    }
+
+    if (window.localStorage.getItem(sampleCatalogKey) !== sampleCatalogVersion) {
+      current = [...current.filter((record) => !record.sample), ...makeSampleRecords()];
+      window.localStorage.setItem(sampleCatalogKey, sampleCatalogVersion);
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(current));
+    return current;
   } catch {
     return makeSampleRecords();
   }
@@ -389,7 +398,7 @@ export default function Home() {
 
   function resetRecords() {
     if (!confirmReset) { setConfirmReset(true); return; }
-    persist([]); window.localStorage.setItem(legacyStorageKey, "[]"); window.localStorage.setItem(migrationKey, "done"); setConfirmReset(false); setToast("내 기록을 모두 지웠어요");
+    persist([]); window.localStorage.setItem(legacyStorageKey, "[]"); window.localStorage.setItem(migrationKey, "done"); window.localStorage.setItem(sampleCatalogKey, sampleCatalogVersion); setConfirmReset(false); setToast("내 기록을 모두 지웠어요");
   }
 
   function backToMain() { setView("main"); setActiveRecord(null); setConfirmDelete(false); window.scrollTo({ top: 0, behavior: "smooth" }); }

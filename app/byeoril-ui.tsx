@@ -43,6 +43,9 @@ export function FortuneObject({ kind, compact = false }: { kind: AssetKind; comp
       </span>
     );
   }
+  if (kind === "mascot") {
+    return <span className={`object-art object-mascot ${compact ? "compact" : ""}`} aria-hidden="true"><Mascot /></span>;
+  }
   return <span className={`object-art object-${kind} ${compact ? "compact" : ""}`} aria-hidden="true"><i/><b/><em/></span>;
 }
 
@@ -52,7 +55,7 @@ export function FortuneScene({ kind, speech, card = false }: { kind: AssetKind; 
       {kind === "elevator" && <><span className="scene-floor-plane"/><span className="scene-depth-shadow"/></>}
       <span className="scene-spark spark-a"/><span className="scene-spark spark-b"/><span className="scene-spark spark-c"/>
       <FortuneObject kind={kind} />
-      <Mascot className="scene-character" waiting={kind === "elevator"} />
+      {kind !== "mascot" && <Mascot className="scene-character" resting={kind === "book" || kind === "laundry"} waiting={kind === "elevator"} />}
       <span className="scene-speech">{speech.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</span>
     </div>
   );
