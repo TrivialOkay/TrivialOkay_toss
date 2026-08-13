@@ -233,6 +233,12 @@ img { display: block; }
 .fortune-scene .object-character-pose.pose-oneTissue { width: 230px; height: 203px; }
 .fortune-scene .object-character-pose.pose-bellEscape { width: 239px; height: 205px; }
 .fortune-scene .object-character-pose.pose-cleanIcepop { width: 210px; height: 198px; }
+.fortune-scene .object-character-pose.pose-straightSnack { width: 220px; height: 201px; }
+.fortune-scene .object-character-pose.pose-drySleeves { width: 239px; height: 207px; }
+.fortune-scene .object-character-pose.pose-tiedLaces { width: 224px; height: 201px; }
+.fortune-scene .object-character-pose.pose-cleanZipper { width: 234px; height: 207px; }
+.fortune-scene .object-character-pose.pose-umbrellaSleeve { width: 219px; height: 203px; }
+.fortune-scene .object-character-pose.pose-pencilClick { width: 225px; height: 202px; }
 .scene-card .object-character-pose { bottom: 1px; width: 234px; height: 218px; }
 .examples-screen .object-character-pose { width: 118px; height: 105px; }
 .object-art.compact::before, .object-art.compact::after { border-width: 1.4px; }

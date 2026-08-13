@@ -56,6 +56,12 @@ const characterArtSources: Record<CharacterArt, string> = {
   oneTissue: "/mascot-poses/mascot-one-tissue.png",
   bellEscape: "/mascot-poses/mascot-bell-escape.png",
   cleanIcepop: "/mascot-poses/mascot-clean-icepop.png",
+  straightSnack: "/mascot-poses/mascot-straight-snack.png",
+  drySleeves: "/mascot-poses/mascot-dry-sleeves.png",
+  tiedLaces: "/mascot-poses/mascot-tied-laces.png",
+  cleanZipper: "/mascot-poses/mascot-clean-zipper.png",
+  umbrellaSleeve: "/mascot-poses/mascot-umbrella-sleeve.png",
+  pencilClick: "/mascot-poses/mascot-pencil-click.png",
 };
 
 export function Stars({ count, small = false }: { count: number; small?: boolean }) {

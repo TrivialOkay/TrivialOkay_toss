@@ -30,7 +30,13 @@ export type CharacterArt =
   | "strawFirst"
   | "oneTissue"
   | "bellEscape"
-  | "cleanIcepop";
+  | "cleanIcepop"
+  | "straightSnack"
+  | "drySleeves"
+  | "tiedLaces"
+  | "cleanZipper"
+  | "umbrellaSleeve"
+  | "pencilClick";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -536,6 +542,66 @@ export const fortunes: Fortune[] = [
     characterArt: "cleanIcepop",
     category: "음식",
   },
+  {
+    id: 68,
+    title: "과자 봉지가 대각선으로 찢어지지 않고 일자로 열릴 수도 있습니다.",
+    cardTitle: "과자 봉지가 일자로 열림",
+    copy: "뜯는 방향이 옆길로 새지 않고 모서리부터 모서리까지 반듯하게 갔습니다. 오늘의 손끝에는 자가 숨어 있었습니다.",
+    aside: "가위 없이도\n직선 성공.",
+    asset: "snack",
+    characterArt: "straightSnack",
+    category: "음식",
+  },
+  {
+    id: 69,
+    title: "손을 씻는 동안 걷어 올린 소매가 한 방울도 젖지 않을 수도 있습니다.",
+    cardTitle: "손 씻고도 소매가 뽀송함",
+    copy: "물줄기도 튄 물방울도 소매 선을 넘지 못했습니다. 축축한 손목 없이 하루를 계속할 수 있습니다.",
+    aside: "양쪽 소매\n모두 생존.",
+    asset: "laundry",
+    characterArt: "drySleeves",
+    category: "일상",
+  },
+  {
+    id: 70,
+    title: "아침에 묶은 운동화 끈이 하루 종일 한 번도 풀리지 않을 수도 있습니다.",
+    cardTitle: "운동화 끈이 하루 종일 버팀",
+    copy: "걷고 뛰고 계단을 올라가도 매듭이 자기 자리를 지켰습니다. 허리를 숙일 일이 하나 줄었습니다.",
+    aside: "다시 묶기\n0회.",
+    asset: "bus",
+    characterArt: "tiedLaces",
+    category: "일상",
+  },
+  {
+    id: 71,
+    title: "가방 지퍼가 안감을 물지 않고 한 번에 닫힐 수도 있습니다.",
+    cardTitle: "가방 지퍼가 천을 안 물음",
+    copy: "중간에 덜컥 멈추지도, 안감을 다시 빼내지도 않았습니다. 처음부터 끝까지 매끈한 완주였습니다.",
+    aside: "지퍼가 오늘\n얌전함.",
+    asset: "delivery",
+    characterArt: "cleanZipper",
+    category: "일상",
+  },
+  {
+    id: 72,
+    title: "접은 우산이 우산집에 첫 시도부터 쏙 들어갈 수도 있습니다.",
+    cardTitle: "우산이 우산집에 한 번에 들어감",
+    copy: "접힌 천이 옆으로 삐져나오지 않고 가장 좁은 입구를 단번에 통과했습니다. 비 오는 날의 마무리까지 깔끔합니다.",
+    aside: "돌려 넣기\n필요 없음.",
+    asset: "umbrella",
+    characterArt: "umbrellaSleeve",
+    category: "일상",
+  },
+  {
+    id: 73,
+    title: "샤프심을 채우자 첫 클릭부터 심이 바로 나올 수도 있습니다.",
+    cardTitle: "샤프심이 첫 클릭에 나옴",
+    copy: "몇 번이나 딸깍거릴 준비를 했는데 한 번으로 끝났습니다. 새 심도 부러지지 않고 곧게 출근했습니다.",
+    aside: "딸깍 한 번에\n준비 완료.",
+    asset: "pen",
+    characterArt: "pencilClick",
+    category: "일상",
+  },
 ];
 
 export const outcomeMeta: Record<
@@ -602,6 +668,12 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-68", date: monthDate(key, safeDay(18)), time: "15:08", fortuneId: 68, title: "과자 봉지가 일자로 열림", outcome: "happened", category: "음식", note: "봉지 윗부분이 끝까지 반듯하게 뜯어짐", sample: true },
+    { id: "sample-69", date: monthDate(key, safeDay(19)), time: "09:14", fortuneId: 69, title: "손 씻고도 소매가 뽀송함", outcome: "close", category: "일상", note: "양쪽 소매에 물 한 방울도 안 묻음", sample: true },
+    { id: "sample-70", date: monthDate(key, safeDay(20)), time: "21:07", fortuneId: 70, title: "운동화 끈이 하루 종일 버팀", outcome: "happened", category: "일상", note: "집에 올 때까지 한 번도 안 풀림", sample: true },
+    { id: "sample-71", date: monthDate(key, safeDay(21)), time: "08:33", fortuneId: 71, title: "가방 지퍼가 천을 안 물음", outcome: "close", category: "일상", note: "안감에 안 걸리고 끝까지 한 번에 닫힘", sample: true },
+    { id: "sample-72", date: monthDate(key, safeDay(22)), time: "18:42", fortuneId: 72, title: "우산이 우산집에 한 번에 들어감", outcome: "happened", category: "일상", note: "다시 접지 않고 첫 시도에 쏙 들어감", sample: true },
+    { id: "sample-73", date: monthDate(key, safeDay(23)), time: "13:26", fortuneId: 73, title: "샤프심이 첫 클릭에 나옴", outcome: "happened", category: "일상", note: "딸깍 한 번에 새 심이 바로 나옴", sample: true },
     { id: "sample-62", date: monthDate(key, safeDay(12)), time: "07:32", fortuneId: 62, title: "삶은 달걀이 매끈하게 벗겨짐", outcome: "happened", category: "음식", note: "껍질이 크게 두 조각으로 떨어짐", sample: true },
     { id: "sample-63", date: monthDate(key, safeDay(13)), time: "08:17", fortuneId: 63, title: "후드 끈 길이가 완벽 대칭", outcome: "close", category: "일상", note: "입자마자 양쪽 길이가 똑같았음", sample: true },
     { id: "sample-64", date: monthDate(key, safeDay(14)), time: "13:05", fortuneId: 64, title: "빨대가 첫 시도에 중앙 적중", outcome: "happened", category: "음식", note: "빨대 하나도 안 구겨지고 바로 들어감", sample: true },
