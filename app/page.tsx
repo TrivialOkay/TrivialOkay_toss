@@ -30,7 +30,7 @@ const storageKey = "byeoril-records-v2";
 const legacyStorageKey = "byeoril-records-v1";
 const migrationKey = "byeoril-records-v1-migrated";
 const sampleCatalogKey = "byeoril-sample-catalog-version";
-const sampleCatalogVersion = "2026-08-fortunes-16";
+const sampleCatalogVersion = "2026-08-fortunes-25-character-poses";
 
 function readStoredRecords(key: string) {
   const stored = window.localStorage.getItem(key);
@@ -205,7 +205,7 @@ function CardScreen({ record, onBack, onShare, onCollection, onReplay, onDelete 
           <div className="result-meta"><strong>NO.{String(record.fortuneId).padStart(3, "0")}</strong><span className={`grade-badge tone-${grade.tone}`}>{grade.grade}</span></div>
           <h2>{record.title}</h2>
           <Stars count={grade.stars} />
-          {record.photoDataUrl ? <div className="card-photo"><img src={record.photoDataUrl} alt="기록 사진" /></div> : <FortuneScene kind={fortune.asset} speech={fortune.aside} card />}
+          {record.photoDataUrl ? <div className="card-photo"><img src={record.photoDataUrl} alt="기록 사진" /></div> : <FortuneScene kind={fortune.asset} speech={fortune.aside} characterArt={fortune.characterArt} card />}
           <div className="interpretation"><strong>AI의 쓸데없는 해석</strong><p>{fortune.copy}</p><Mascot className="interpretation-mascot" /></div>
           {record.note && <p className="record-quote">“{record.note}”</p>}
           <dl className="card-stats"><div><dt>발견 날짜</dt><dd>{record.date.replaceAll("-", ".")}</dd></div><div><dt>발견 시간</dt><dd>{record.time}</dd></div><div><dt>별일 횟수</dt><dd>{record.sample ? "3회" : "1회"}</dd></div></dl>
@@ -233,7 +233,7 @@ function CollectionScreen({ records, filter, searchOpen, search, onFilter, onSea
           {filtered.map((record) => {
             const fortune = fortuneFor(record.fortuneId);
             const grade = gradeFor(record);
-            return <button className={`collection-item ${record.fortuneId === 23 ? "featured" : ""}`} key={record.id} onClick={() => onOpen(record)}><span className="collection-number">{String(record.fortuneId).padStart(3, "0")}</span><span className="collection-art"><FortuneObject kind={fortune.asset} compact /></span><span className="collection-copy"><strong>{record.title}</strong><small>★ {grade.grade}<b>발견 {record.sample ? (record.fortuneId % 8) + 2 : 1}회</b></small></span></button>;
+            return <button className={`collection-item ${record.fortuneId === 23 ? "featured" : ""}`} key={record.id} onClick={() => onOpen(record)}><span className="collection-number">{String(record.fortuneId).padStart(3, "0")}</span><span className="collection-art"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} compact /></span><span className="collection-copy"><strong>{record.title}</strong><small>★ {grade.grade}<b>발견 {record.sample ? (record.fortuneId % 8) + 2 : 1}회</b></small></span></button>;
           })}
           {!filtered.length && <div className="empty-state"><Mascot/><strong>조건에 맞는 별일이 없어요.</strong></div>}
         </div>
@@ -254,7 +254,7 @@ function RecordsScreen({ records, selectedMonth, onMonth, onReport, onOpen }: { 
         <div className="calendar"><div className="week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid">{cells.map((day, index) => { const key = day ? `${selectedMonth}-${String(day).padStart(2, "0")}` : ""; const has = monthRecords.some((record) => record.date === key); return <span key={`${day}-${index}`} className={`${key === today ? "today" : ""} ${has ? "has-record" : ""}`}>{day || ""}</span>; })}</div></div>
         <h2>{Number(selectedMonth.slice(5))}월의 기록</h2>
         <div className="record-list">
-          {monthRecords.map((record) => { const fortune = fortuneFor(record.fortuneId); const grade = gradeFor(record); return <button key={record.id} onClick={() => onOpen(record)}><span className="record-thumb"><FortuneObject kind={fortune.asset} compact /></span><span><strong>{record.title}</strong><small>{record.time} · {record.category}</small></span><em className={`grade-badge tone-${grade.tone}`}>{grade.grade}</em></button>; })}
+          {monthRecords.map((record) => { const fortune = fortuneFor(record.fortuneId); const grade = gradeFor(record); return <button key={record.id} onClick={() => onOpen(record)}><span className="record-thumb"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} compact /></span><span><strong>{record.title}</strong><small>{record.time} · {record.category}</small></span><em className={`grade-badge tone-${grade.tone}`}>{grade.grade}</em></button>; })}
           {!monthRecords.length && <div className="empty-state compact"><Mascot/><strong>이 달의 기록이 아직 없어요.</strong></div>}
         </div>
         <button className="month-comment" onClick={onReport}><span><small>오늘의 코멘트</small><strong>별일 없는 하루였지만,<br/>이런 게 웃어 인생이 되더라구요.</strong></span><Mascot /></button>
@@ -294,9 +294,9 @@ function ReportScreen({ records, month, onBack, onMonth }: { records: RecordItem
 }
 
 function ExamplesScreen({ onBack }: { onBack: () => void }) {
-  const examples = fortunes.slice(4, 6).concat(fortunes.slice(1, 2));
+  const examples = [fortunes.find((fortune) => fortune.id === 34), fortunes.find((fortune) => fortune.id === 31), fortunes.find((fortune) => fortune.id === 29)].filter((fortune): fortune is (typeof fortunes)[number] => Boolean(fortune));
   return (
-    <><Header title="다른 카드 예시" onBack={onBack}/><section className="screen-content examples-screen">{examples.map((fortune, index) => <article className="example-card" key={fortune.id}><div><small>NO.{String(fortune.id).padStart(3, "0")}</small><span className={`grade-badge tone-${index === 0 ? "gray" : index === 1 ? "green" : "yellow"}`}>{index === 0 ? "혼함" : index === 1 ? "꽤 괜찮음" : "오늘 좀 됨"}</span></div><h2>{fortune.cardTitle}</h2><Stars count={index + 1} small/><FortuneObject kind={fortune.asset}/><p>{fortune.aside.replaceAll("\n", " ")}</p></article>)}</section></>
+    <><Header title="다른 카드 예시" onBack={onBack}/><section className="screen-content examples-screen">{examples.map((fortune, index) => <article className="example-card" key={fortune.id}><div><small>NO.{String(fortune.id).padStart(3, "0")}</small><span className={`grade-badge tone-${index === 0 ? "gray" : index === 1 ? "green" : "yellow"}`}>{index === 0 ? "혼함" : index === 1 ? "꽤 괜찮음" : "오늘 좀 됨"}</span></div><h2>{fortune.cardTitle}</h2><Stars count={index + 1} small/><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt}/><p>{fortune.aside.replaceAll("\n", " ")}</p></article>)}</section></>
   );
 }
 

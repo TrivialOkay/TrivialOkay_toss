@@ -2,6 +2,7 @@ export type Tab = "today" | "collection" | "records" | "about";
 export type View = "main" | "capture" | "card" | "report" | "examples" | "guide";
 export type Outcome = "happened" | "close" | "missed";
 export type Category = "교통" | "음식" | "사람" | "일상" | "기타";
+export type CharacterArt = "umbrella" | "coffee" | "fries" | "message" | "bus" | "resting";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -18,7 +19,11 @@ export type AssetKind =
   | "receipt"
   | "mascot"
   | "key"
-  | "book";
+  | "book"
+  | "snack"
+  | "coin"
+  | "alarm"
+  | "pen";
 
 export type Fortune = {
   id: number;
@@ -27,6 +32,7 @@ export type Fortune = {
   copy: string;
   aside: string;
   asset: AssetKind;
+  characterArt?: CharacterArt;
   category: Category;
 };
 
@@ -105,6 +111,7 @@ export const fortunes: Fortune[] = [
     copy: "기상청보다 빨랐던 건 아니고, 오늘만큼은 가방 속 우산을 기억해냈습니다.",
     aside: "오늘의 나\n제법 준비됨.",
     asset: "umbrella",
+    characterArt: "umbrella",
     category: "일상",
   },
   {
@@ -114,6 +121,7 @@ export const fortunes: Fortune[] = [
     copy: "그동안 마신 커피가 드디어 한 잔으로 돌아왔습니다. 작지만 확실한 회수입니다.",
     aside: "이건 과거의\n내가 샀다.",
     asset: "coffee",
+    characterArt: "coffee",
     category: "음식",
   },
   {
@@ -123,6 +131,7 @@ export const fortunes: Fortune[] = [
     copy: "누가 비워둔 건 아니지만 앉는 순간만큼은 도시가 당신 편이었습니다.",
     aside: "출발 전에\n착석 완료.",
     asset: "bus",
+    characterArt: "bus",
     category: "교통",
   },
   {
@@ -141,6 +150,7 @@ export const fortunes: Fortune[] = [
     copy: "세상을 구할 양은 아니지만 마지막 한 입이 하루를 조금 연장했습니다.",
     aside: "너 거기\n있었구나!",
     asset: "fries",
+    characterArt: "fries",
     category: "음식",
   },
   {
@@ -168,6 +178,7 @@ export const fortunes: Fortune[] = [
     copy: "텔레파시까지는 아니고 비슷한 시간에 서로 심심했던 것 같습니다.",
     aside: "나도 방금\n생각했는데.",
     asset: "mascot",
+    characterArt: "message",
     category: "사람",
   },
   {
@@ -187,6 +198,91 @@ export const fortunes: Fortune[] = [
     aside: "여기였네.\n한 번에 찾음.",
     asset: "book",
     category: "기타",
+  },
+  {
+    id: 37,
+    title: "과자 봉지에서 유난히 큰 조각을 발견할 수도 있습니다.",
+    cardTitle: "과자 왕건이를 발견함",
+    copy: "양이 늘어난 건 아니지만 마지막까지 남겨두고 싶은 조각을 얻었습니다.",
+    aside: "이건 조금\n아껴 먹자.",
+    asset: "snack",
+    category: "음식",
+  },
+  {
+    id: 38,
+    title: "주머니에서 잊고 있던 동전을 발견할 수도 있습니다.",
+    cardTitle: "주머니에서 500원 나옴",
+    copy: "원래 당신 돈이었지만 다시 만난 순간만큼은 공돈처럼 반갑습니다.",
+    aside: "과거의 내가\n용돈을 줌.",
+    asset: "coin",
+    category: "기타",
+  },
+  {
+    id: 39,
+    title: "버스에서 내릴 문 바로 앞에 앉게 될 수도 있습니다.",
+    cardTitle: "내릴 때 세 걸음만 걸었음",
+    copy: "좋은 자리는 아니어도 내릴 때만큼은 가장 효율적인 자리였습니다.",
+    aside: "하차 동선\n완벽.",
+    asset: "bus",
+    characterArt: "bus",
+    category: "교통",
+  },
+  {
+    id: 40,
+    title: "실내에 들어가자마자 비가 잠깐 그칠 수도 있습니다.",
+    cardTitle: "들어오자마자 비가 그침",
+    copy: "비를 멈춘 건 아니지만 가장 젖을 구간은 기가 막히게 피했습니다.",
+    aside: "타이밍만큼은\n맑음.",
+    asset: "umbrella",
+    characterArt: "umbrella",
+    category: "일상",
+  },
+  {
+    id: 41,
+    title: "카페에 앉자마자 주문한 음료가 나올 수도 있습니다.",
+    cardTitle: "앉자마자 내 번호 불림",
+    copy: "기다릴 준비까지 마쳤는데 기다림이 먼저 퇴근해버렸습니다.",
+    aside: "벌써\n나왔다고?",
+    asset: "coffee",
+    characterArt: "coffee",
+    category: "음식",
+  },
+  {
+    id: 42,
+    title: "택배를 확인하려는 순간 도착 알림이 올 수도 있습니다.",
+    cardTitle: "조회하려는데 배송 완료 뜸",
+    copy: "새로고침 한 번을 아꼈습니다. 문 앞에는 생각보다 부지런한 상자가 있습니다.",
+    aside: "방금\n도착했네.",
+    asset: "delivery",
+    category: "일상",
+  },
+  {
+    id: 43,
+    title: "빌리려던 책이 방금 반납되어 있을 수도 있습니다.",
+    cardTitle: "찾던 책이 방금 돌아옴",
+    copy: "누군가의 독서가 끝나는 순간 당신의 독서가 시작됐습니다.",
+    aside: "기다리지\n않아도 됨.",
+    asset: "book",
+    category: "기타",
+  },
+  {
+    id: 44,
+    title: "알람이 울리기 1분 전에 저절로 눈을 뜰 수도 있습니다.",
+    cardTitle: "알람보다 1분 먼저 일어남",
+    copy: "푹 잔 증거인지는 모르겠지만 시끄러운 알람 한 번은 피했습니다.",
+    aside: "내 몸에도\n시계가 있었네.",
+    asset: "alarm",
+    characterArt: "resting",
+    category: "일상",
+  },
+  {
+    id: 45,
+    title: "굴러간 펜이 손 닿는 곳에서 멈출 수도 있습니다.",
+    cardTitle: "펜이 책상 밑까지 안 감",
+    copy: "허리를 완전히 숙이지 않아도 되는 거리에서 작은 탈주가 끝났습니다.",
+    aside: "거기서\n멈춰줘서 고맙.",
+    asset: "pen",
+    category: "일상",
   },
 ];
 
@@ -254,6 +350,15 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-37", date: monthDate(key, safeDay(18)), time: "15:11", fortuneId: 37, title: "과자 왕건이를 발견함", outcome: "happened", category: "음식", note: "봉지 안에 큰 조각 하나 남아 있었음", sample: true },
+    { id: "sample-38", date: monthDate(key, safeDay(19)), time: "10:27", fortuneId: 38, title: "주머니에서 500원 나옴", outcome: "close", category: "기타", note: "겨울 주머니에서 동전 발견", sample: true },
+    { id: "sample-39", date: monthDate(key, safeDay(20)), time: "08:03", fortuneId: 39, title: "내릴 때 세 걸음만 걸었음", outcome: "happened", category: "교통", note: "하차문 바로 앞자리에 앉음", sample: true },
+    { id: "sample-40", date: monthDate(key, safeDay(21)), time: "17:46", fortuneId: 40, title: "들어오자마자 비가 그침", outcome: "missed", category: "일상", note: "우산 접자마자 빗소리가 멈춤", sample: true },
+    { id: "sample-41", date: monthDate(key, safeDay(22)), time: "13:19", fortuneId: 41, title: "앉자마자 내 번호 불림", outcome: "happened", category: "음식", note: "진동벨 내려놓자마자 울림", sample: true },
+    { id: "sample-42", date: monthDate(key, safeDay(23)), time: "18:52", fortuneId: 42, title: "조회하려는데 배송 완료 뜸", outcome: "close", category: "일상", note: "택배 앱 켜자마자 도착 알림 옴", sample: true },
+    { id: "sample-43", date: monthDate(key, safeDay(24)), time: "14:08", fortuneId: 43, title: "찾던 책이 방금 돌아옴", outcome: "happened", category: "기타", note: "검색 중에 대출 가능으로 바뀜", sample: true },
+    { id: "sample-44", date: monthDate(key, safeDay(25)), time: "06:59", fortuneId: 44, title: "알람보다 1분 먼저 일어남", outcome: "close", category: "일상", note: "알람 끄려고 보니 1분 남았음", sample: true },
+    { id: "sample-45", date: monthDate(key, safeDay(26)), time: "16:05", fortuneId: 45, title: "펜이 책상 밑까지 안 감", outcome: "missed", category: "일상", note: "발끝 바로 앞에서 멈춤", sample: true },
     { id: "sample-23", date: monthDate(key, safeDay(7)), time: "08:42", fortuneId: 23, title: "얘가 마침 여기 있었음", outcome: "happened", category: "일상", note: "버튼 누르려 했는데 이미 열려 있었음", sample: true },
     { id: "sample-27", date: monthDate(key, safeDay(8)), time: "07:48", fortuneId: 27, title: "비 오기 1분 전에 우산 챙김", outcome: "happened", category: "일상", note: "나오자마자 비가 왔는데 우산 있었음", sample: true },
     { id: "sample-24", date: monthDate(key, safeDay(10)), time: "11:21", fortuneId: 24, title: "마지막 하나, 내가 가져감", outcome: "missed", category: "음식", note: "마지막 소금빵이 남아 있었음", sample: true },

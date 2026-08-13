@@ -189,9 +189,32 @@ img { display: block; }
 .object-book::after { content: ""; position: absolute; left: 49%; top: 22%; height: 57%; border-left: 2px solid #9b896c; }
 .object-book i, .object-book b { position: absolute; z-index: 1; top: 38%; width: 26%; height: 23%; background: repeating-linear-gradient(#a69a87 0 1px, transparent 1px 6px); }.object-book i { left: 18%; }.object-book b { right: 18%; }
 .object-book em { position: absolute; z-index: 1; right: 28%; top: 19%; width: 8%; height: 43%; background: #d56d58; clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%); }
+.object-snack::before { content: ""; position: absolute; left: 21%; top: 14%; width: 58%; height: 70%; border: 2px solid #352823; border-radius: 7px 7px 16px 16px; background: linear-gradient(110deg, #e95d4b, #bd3c32); transform: rotate(-4deg); }
+.object-snack::after { content: ""; position: absolute; left: 31%; top: 34%; width: 39%; height: 31%; border-radius: 50%; background: #f8dc82; box-shadow: inset 0 0 0 2px #9a682b; transform: rotate(8deg); }
+.object-snack i { position: absolute; z-index: 1; left: 23%; top: 20%; width: 54%; border-top: 3px double #f2ba56; transform: rotate(-4deg); }
+.object-snack b, .object-snack em { position: absolute; z-index: 1; top: 44%; width: 5%; aspect-ratio: 1; border-radius: 50%; background: #7a4a24; }.object-snack b { left: 42%; }.object-snack em { right: 40%; }
+.object-coin::before { content: ""; position: absolute; left: 24%; top: 19%; width: 55%; aspect-ratio: 1; border: 3px solid #5f4925; border-radius: 50%; background: radial-gradient(circle at 37% 31%, #fff0a1, #e1af3b 64%, #b97b25); box-shadow: inset 0 0 0 5px #f3cb62; transform: rotate(-9deg); }
+.object-coin::after { content: "500"; position: absolute; left: 34%; top: 39%; width: 35%; text-align: center; color: #765523; font-size: 19px; font-style: normal; font-weight: 900; transform: rotate(-9deg); }
+.object-coin i, .object-coin b, .object-coin em { position: absolute; width: 10%; height: 3%; border-radius: 2px; background: #d7a02f; }.object-coin i { left: 14%; top: 22%; transform: rotate(40deg); }.object-coin b { right: 10%; top: 47%; transform: rotate(-12deg); }.object-coin em { left: 17%; bottom: 20%; transform: rotate(-40deg); }
+.object-alarm::before { content: ""; position: absolute; left: 23%; top: 24%; width: 54%; aspect-ratio: 1; border: 3px solid #302b26; border-radius: 50%; background: #fff8e7; box-shadow: inset 0 0 0 4px #e3b95f; }
+.object-alarm::after { content: ""; position: absolute; left: 50%; top: 37%; width: 2px; height: 20%; background: #302b26; transform-origin: bottom; transform: rotate(28deg); box-shadow: 0 18px 0 -0.2px #302b26; }
+.object-alarm i, .object-alarm b { position: absolute; top: 14%; width: 27%; height: 18%; border: 3px solid #302b26; border-bottom: 0; border-radius: 50% 50% 0 0; background: #df795e; }.object-alarm i { left: 17%; transform: rotate(-24deg); }.object-alarm b { right: 17%; transform: rotate(24deg); }
+.object-alarm em { position: absolute; left: 36%; bottom: 12%; width: 30%; height: 12%; border-left: 3px solid #302b26; border-right: 3px solid #302b26; transform: rotate(-2deg); }
+.object-pen::before { content: ""; position: absolute; left: 9%; top: 44%; width: 82%; height: 16%; border: 2px solid #302a25; border-radius: 999px 7px 7px 999px; background: linear-gradient(#9fc5cf, #6d9bab); transform: rotate(-18deg); }
+.object-pen::after { content: ""; position: absolute; left: 3%; top: 53%; width: 19%; height: 13%; background: #e7c49c; clip-path: polygon(0 50%, 100% 0, 100% 100%); transform: rotate(-18deg); }
+.object-pen i { position: absolute; z-index: 1; right: 9%; top: 37%; width: 17%; height: 20%; border: 2px solid #302a25; border-radius: 5px; background: #e9b85c; transform: rotate(-18deg); }
+.object-pen b, .object-pen em { position: absolute; width: 14%; height: 2px; border-radius: 2px; background: #c49c34; }.object-pen b { left: 26%; top: 28%; transform: rotate(62deg); }.object-pen em { right: 18%; bottom: 24%; transform: rotate(-48deg); }
 .object-mascot { display: grid; place-items: center; }
 .object-mascot .mascot { width: 84%; height: 96%; object-fit: contain; filter: drop-shadow(0 3px 1px rgba(47,42,36,.12)); }
 .object-mascot.compact .mascot { width: 92%; height: 100%; }
+.object-character-pose { display: grid; place-items: center; }
+.object-character-pose img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 3px 1px rgba(47,42,36,.12)); }
+.object-character-pose.compact img { width: 115%; height: 115%; max-width: none; }
+.fortune-scene .object-character-pose { left: 45%; bottom: -2px; width: 210px; height: 194px; }
+.fortune-scene .object-character-pose.pose-umbrella { width: 226px; height: 205px; }
+.fortune-scene .object-character-pose.pose-bus { width: 218px; height: 202px; }
+.scene-card .object-character-pose { bottom: 1px; width: 234px; height: 218px; }
+.examples-screen .object-character-pose { width: 118px; height: 105px; }
 .object-art.compact::before, .object-art.compact::after { border-width: 1.4px; }
 .object-art.compact i, .object-art.compact b, .object-art.compact em { border-width: 1px; }
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { AssetKind, Outcome, Tab } from "./byeoril-data";
+import type { AssetKind, CharacterArt, Outcome, Tab } from "./byeoril-data";
 
 type IconName = "back" | "camera" | "chart" | "chevron-down" | "chevron-right" | "help" | "home" | "more" | "refresh" | "search" | "settings" | "share";
 
@@ -27,6 +27,15 @@ export function Mascot({ className = "", resting = false, waiting = false }: { c
   return <img className={`mascot ${className}`.trim()} src={source} alt="" aria-hidden="true" />;
 }
 
+const characterArtSources: Record<CharacterArt, string> = {
+  umbrella: "/mascot-poses/mascot-umbrella.png",
+  coffee: "/mascot-poses/mascot-coffee.png",
+  fries: "/mascot-poses/mascot-fries.png",
+  message: "/mascot-poses/mascot-message.png",
+  bus: "/mascot-poses/mascot-bus.png",
+  resting: "/byeoril-mascot-resting.png",
+};
+
 export function Stars({ count, small = false }: { count: number; small?: boolean }) {
   return (
     <span className={`stars ${small ? "stars-small" : ""}`} aria-label={`별점 5점 중 ${count}점`}>
@@ -35,7 +44,10 @@ export function Stars({ count, small = false }: { count: number; small?: boolean
   );
 }
 
-export function FortuneObject({ kind, compact = false }: { kind: AssetKind; compact?: boolean }) {
+export function FortuneObject({ kind, compact = false, characterArt }: { kind: AssetKind; compact?: boolean; characterArt?: CharacterArt }) {
+  if (characterArt) {
+    return <span className={`object-art object-character-pose pose-${characterArt} ${compact ? "compact" : ""}`} aria-hidden="true"><img src={characterArtSources[characterArt]} alt="" /></span>;
+  }
   if (kind === "elevator") {
     return (
       <span className={`object-art elevator-art ${compact ? "compact" : ""}`} aria-hidden="true">
@@ -49,13 +61,13 @@ export function FortuneObject({ kind, compact = false }: { kind: AssetKind; comp
   return <span className={`object-art object-${kind} ${compact ? "compact" : ""}`} aria-hidden="true"><i/><b/><em/></span>;
 }
 
-export function FortuneScene({ kind, speech, card = false }: { kind: AssetKind; speech: string; card?: boolean }) {
+export function FortuneScene({ kind, speech, card = false, characterArt }: { kind: AssetKind; speech: string; card?: boolean; characterArt?: CharacterArt }) {
   return (
     <div className={`fortune-scene scene-${kind} ${card ? "scene-card" : ""}`} role="img" aria-label="오늘의 별일 손그림 장면">
       {kind === "elevator" && <><span className="scene-floor-plane"/><span className="scene-depth-shadow"/></>}
       <span className="scene-spark spark-a"/><span className="scene-spark spark-b"/><span className="scene-spark spark-c"/>
-      <FortuneObject kind={kind} />
-      {kind !== "mascot" && <Mascot className="scene-character" resting={kind === "book" || kind === "laundry"} waiting={kind === "elevator"} />}
+      <FortuneObject kind={kind} characterArt={characterArt} />
+      {!characterArt && kind !== "mascot" && <Mascot className="scene-character" resting={kind === "book" || kind === "laundry"} waiting={kind === "elevator"} />}
       <span className="scene-speech">{speech.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</span>
     </div>
   );
