@@ -259,6 +259,16 @@ img { display: block; }
 .fortune-scene .object-character-pose.pose-peaToothpaste { width: 226px; height: 203px; }
 .fortune-scene .object-character-pose.pose-readySlippers { width: 236px; height: 207px; }
 .fortune-scene .object-character-pose.pose-soloDumpling { width: 228px; height: 204px; }
+.fortune-scene .object-character-pose.pose-softPhone { width: 239px; height: 207px; }
+.fortune-scene .object-character-pose.pose-shoePebble { width: 224px; height: 202px; }
+.fortune-scene .object-character-pose.pose-cableDodge { width: 232px; height: 206px; }
+.fortune-scene .object-character-pose.pose-cleanCorrection { width: 230px; height: 204px; }
+.fortune-scene .object-character-pose.pose-flatBandage { width: 218px; height: 201px; }
+.fortune-scene .object-character-pose.pose-wristHairtie { width: 216px; height: 201px; }
+.fortune-scene .object-character-pose.pose-cleanPizza { width: 220px; height: 202px; }
+.fortune-scene .object-character-pose.pose-firstPop { width: 215px; height: 199px; }
+.fortune-scene .object-character-pose.pose-exactCable { width: 238px; height: 207px; }
+.fortune-scene .object-character-pose.pose-strapEscape { width: 229px; height: 204px; }
 .scene-card .object-character-pose { bottom: 1px; width: 234px; height: 218px; }
 .examples-screen .object-character-pose { width: 118px; height: 105px; }
 .object-art.compact::before, .object-art.compact::after { border-width: 1.4px; }

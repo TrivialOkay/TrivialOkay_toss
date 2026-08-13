@@ -56,7 +56,17 @@ export type CharacterArt =
   | "cleanSeasoning"
   | "peaToothpaste"
   | "readySlippers"
-  | "soloDumpling";
+  | "soloDumpling"
+  | "softPhone"
+  | "shoePebble"
+  | "cableDodge"
+  | "cleanCorrection"
+  | "flatBandage"
+  | "wristHairtie"
+  | "cleanPizza"
+  | "firstPop"
+  | "exactCable"
+  | "strapEscape";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -822,6 +832,106 @@ export const fortunes: Fortune[] = [
     characterArt: "soloDumpling",
     category: "음식",
   },
+  {
+    id: 94,
+    title: "침대에서 놓친 휴대폰이 바닥 대신 이불 위로 떨어질 수도 있습니다.",
+    cardTitle: "휴대폰이 이불 위로 안전 착지함",
+    copy: "심장이 먼저 바닥에 닿았지만 휴대폰은 푹신한 곳에 누웠습니다. 액정보다 이불이 먼저 받아냈습니다.",
+    aside: "낙하했지만\n누운 셈.",
+    asset: "mascot",
+    characterArt: "softPhone",
+    category: "일상",
+  },
+  {
+    id: 95,
+    title: "신발 속 작은 돌이 한 번 흔들자 바로 나올 수도 있습니다.",
+    cardTitle: "신발 속 돌이 첫 흔들기에 나옴",
+    copy: "분명 안쪽 어딘가로 숨을 준비였는데 한 번의 털기에 순순히 퇴장했습니다. 발바닥 수사대는 해산합니다.",
+    aside: "돌멩이\n자진 퇴실.",
+    asset: "mascot",
+    characterArt: "shoePebble",
+    category: "일상",
+  },
+  {
+    id: 96,
+    title: "의자 바퀴가 충전선을 아슬아슬하게 피해 갈 수도 있습니다.",
+    cardTitle: "의자 바퀴가 충전선을 안 밟음",
+    copy: "바퀴와 케이블 사이에 종이 한 장만 한 평화가 남았습니다. 충전선의 납작해질 뻔한 하루가 연장됐습니다.",
+    aside: "선 하나\n목숨 건짐.",
+    asset: "cable",
+    characterArt: "cableDodge",
+    category: "일상",
+  },
+  {
+    id: 97,
+    title: "수정테이프가 중간에 끊기지 않고 한 줄로 그어질 수도 있습니다.",
+    cardTitle: "수정테이프가 한 줄로 완주함",
+    copy: "뜯기지도 투명해지지도 않고 실수 위를 처음부터 끝까지 하얗게 덮었습니다. 실수는 있었지만 마감은 프로였습니다.",
+    aside: "되감기 없이\n한 줄 성공.",
+    asset: "pen",
+    characterArt: "cleanCorrection",
+    category: "일상",
+  },
+  {
+    id: 98,
+    title: "반창고가 자기 몸에 붙지 않고 얌전히 벗겨질 수도 있습니다.",
+    cardTitle: "반창고가 혼자 안 접힘",
+    copy: "보호 필름을 떼는 동안 끈끈한 면끼리 먼저 화해하지 않았습니다. 상처보다 반창고를 구조할 일은 없었습니다.",
+    aside: "반창고끼리\n포옹 금지.",
+    asset: "mascot",
+    characterArt: "flatBandage",
+    category: "일상",
+  },
+  {
+    id: 99,
+    title: "머리끈이 필요해진 순간 손목에 이미 걸려 있을 수도 있습니다.",
+    cardTitle: "머리끈이 손목에서 발견됨",
+    copy: "가방과 주머니를 뒤질 준비를 했는데 범인은 처음부터 손목에 있었습니다. 가장 가까운 곳이 마지막 수색지였습니다.",
+    aside: "찾는 데\n0초.",
+    asset: "laundry",
+    characterArt: "wristHairtie",
+    category: "일상",
+  },
+  {
+    id: 100,
+    title: "피자를 한입 먹었는데 치즈가 길게 따라오지 않고 딱 끊길 수도 있습니다.",
+    cardTitle: "피자 치즈가 한입에서 깔끔히 끊김",
+    copy: "치즈가 턱과 접시 사이에 현수교를 놓지 않고 제자리에서 끝났습니다. 뜨거운 치즈와의 줄다리기는 취소됐습니다.",
+    aside: "치즈 꼬리\n없었음.",
+    asset: "snack",
+    characterArt: "cleanPizza",
+    category: "음식",
+  },
+  {
+    id: 101,
+    title: "뽁뽁이 첫 번째 칸이 바로 터질 수도 있습니다.",
+    cardTitle: "뽁뽁이가 첫 손가락에 뽁 함",
+    copy: "눌러도 옆으로 도망가는 납작한 척하는 칸이 아니었습니다. 첫 만남에 본업을 정확히 수행했습니다.",
+    aside: "첫 칸부터\n말 잘 들음.",
+    asset: "delivery",
+    characterArt: "firstPop",
+    category: "기타",
+  },
+  {
+    id: 102,
+    title: "충전선 길이가 침대 위 휴대폰까지 딱 닿을 수도 있습니다.",
+    cardTitle: "충전선이 마지막 1cm까지 닿음",
+    copy: "휴대폰을 바닥에 내려놓지도 몸을 콘센트 쪽으로 구기지도 않았습니다. 케이블이 가진 모든 길이를 오늘 다 썼습니다.",
+    aside: "여유는 없고\n연결은 됨.",
+    asset: "cable",
+    characterArt: "exactCable",
+    category: "일상",
+  },
+  {
+    id: 103,
+    title: "지나가던 가방끈이 문고리에 안 걸리고 통과할 수도 있습니다.",
+    cardTitle: "가방끈이 문고리를 피해 감",
+    copy: "등 뒤에서 갑자기 세상에 붙잡히는 장면 없이 무사 통과했습니다. 문고리가 오늘은 남의 일에 참견하지 않았습니다.",
+    aside: "뒤로 끌려갈\n뻔만 함.",
+    asset: "delivery",
+    characterArt: "strapEscape",
+    category: "일상",
+  },
 ];
 
 export const outcomeMeta: Record<
@@ -888,6 +998,16 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-94", date: monthDate(key, safeDay(13)), time: "23:19", fortuneId: 94, title: "휴대폰이 이불 위로 안전 착지함", outcome: "happened", category: "일상", note: "놓쳤는데 바닥 말고 이불 위로 폭 떨어짐", sample: true },
+    { id: "sample-95", date: monthDate(key, safeDay(14)), time: "08:12", fortuneId: 95, title: "신발 속 돌이 첫 흔들기에 나옴", outcome: "close", category: "일상", note: "한 번 털었더니 돌멩이가 바로 굴러나옴", sample: true },
+    { id: "sample-96", date: monthDate(key, safeDay(15)), time: "14:41", fortuneId: 96, title: "의자 바퀴가 충전선을 안 밟음", outcome: "happened", category: "일상", note: "바퀴가 선 바로 옆에서 아슬아슬하게 멈춤", sample: true },
+    { id: "sample-97", date: monthDate(key, safeDay(16)), time: "10:28", fortuneId: 97, title: "수정테이프가 한 줄로 완주함", outcome: "happened", category: "일상", note: "처음부터 끝까지 끊김 없이 하얗게 그어짐", sample: true },
+    { id: "sample-98", date: monthDate(key, safeDay(17)), time: "17:56", fortuneId: 98, title: "반창고가 혼자 안 접힘", outcome: "close", category: "일상", note: "끈끈한 면끼리 안 붙고 상처에 바로 붙임", sample: true },
+    { id: "sample-99", date: monthDate(key, safeDay(18)), time: "09:07", fortuneId: 99, title: "머리끈이 손목에서 발견됨", outcome: "happened", category: "일상", note: "찾으려다 손목에 이미 있는 걸 발견함", sample: true },
+    { id: "sample-100", date: monthDate(key, safeDay(19)), time: "20:34", fortuneId: 100, title: "피자 치즈가 한입에서 깔끔히 끊김", outcome: "happened", category: "음식", note: "치즈가 길게 안 늘어나고 한입에서 딱 끊김", sample: true },
+    { id: "sample-101", date: monthDate(key, safeDay(20)), time: "16:22", fortuneId: 101, title: "뽁뽁이가 첫 손가락에 뽁 함", outcome: "close", category: "기타", note: "첫 번째로 누른 칸이 바로 시원하게 터짐", sample: true },
+    { id: "sample-102", date: monthDate(key, safeDay(21)), time: "22:48", fortuneId: 102, title: "충전선이 마지막 1cm까지 닿음", outcome: "happened", category: "일상", note: "딱 팽팽한 길이로 침대 위 휴대폰까지 연결됨", sample: true },
+    { id: "sample-103", date: monthDate(key, safeDay(22)), time: "18:11", fortuneId: 103, title: "가방끈이 문고리를 피해 감", outcome: "happened", category: "일상", note: "문고리 바로 옆을 지나갔는데 안 걸림", sample: true },
     { id: "sample-84", date: monthDate(key, safeDay(3)), time: "16:08", fortuneId: 84, title: "우유에 빠진 쿠키를 구조함", outcome: "happened", category: "음식", note: "쿠키가 안 부서지고 그대로 다시 올라옴", sample: true },
     { id: "sample-85", date: monthDate(key, safeDay(4)), time: "12:36", fortuneId: 85, title: "숟가락이 국에 잠수하지 않음", outcome: "close", category: "음식", note: "그릇 위에서 끝까지 균형을 지킴", sample: true },
     { id: "sample-86", date: monthDate(key, safeDay(5)), time: "07:21", fortuneId: 86, title: "침대 시트 네 모서리가 밤새 버팀", outcome: "happened", category: "일상", note: "아침에도 시트 모서리가 전부 붙어 있었음", sample: true },

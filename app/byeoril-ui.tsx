@@ -82,6 +82,16 @@ const characterArtSources: Record<CharacterArt, string> = {
   peaToothpaste: "/mascot-poses/mascot-pea-toothpaste.png",
   readySlippers: "/mascot-poses/mascot-ready-slippers.png",
   soloDumpling: "/mascot-poses/mascot-solo-dumpling.png",
+  softPhone: "/mascot-poses/mascot-soft-phone.png",
+  shoePebble: "/mascot-poses/mascot-shoe-pebble.png",
+  cableDodge: "/mascot-poses/mascot-cable-dodge.png",
+  cleanCorrection: "/mascot-poses/mascot-clean-correction.png",
+  flatBandage: "/mascot-poses/mascot-flat-bandage.png",
+  wristHairtie: "/mascot-poses/mascot-wrist-hairtie.png",
+  cleanPizza: "/mascot-poses/mascot-clean-pizza.png",
+  firstPop: "/mascot-poses/mascot-first-pop.png",
+  exactCable: "/mascot-poses/mascot-exact-cable.png",
+  strapEscape: "/mascot-poses/mascot-strap-escape.png",
 };
 
 export function Stars({ count, small = false }: { count: number; small?: boolean }) {
