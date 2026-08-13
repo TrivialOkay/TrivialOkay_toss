@@ -221,6 +221,12 @@ img { display: block; }
 .fortune-scene .object-character-pose.pose-sticker { width: 212px; height: 198px; }
 .fortune-scene .object-character-pose.pose-vending { width: 236px; height: 205px; }
 .fortune-scene .object-character-pose.pose-tape { width: 230px; height: 203px; }
+.fortune-scene .object-character-pose.pose-soda { width: 215px; height: 200px; }
+.fortune-scene .object-character-pose.pose-cupnoodle { width: 230px; height: 203px; }
+.fortune-scene .object-character-pose.pose-onePercent { width: 238px; height: 205px; }
+.fortune-scene .object-character-pose.pose-fourcut { width: 222px; height: 205px; }
+.fortune-scene .object-character-pose.pose-shuffle { width: 228px; height: 203px; }
+.fortune-scene .object-character-pose.pose-tteokPair { width: 232px; height: 205px; }
 .scene-card .object-character-pose { bottom: 1px; width: 234px; height: 218px; }
 .examples-screen .object-character-pose { width: 118px; height: 105px; }
 .object-art.compact::before, .object-art.compact::after { border-width: 1.4px; }

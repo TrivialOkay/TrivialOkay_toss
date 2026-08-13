@@ -44,6 +44,12 @@ const characterArtSources: Record<CharacterArt, string> = {
   sticker: "/mascot-poses/mascot-sticker.png",
   vending: "/mascot-poses/mascot-vending.png",
   tape: "/mascot-poses/mascot-tape.png",
+  soda: "/mascot-poses/mascot-soda.png",
+  cupnoodle: "/mascot-poses/mascot-cupnoodle.png",
+  onePercent: "/mascot-poses/mascot-one-percent.png",
+  fourcut: "/mascot-poses/mascot-fourcut.png",
+  shuffle: "/mascot-poses/mascot-shuffle.png",
+  tteokPair: "/mascot-poses/mascot-tteok-pair.png",
 };
 
 export function Stars({ count, small = false }: { count: number; small?: boolean }) {

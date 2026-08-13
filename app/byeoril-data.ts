@@ -18,7 +18,13 @@ export type CharacterArt =
   | "microwave"
   | "sticker"
   | "vending"
-  | "tape";
+  | "tape"
+  | "soda"
+  | "cupnoodle"
+  | "onePercent"
+  | "fourcut"
+  | "shuffle"
+  | "tteokPair";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -404,6 +410,66 @@ export const fortunes: Fortune[] = [
     characterArt: "tape",
     category: "일상",
   },
+  {
+    id: 56,
+    title: "탄산을 열었는데 거품이 입구에서 딱 멈출 수도 있습니다.",
+    cardTitle: "탄산 거품이 선을 지킴",
+    copy: "넘친다고 확신한 순간 거품이 스스로 멈췄습니다. 닦을 휴지를 찾던 손이 할 일을 잃었습니다.",
+    aside: "넘칠 듯하다\n안 넘침.",
+    asset: "snack",
+    characterArt: "soda",
+    category: "음식",
+  },
+  {
+    id: 57,
+    title: "컵라면 뚜껑이 젓가락 없이도 끝까지 얌전히 붙어 있을 수도 있습니다.",
+    cardTitle: "컵라면 뚜껑이 혼자 버팀",
+    copy: "포크도 휴대폰도 올리지 않았는데 뚜껑이 제 책임을 다했습니다. 면보다 먼저 익은 건 신뢰입니다.",
+    aside: "3분 동안\n자리 안 뜸.",
+    asset: "snack",
+    characterArt: "cupnoodle",
+    category: "음식",
+  },
+  {
+    id: 58,
+    title: "배터리 1%로 집 충전기 앞까지 무사히 도착할 수도 있습니다.",
+    cardTitle: "배터리 1%가 집까지 버팀",
+    copy: "꺼질 듯 말 듯 빨간 한 칸이 현관까지 따라왔습니다. 오늘의 휴대폰은 마지막 의리가 있었습니다.",
+    aside: "충전기 앞에서\n임무 완료.",
+    asset: "cable",
+    characterArt: "onePercent",
+    category: "일상",
+  },
+  {
+    id: 59,
+    title: "네 컷 사진 네 장에서 모두 눈을 뜨고 있을 수도 있습니다.",
+    cardTitle: "네 컷 모두 두 눈 생존",
+    copy: "한 장쯤 감겼을 법한데 네 번의 셔터를 전부 이겨냈습니다. 버릴 칸이 없어서 오히려 곤란합니다.",
+    aside: "네 장 전부\n눈 뜸.",
+    asset: "receipt",
+    characterArt: "fourcut",
+    category: "사람",
+  },
+  {
+    id: 60,
+    title: "랜덤 재생 첫 곡이 지금 딱 듣고 싶던 노래일 수도 있습니다.",
+    cardTitle: "랜덤 재생이 마음을 읽음",
+    copy: "수백 곡 중 하필 그 곡부터 나왔습니다. 알고리즘이 아니라 잠깐의 텔레파시였다고 해둡시다.",
+    aside: "첫 곡부터\n선곡 성공.",
+    asset: "earbuds",
+    characterArt: "shuffle",
+    category: "기타",
+  },
+  {
+    id: 61,
+    title: "떡볶이 떡 두 개가 나란히 붙어서 한 번에 집힐 수도 있습니다.",
+    cardTitle: "떡볶이에서 쌍떡 발견",
+    copy: "한 번 찍었는데 두 개가 따라왔습니다. 양이 늘어난 건 아니어도 한입의 기세는 두 배입니다.",
+    aside: "한 번 집고\n두 개 획득.",
+    asset: "snack",
+    characterArt: "tteokPair",
+    category: "음식",
+  },
 ];
 
 export const outcomeMeta: Record<
@@ -470,6 +536,12 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-56", date: monthDate(key, safeDay(6)), time: "15:24", fortuneId: 56, title: "탄산 거품이 선을 지킴", outcome: "happened", category: "음식", note: "거품이 입구까지 왔다가 진짜 멈춤", sample: true },
+    { id: "sample-57", date: monthDate(key, safeDay(7)), time: "22:03", fortuneId: 57, title: "컵라면 뚜껑이 혼자 버팀", outcome: "close", category: "음식", note: "아무것도 안 올렸는데 3분 버팀", sample: true },
+    { id: "sample-58", date: monthDate(key, safeDay(8)), time: "19:41", fortuneId: 58, title: "배터리 1%가 집까지 버팀", outcome: "happened", category: "일상", note: "현관 들어올 때까지 안 꺼졌음", sample: true },
+    { id: "sample-59", date: monthDate(key, safeDay(9)), time: "16:12", fortuneId: 59, title: "네 컷 모두 두 눈 생존", outcome: "happened", category: "사람", note: "네 장 다 눈 뜨고 찍힌 건 처음", sample: true },
+    { id: "sample-60", date: monthDate(key, safeDay(10)), time: "08:51", fortuneId: 60, title: "랜덤 재생이 마음을 읽음", outcome: "close", category: "기타", note: "누르자마자 듣고 싶던 곡 나옴", sample: true },
+    { id: "sample-61", date: monthDate(key, safeDay(11)), time: "20:36", fortuneId: 61, title: "떡볶이에서 쌍떡 발견", outcome: "happened", category: "음식", note: "포크 한 번에 떡 두 개 따라옴", sample: true },
     { id: "sample-51", date: monthDate(key, safeDay(1)), time: "12:04", fortuneId: 51, title: "삼각김밥 포장 완벽 해체", outcome: "happened", category: "음식", note: "김 한 장도 안 찢어지고 쏙 빠짐", sample: true },
     { id: "sample-52", date: monthDate(key, safeDay(2)), time: "19:32", fortuneId: 52, title: "컵 손잡이가 나를 보고 멈춤", outcome: "close", category: "일상", note: "문 열자 손잡이가 딱 앞에 있었음", sample: true },
     { id: "sample-53", date: monthDate(key, safeDay(3)), time: "14:48", fortuneId: 53, title: "스티커를 한 번에 완벽 제거함", outcome: "happened", category: "일상", note: "끈적이 하나 없이 통째로 떨어짐", sample: true },
