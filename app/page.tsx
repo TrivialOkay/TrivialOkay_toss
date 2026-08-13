@@ -38,9 +38,25 @@ const outcomeLabels: Record<Outcome, string> = {
   missed: "관측 실패",
 };
 
+type ArchiveType = "all" | "observation" | "news" | "award";
+
+const archiveTypes: Array<{ key: ArchiveType; label: string }> = [
+  { key: "all", label: "전체" },
+  { key: "observation", label: "관측 보고서" },
+  { key: "news", label: "별일 속보" },
+  { key: "award", label: "하찮은 수상작" },
+];
+
 function awardTitle(record: Pick<RecordItem, "fortuneId" | "title">) {
   const awards = ["뜻밖의 평화상", "아슬아슬 생존상", "쓸데없이 정확상", "오늘의 피식상", "3% 우주 기여상"];
   return awards[record.fortuneId % awards.length];
+}
+
+function archiveTypeFor(record: Pick<RecordItem, "outcome" | "fortuneId" | "title">) {
+  const grade = gradeFor(record);
+  if (grade.stars >= 4) return { key: "award" as const, label: "하찮은 수상작", mark: "AWARD" };
+  if (record.outcome === "happened") return { key: "news" as const, label: "별일 속보", mark: "LIVE" };
+  return { key: "observation" as const, label: "관측 보고서", mark: "OBS." };
 }
 
 function readStoredRecords(key: string) {
@@ -229,20 +245,22 @@ function CaptureScreen({
 function CardScreen({ record, onBack, onShare, onCollection, onReplay, onDelete }: { record: RecordItem; onBack: () => void; onShare: () => void; onCollection: () => void; onReplay: () => void; onDelete: () => void }) {
   const fortune = fortuneFor(record.fortuneId);
   const grade = gradeFor(record);
+  const archiveType = archiveTypeFor(record);
   return (
     <>
-      <Header title="별일 속보" onBack={onBack} right={<><button className="icon-button" onClick={onShare} aria-label="공유하기"><Icon name="share" /></button><button className="icon-button" onClick={onDelete} aria-label="카드 삭제"><Icon name="more" /></button></>} />
+      <Header title={archiveType.label} onBack={onBack} right={<><button className="icon-button" onClick={onShare} aria-label="공유하기"><Icon name="share" /></button><button className="icon-button" onClick={onDelete} aria-label="카드 삭제"><Icon name="more" /></button></>} />
       <section className="screen-content card-screen">
-        <article className="result-card news-card">
-          <div className="news-masthead"><strong>별일 속보국</strong><span>LIVE</span></div>
-          <p className="breaking-label">방금 들어온 별일</p>
+        <article className={`result-card archive-detail-card archive-detail-${archiveType.key}`}>
+          <div className="news-masthead"><strong>{archiveType.key === "news" ? "별일 속보국" : archiveType.key === "award" ? "별일 시상위원회" : "우주 관측 보고서"}</strong><span>{archiveType.mark}</span></div>
+          <p className="breaking-label">{archiveType.key === "news" ? "방금 들어온 별일" : archiveType.key === "award" ? "오늘의 하찮은 수상작" : "미세한 우주 개입 관측 결과"}</p>
           <div className="result-meta"><strong>NO.{String(record.fortuneId).padStart(3, "0")}</strong><span className={`grade-badge tone-${grade.tone}`}>{grade.grade}</span></div>
           <h2>{record.title}</h2>
           <Stars count={grade.stars} />
           {record.photoDataUrl ? <div className="card-photo"><img src={record.photoDataUrl} alt="기록 사진" /></div> : <FortuneScene kind={fortune.asset} speech={fortune.aside} characterArt={fortune.characterArt} card />}
-          <div className="news-ticker">속보 · 관측 완료 · 인명 피해 없음</div>
+          {archiveType.key === "news" && <div className="news-ticker">속보 · 실제 발생 · 인명 피해 없음</div>}
+          {archiveType.key === "observation" && <div className="cosmic-metrics"><span><small>개입도</small><strong>{grade.stars}%</strong></span><span><small>관측 오차</small><strong>{record.outcome === "close" ? "1cm" : "3cm"}</strong></span><span><small>우주 태도</small><strong>소극적</strong></span></div>}
+          {archiveType.key === "award" && <div className="tiny-award award-presentation"><span>본 기록을 공식 수상작으로 인정합니다</span><strong>{awardTitle(record)}</strong><small>우주 기여도 {grade.stars}%</small></div>}
           <div className="interpretation"><strong>관측국의 쓸데없이 진지한 해석</strong><p>{fortune.copy}</p><Mascot className="interpretation-mascot" /></div>
-          <div className="tiny-award"><span>오늘의 하찮은 수상작</span><strong>{awardTitle(record)}</strong><small>우주 기여도 {grade.stars}%</small></div>
           {record.note && <p className="record-quote">“{record.note}”</p>}
           <dl className="card-stats"><div><dt>발견 날짜</dt><dd>{record.date.replaceAll("-", ".")}</dd></div><div><dt>발견 시간</dt><dd>{record.time}</dd></div><div><dt>별일 횟수</dt><dd>{record.sample ? "3회" : "1회"}</dd></div></dl>
         </article>
@@ -252,25 +270,29 @@ function CardScreen({ record, onBack, onShare, onCollection, onReplay, onDelete 
   );
 }
 
-function CollectionScreen({ records, filter, searchOpen, search, onFilter, onSearchOpen, onSearch, onOpen, onGuide, onExamples }: { records: RecordItem[]; filter: string; searchOpen: boolean; search: string; onFilter: (value: string) => void; onSearchOpen: () => void; onSearch: (value: string) => void; onOpen: (record: RecordItem) => void; onGuide: () => void; onExamples: () => void }) {
+function CollectionScreen({ records, filter, archiveType, searchOpen, search, onFilter, onArchiveType, onSearchOpen, onSearch, onOpen, onGuide, onExamples }: { records: RecordItem[]; filter: string; archiveType: ArchiveType; searchOpen: boolean; search: string; onFilter: (value: string) => void; onArchiveType: (value: ArchiveType) => void; onSearchOpen: () => void; onSearch: (value: string) => void; onOpen: (record: RecordItem) => void; onGuide: () => void; onExamples: () => void }) {
   const summaryMonth = new Date().getMonth() + 1;
   const filtered = records.filter((record) => {
     const matchesGrade = filter === "전체" || gradeFor(record).grade === filter;
+    const matchesType = archiveType === "all" || archiveTypeFor(record).key === archiveType;
     const matchesSearch = !search.trim() || record.title.includes(search.trim());
-    return matchesGrade && matchesSearch;
+    return matchesGrade && matchesType && matchesSearch;
   });
   return (
     <>
       <Header title="별일 관측 보관소" right={<><button className="icon-button" onClick={onGuide} aria-label="별일 등급 안내"><Icon name="help" /></button><button className="icon-button" onClick={onSearchOpen} aria-label="도감 검색"><Icon name="search" /></button></>} />
       <section className="screen-content collection-screen">
         <button className="month-summary" data-theme-month={summaryMonth} onClick={onExamples}><span><small>{summaryMonth}월 관측국 브리핑</small><strong>대단한 우주 개입은 없었습니다.<br/>그래도 몇 번 피식했습니다.</strong></span><MonthlyMascot month={summaryMonth} className="summary-mascot" /></button>
+        <p className="archive-intro">지금까지 공식 확인된<br/><strong>쓸데없이 소중한 별일들입니다.</strong></p>
         {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="별일을 검색해보세요"/></label>}
+        <div className="archive-type-row" role="group" aria-label="카드 유형 필터">{archiveTypes.map((item) => <button key={item.key} className={archiveType === item.key ? "active" : ""} onClick={() => onArchiveType(item.key)}>{item.label}</button>)}</div>
         <div className="filter-row" role="group" aria-label="도감 필터">{collectionFilters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => onFilter(item)}>{item}</button>)}</div>
-        <div className="collection-list">
+        <div className="collection-poster-grid">
           {filtered.map((record) => {
             const fortune = fortuneFor(record.fortuneId);
             const grade = gradeFor(record);
-            return <button className={`collection-item ${record.fortuneId === 23 ? "featured" : ""}`} key={record.id} onClick={() => onOpen(record)}><span className="collection-number">{String(record.fortuneId).padStart(3, "0")}</span><span className="collection-art"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} compact /></span><span className="collection-copy"><strong>{record.title}</strong><small>★ {grade.grade}<b>발견 {record.sample ? (record.fortuneId % 8) + 2 : 1}회</b></small></span></button>;
+            const type = archiveTypeFor(record);
+            return <button className={`collection-poster poster-${type.key}`} key={record.id} onClick={() => onOpen(record)}><span className="poster-top"><b>NO.{String(record.fortuneId).padStart(3, "0")}</b><em>{type.mark}</em></span><span className="poster-type">{type.label}</span><span className="poster-art"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} /></span><strong className="poster-title">{record.title}</strong><span className="poster-footer">{type.key === "award" ? awardTitle(record) : type.key === "news" ? "인명 피해 없음" : `개입도 ${grade.stars}% · 오차 ${record.outcome === "close" ? 1 : 3}cm`}</span><small>★ {grade.grade}</small></button>;
           })}
           {!filtered.length && <div className="empty-state"><Mascot/><strong>조건에 맞는 별일이 없어요.</strong></div>}
         </div>
@@ -361,6 +383,7 @@ export default function Home() {
   const [records, setRecords] = useState<RecordItem[]>(makeSampleRecords(now));
   const [activeRecord, setActiveRecord] = useState<RecordItem | null>(null);
   const [filter, setFilter] = useState<string>("전체");
+  const [archiveType, setArchiveType] = useState<ArchiveType>("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(monthKey(now));
@@ -421,7 +444,7 @@ export default function Home() {
 
   async function shareRecord() {
     if (!activeRecord) return;
-    const text = `별일 NO.${String(activeRecord.fortuneId).padStart(3, "0")} · ${activeRecord.title} · ${gradeFor(activeRecord).grade}`;
+    const text = `${archiveTypeFor(activeRecord).label} NO.${String(activeRecord.fortuneId).padStart(3, "0")} · ${activeRecord.title} · ${gradeFor(activeRecord).grade}`;
     try {
       if (navigator.share) await navigator.share({ title: "별일", text });
       else { await navigator.clipboard.writeText(text); setToast("카드 문구를 복사했어요"); }
@@ -451,7 +474,7 @@ export default function Home() {
         {view === "examples" && <ExamplesScreen onBack={backToMain} />}
         {view === "guide" && <GuideScreen onBack={backToMain} />}
         {mainVisible && tab === "today" && <TodayScreen fortuneIndex={fortuneIndex} revealed={fortuneRevealed} outcome={outcome} onOutcome={setOutcome} onCycle={cycleFortune} onReveal={() => setFortuneRevealed(true)} onCapture={() => { setCategory(fortune.category); setView("capture"); }} onAbout={() => moveTab("about")} />}
-        {mainVisible && tab === "collection" && <CollectionScreen records={records} filter={filter} searchOpen={searchOpen} search={search} onFilter={setFilter} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCard} onGuide={() => setView("guide")} onExamples={() => setView("examples")} />}
+        {mainVisible && tab === "collection" && <CollectionScreen records={records} filter={filter} archiveType={archiveType} searchOpen={searchOpen} search={search} onFilter={setFilter} onArchiveType={setArchiveType} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCard} onGuide={() => setView("guide")} onExamples={() => setView("examples")} />}
         {mainVisible && tab === "records" && <RecordsScreen records={records} selectedMonth={selectedMonth} onMonth={setSelectedMonth} onReport={() => setView("report")} onOpen={openCard} />}
         {mainVisible && tab === "about" && <AboutScreen onGuide={() => setView("guide")} onExamples={() => setView("examples")} onReset={resetRecords} confirming={confirmReset} />}
         {mainVisible && <BottomNav tab={tab} onMove={moveTab} />}
