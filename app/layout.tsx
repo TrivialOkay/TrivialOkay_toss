@@ -2,13 +2,21 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "별일 — 하찮은 운세 기록소",
-  description: "오늘의 하찮은 운세를 확인하고, 정말 일어났는지 기록해 나만의 별일 도감을 채워보세요.",
+  metadataBase: new URL("https://byeoril-day.stevechan970427.chatgpt.site"),
+  title: "별일 관측국 — 하찮은 일을 쓸데없이 진지하게",
+  description: "아무 일도 아닌 일을 관측하고, 속보로 보도하고, 하찮게 시상하는 운세 기록소입니다.",
   applicationName: "별일",
   openGraph: {
-    title: "별일 — 하찮은 운세 기록소",
-    description: "대단한 일은 없었어도, 오늘의 작은 별일은 남겨두세요.",
+    title: "별일 관측국 — 하찮은 일을 쓸데없이 진지하게",
+    description: "오늘의 미세한 우주 개입을 예보하고, 관측하고, 속보로 남겨보세요.",
     type: "website",
+    images: [{ url: "/og.png", width: 1731, height: 909, alt: "별일 관측국 — 아무 일도 아닌 일을 관측하고 보도하고 시상합니다." }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "별일 관측국 — 하찮은 일을 쓸데없이 진지하게",
+    description: "오늘의 미세한 우주 개입을 예보하고, 관측하고, 속보로 남겨보세요.",
+    images: ["/og.png"],
   },
 };
 

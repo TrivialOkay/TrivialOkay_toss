@@ -18,18 +18,18 @@ test("server-renders the Byeoril Today screen", async () => {
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /<title>별일 — 하찮은 운세 기록소<\/title>/i);
-  assert.match(html, /오늘의 하찮은 운세/);
-  assert.match(html, /실제로 일어났나요/);
-  assert.match(html, /사진 찍고 기록하기/);
-  assert.match(html, /별일 도감/);
+  assert.match(html, /<title>별일 관측국 — 하찮은 일을 쓸데없이 진지하게<\/title>/i);
+  assert.match(html, /오늘의 별일 예보/);
+  assert.match(html, /실제로 관측됐나요/);
+  assert.match(html, /관측 증거 남기기/);
+  assert.match(html, />보관소</);
   assert.doesNotMatch(html, /codex-preview|Building your site|Your site is taking shape/i);
 });
 
 test("renders accessible primary navigation", async () => {
   const html = await (await render()).text();
   assert.match(html, /<nav[^>]*aria-label="주요 메뉴"/i);
-  for (const label of ["오늘", "도감", "기록", "내 정보"]) assert.match(html, new RegExp(`>${label}<`));
+  for (const label of ["예보", "보관소", "관측일지", "내 정보"]) assert.match(html, new RegExp(`>${label}<`));
   assert.match(html, /aria-label="오늘의 운세 결과"/i);
 });
 

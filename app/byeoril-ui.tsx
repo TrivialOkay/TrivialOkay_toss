@@ -141,9 +141,9 @@ export function StatusBar() {
 
 export function BottomNav({ tab, onMove }: { tab: Tab; onMove: (tab: Tab) => void }) {
   const items: Array<{ key: Tab; label: string }> = [
-    { key: "today", label: "오늘" },
-    { key: "collection", label: "도감" },
-    { key: "records", label: "기록" },
+    { key: "today", label: "예보" },
+    { key: "collection", label: "보관소" },
+    { key: "records", label: "관측일지" },
     { key: "about", label: "내 정보" },
   ];
   return (

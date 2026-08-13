@@ -32,6 +32,17 @@ const migrationKey = "byeoril-records-v1-migrated";
 const sampleCatalogKey = "byeoril-sample-catalog-version";
 const sampleCatalogVersion = "2026-08-fortunes-83-lucky-near-misses";
 
+const outcomeLabels: Record<Outcome, string> = {
+  happened: "관측 성공",
+  close: "유사 관측",
+  missed: "관측 실패",
+};
+
+function awardTitle(record: Pick<RecordItem, "fortuneId" | "title">) {
+  const awards = ["뜻밖의 평화상", "아슬아슬 생존상", "쓸데없이 정확상", "오늘의 피식상", "3% 우주 기여상"];
+  return awards[record.fortuneId % awards.length];
+}
+
 function readStoredRecords(key: string) {
   const stored = window.localStorage.getItem(key);
   if (!stored) return null;
@@ -143,31 +154,31 @@ function TodayScreen({
   const fortune = fortunes[fortuneIndex];
   return (
     <>
-      <header className="today-header"><h1>오늘</h1><button className="icon-button" onClick={onAbout} aria-label="내 정보 열기"><Icon name="settings" /></button></header>
+      <header className="today-header"><div><h1>별일 관측국</h1><small>오늘의 미세한 우주 개입 예보</small></div><button className="icon-button" onClick={onAbout} aria-label="내 정보 열기"><Icon name="settings" /></button></header>
       <section className="screen-content today-screen" aria-labelledby="today-date">
         <div className="today-date-row">
           <div className="date-button" id="today-date">{dateLabel()} <Icon name="chevron-down" /></div>
           <button className="outline-button fortune-refresh" onClick={onCycle}><Icon name="refresh" />다른 운세 보기</button>
         </div>
         <article className="fortune-card">
-          <div className="fortune-kicker"><span className="crystal-ball" />오늘의 하찮은 운세<span className="help-circle">?</span></div>
+          <div className="fortune-kicker"><span className="crystal-ball" />오늘의 별일 예보<span className="observation-live">관측 중</span><span className="help-circle">?</span></div>
           <h2>{revealed ? fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
-          <p>{revealed ? "큰 기대는 금물!" : "돌리고, 누르고, 문지르면 와장창."}</p>
+          <p>{revealed ? "우주 기여도 3% · 큰 기대는 금물!" : "돌리고, 누르고, 문지르면 예보가 나옵니다."}</p>
           <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
             <FortuneBall key={fortune.id} fortune={fortune.title} aside={fortune.aside} ballKind={fortuneBallKinds[fortuneIndex % fortuneBallKinds.length]} onReveal={onReveal} />
           </Suspense>
         </article>
         <section className={`outcome-section ${revealed ? "" : "is-locked"}`} aria-hidden={!revealed}>
-          <h2>이런 일, 실제로 일어났나요?</h2>
+          <h2>이런 별일, 실제로 관측됐나요?</h2>
           <div className="outcome-grid" role="group" aria-label="오늘의 운세 결과">
             {(Object.keys(outcomeMeta) as Outcome[]).map((key) => (
               <button key={key} disabled={!revealed} className={`outcome-button ${outcome === key ? "selected" : ""}`} onClick={() => onOutcome(key)} aria-pressed={outcome === key}>
-                <strong>{outcomeMeta[key].label}</strong><OutcomeFace outcome={key} />
+                <strong>{outcomeLabels[key]}</strong><OutcomeFace outcome={key} />
               </button>
             ))}
           </div>
         </section>
-        <button className="photo-record-button" aria-label="사진 찍고 기록하기" disabled={!revealed} onClick={onCapture}><span className="camera-symbol"><Icon name="camera" /></span><strong>{revealed ? <>사진 찍고 기록하기 <small>(선택)</small></> : "운세를 꺼내면 기록할 수 있어요"}</strong><Icon name="chevron-right" /></button>
+        <button className="photo-record-button" aria-label="관측 증거 남기기" disabled={!revealed} onClick={onCapture}><span className="camera-symbol"><Icon name="camera" /></span><strong>{revealed ? <>관측 증거 남기기 <small>(사진 선택)</small></> : "예보를 꺼내면 관측할 수 있어요"}</strong><Icon name="chevron-right" /></button>
       </section>
     </>
   );
@@ -195,9 +206,10 @@ function CaptureScreen({
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <>
-      <Header title="기록하기" onBack={onBack} />
+      <Header title="관측 기록하기" onBack={onBack} />
       <section className="screen-content capture-screen">
-        <h2>어떤 일이었나요?</h2>
+        <div className="bureau-step"><b>관측 02</b><span>사건을 공식 기록으로 남깁니다</span></div>
+        <h2>어떤 별일이었나요?</h2>
         <div className="category-grid" role="group" aria-label="기록 카테고리">
           {categories.map((item) => <button key={item} className={category === item ? "active" : ""} onClick={() => onCategory(item)}>{item}</button>)}
         </div>
@@ -208,7 +220,7 @@ function CaptureScreen({
         </button>
         <input ref={inputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={(event) => event.target.files?.[0] && onPhoto(event.target.files[0])} />
         <label className="memo-field">짧은 한 줄 메모 <span>(선택)</span><textarea value={note} maxLength={40} onChange={(event) => onNote(event.target.value)} placeholder="버튼 누르려 했는데 이미 열려있음 ㅋㅋ"/><small>{note.length}/40</small></label>
-        <button className="black-button record-submit" onClick={onSave}>기록 완료!</button>
+        <button className="black-button record-submit" onClick={onSave}>별일 속보 발행!</button>
       </section>
     </>
   );
@@ -219,14 +231,18 @@ function CardScreen({ record, onBack, onShare, onCollection, onReplay, onDelete 
   const grade = gradeFor(record);
   return (
     <>
-      <Header title="카드 보기" onBack={onBack} right={<><button className="icon-button" onClick={onShare} aria-label="공유하기"><Icon name="share" /></button><button className="icon-button" onClick={onDelete} aria-label="카드 삭제"><Icon name="more" /></button></>} />
+      <Header title="별일 속보" onBack={onBack} right={<><button className="icon-button" onClick={onShare} aria-label="공유하기"><Icon name="share" /></button><button className="icon-button" onClick={onDelete} aria-label="카드 삭제"><Icon name="more" /></button></>} />
       <section className="screen-content card-screen">
-        <article className="result-card">
+        <article className="result-card news-card">
+          <div className="news-masthead"><strong>별일 속보국</strong><span>LIVE</span></div>
+          <p className="breaking-label">방금 들어온 별일</p>
           <div className="result-meta"><strong>NO.{String(record.fortuneId).padStart(3, "0")}</strong><span className={`grade-badge tone-${grade.tone}`}>{grade.grade}</span></div>
           <h2>{record.title}</h2>
           <Stars count={grade.stars} />
           {record.photoDataUrl ? <div className="card-photo"><img src={record.photoDataUrl} alt="기록 사진" /></div> : <FortuneScene kind={fortune.asset} speech={fortune.aside} characterArt={fortune.characterArt} card />}
-          <div className="interpretation"><strong>AI의 쓸데없는 해석</strong><p>{fortune.copy}</p><Mascot className="interpretation-mascot" /></div>
+          <div className="news-ticker">속보 · 관측 완료 · 인명 피해 없음</div>
+          <div className="interpretation"><strong>관측국의 쓸데없이 진지한 해석</strong><p>{fortune.copy}</p><Mascot className="interpretation-mascot" /></div>
+          <div className="tiny-award"><span>오늘의 하찮은 수상작</span><strong>{awardTitle(record)}</strong><small>우주 기여도 {grade.stars}%</small></div>
           {record.note && <p className="record-quote">“{record.note}”</p>}
           <dl className="card-stats"><div><dt>발견 날짜</dt><dd>{record.date.replaceAll("-", ".")}</dd></div><div><dt>발견 시간</dt><dd>{record.time}</dd></div><div><dt>별일 횟수</dt><dd>{record.sample ? "3회" : "1회"}</dd></div></dl>
         </article>
@@ -245,9 +261,9 @@ function CollectionScreen({ records, filter, searchOpen, search, onFilter, onSea
   });
   return (
     <>
-      <Header title="별일 도감" right={<><button className="icon-button" onClick={onGuide} aria-label="별일 등급 안내"><Icon name="help" /></button><button className="icon-button" onClick={onSearchOpen} aria-label="도감 검색"><Icon name="search" /></button></>} />
+      <Header title="별일 관측 보관소" right={<><button className="icon-button" onClick={onGuide} aria-label="별일 등급 안내"><Icon name="help" /></button><button className="icon-button" onClick={onSearchOpen} aria-label="도감 검색"><Icon name="search" /></button></>} />
       <section className="screen-content collection-screen">
-        <button className="month-summary" data-theme-month={summaryMonth} onClick={onExamples}><span><small>{summaryMonth}월의 한 줄 요약</small><strong>대단한 일은 없었습니다.<br/>그래도 꽤 괜찮았어요.</strong></span><MonthlyMascot month={summaryMonth} className="summary-mascot" /></button>
+        <button className="month-summary" data-theme-month={summaryMonth} onClick={onExamples}><span><small>{summaryMonth}월 관측국 브리핑</small><strong>대단한 우주 개입은 없었습니다.<br/>그래도 몇 번 피식했습니다.</strong></span><MonthlyMascot month={summaryMonth} className="summary-mascot" /></button>
         {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="별일을 검색해보세요"/></label>}
         <div className="filter-row" role="group" aria-label="도감 필터">{collectionFilters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => onFilter(item)}>{item}</button>)}</div>
         <div className="collection-list">
@@ -269,7 +285,7 @@ function RecordsScreen({ records, selectedMonth, onMonth, onReport, onOpen }: { 
   const today = localDateKey();
   return (
     <>
-      <Header title="내 기록" right={<button className="icon-button" onClick={onReport} aria-label="월간 리포트"><Icon name="chart" /></button>} />
+      <Header title="관측 일지" right={<button className="icon-button" onClick={onReport} aria-label="월간 리포트"><Icon name="chart" /></button>} />
       <section className="screen-content records-screen">
         <div className="month-switcher"><button onClick={() => onMonth(shiftMonth(selectedMonth, -1))}><Icon name="back" /></button><strong>{monthLabel(selectedMonth)}</strong><button onClick={() => onMonth(shiftMonth(selectedMonth, 1))}><Icon name="chevron-right" /></button></div>
         <div className="calendar"><div className="week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid">{cells.map((day, index) => { const key = day ? `${selectedMonth}-${String(day).padStart(2, "0")}` : ""; const has = monthRecords.some((record) => record.date === key); return <span key={`${day}-${index}`} className={`${key === today ? "today" : ""} ${has ? "has-record" : ""}`}>{day || ""}</span>; })}</div></div>
@@ -278,7 +294,7 @@ function RecordsScreen({ records, selectedMonth, onMonth, onReport, onOpen }: { 
           {monthRecords.map((record) => { const fortune = fortuneFor(record.fortuneId); const grade = gradeFor(record); return <button key={record.id} onClick={() => onOpen(record)}><span className="record-thumb"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} compact /></span><span><strong>{record.title}</strong><small>{record.time} · {record.category}</small></span><em className={`grade-badge tone-${grade.tone}`}>{grade.grade}</em></button>; })}
           {!monthRecords.length && <div className="empty-state compact"><Mascot/><strong>이 달의 기록이 아직 없어요.</strong></div>}
         </div>
-        <button className="month-comment" onClick={onReport}><span><small>오늘의 코멘트</small><strong>별일 없는 하루였지만,<br/>이런 게 웃어 인생이 되더라구요.</strong></span><Mascot /></button>
+        <button className="month-comment" onClick={onReport}><span><small>관측국 코멘트</small><strong>인생에 큰 영향은 없었지만,<br/>보고서 쓸 정도는 됐습니다.</strong></span><Mascot /></button>
       </section>
     </>
   );
@@ -300,15 +316,15 @@ function ReportScreen({ records, month, onBack, onMonth }: { records: RecordItem
   const max = Math.max(1, ...Object.values(gradeCounts));
   return (
     <>
-      <Header title="월간 리포트" onBack={onBack} right={<Icon name="chart" />} />
+      <Header title="월간 우주 개입 보고서" onBack={onBack} right={<Icon name="chart" />} />
       <section className="screen-content report-screen">
         <div className="month-switcher"><button onClick={() => onMonth(shiftMonth(month, -1))}><Icon name="back" /></button><strong>{monthLabel(month)}</strong><button onClick={() => onMonth(shiftMonth(month, 1))}><Icon name="chevron-right" /></button></div>
-        <div className="report-hero" data-theme-month={reportMonth}><h2>대단한 일은 없었습니다.<br/>그래도 꽤 괜찮았어요.</h2><MonthlyMascot month={reportMonth} className="report-mascot" /></div>
-        <h3>별일 농도 분포</h3>
+        <div className="report-hero" data-theme-month={reportMonth}><small>관측 결론</small><h2>대단한 우주 개입은 없었습니다.<br/>그래도 몇 번 피식했습니다.</h2><MonthlyMascot month={reportMonth} className="report-mascot" /></div>
+        <h3>우주 개입 농도 분포</h3>
         <div className="bar-chart">{[
           ["혼함", gradeCounts["혼함"], "gray"], ["꽤 괜찮음", gradeCounts["꽤 괜찮음"], "green"], ["이왜진", gradeCounts["이왜진"], "violet"], ["오늘 좀 됨", gradeCounts["오늘 좀 됨"], "blue"], ["우주 개입", gradeCounts["우주 개입"], "pink"],
         ].map(([label, count, tone]) => <div key={String(label)}><span><strong>{count}</strong><i className={`bar-${tone}`} style={{ height: `${22 + (Number(count) / max) * 88}px` }} /></span><small>{label}</small></div>)}</div>
-        <h3>가장 많이 발견한 별일 TOP 3</h3>
+        <h3>이번 달 하찮은 수상작 TOP 3</h3>
         <ol className="top-list">{top.map((item, index) => <li key={item.id}><b>{index + 1}</b><span>{item.title}</span><strong>{item.count}회</strong></li>)}</ol>
       </section>
     </>
@@ -318,17 +334,17 @@ function ReportScreen({ records, month, onBack, onMonth }: { records: RecordItem
 function ExamplesScreen({ onBack }: { onBack: () => void }) {
   const examples = [fortunes.find((fortune) => fortune.id === 94), fortunes.find((fortune) => fortune.id === 96), fortunes.find((fortune) => fortune.id === 103)].filter((fortune): fortune is (typeof fortunes)[number] => Boolean(fortune));
   return (
-    <><Header title="다른 카드 예시" onBack={onBack}/><section className="screen-content examples-screen">{examples.map((fortune, index) => <article className="example-card" key={fortune.id}><div><small>NO.{String(fortune.id).padStart(3, "0")}</small><span className={`grade-badge tone-${index === 0 ? "gray" : index === 1 ? "green" : "yellow"}`}>{index === 0 ? "혼함" : index === 1 ? "꽤 괜찮음" : "오늘 좀 됨"}</span></div><h2>{fortune.cardTitle}</h2><Stars count={index + 1} small/><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt}/><p>{fortune.aside.replaceAll("\n", " ")}</p></article>)}</section></>
+    <><Header title="하찮은 수상작" onBack={onBack}/><section className="screen-content examples-screen">{examples.map((fortune, index) => <article className="example-card award-card" key={fortune.id}><div><small>NO.{String(fortune.id).padStart(3, "0")}</small><span className="award-ribbon">{["뜻밖의 평화상", "아슬아슬 생존상", "오늘의 피식상"][index]}</span></div><h2>{fortune.cardTitle}</h2><Stars count={index + 1} small/><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt}/><p>{fortune.aside.replaceAll("\n", " ")}</p></article>)}</section></>
   );
 }
 
 function GuideScreen({ onBack }: { onBack: () => void }) {
-  return <><Header title="별일 농도 안내" onBack={onBack}/><section className="screen-content guide-screen"><p>당신 기준으로 얼마나 드문 일이었는지 AI가 계산해요.</p>{gradeGuide.map((item, index) => <article key={item.grade}><OutcomeFace outcome={index === 0 ? "missed" : index === 1 ? "close" : "happened"}/><div><strong>{item.grade}</strong><span>(별 {item.stars}개)</span><p>{item.copy}</p></div></article>)}</section></>;
+  return <><Header title="우주 개입 농도 안내" onBack={onBack}/><section className="screen-content guide-screen"><p>관측된 별일에 우주가 얼마나 쓸데없이 개입했는지 계산해요.</p>{gradeGuide.map((item, index) => <article key={item.grade}><OutcomeFace outcome={index === 0 ? "missed" : index === 1 ? "close" : "happened"}/><div><strong>{item.grade}</strong><span>(별 {item.stars}개)</span><p>{item.copy}</p></div></article>)}</section></>;
 }
 
 function AboutScreen({ onGuide, onExamples, onReset, confirming }: { onGuide: () => void; onExamples: () => void; onReset: () => void; confirming: boolean }) {
   return (
-    <><Header title="별일은?"/><section className="screen-content about-screen"><div className="brand-lockup"><strong>별일</strong><i>✦</i></div><p className="about-lead">아무 일도 아닌 일을<br/>굳이 운세로 알려드립니다.</p><h2>이 앱은?</h2><p>하찮은 운세를 보고 실제로 일어났는지 기록하면 AI가 피식한 카드를 만들어줘요. 그 모든 걸 ‘별일 도감’에 모을 수 있어요.</p><h2>사용 흐름</h2><ol><li><b>1</b>오늘의 하찮은 운세 보기</li><li><b>2</b>실제로 일어났는지 기록</li><li><b>3</b>AI가 카드 생성</li><li><b>4</b>도감에 자동 저장</li></ol><div className="about-actions"><button onClick={onGuide}>별일 농도 안내<Icon name="chevron-right"/></button><button onClick={onExamples}>다른 카드 예시<Icon name="chevron-right"/></button><button className={confirming ? "danger" : ""} onClick={onReset}>{confirming ? "한 번 더 누르면 기록이 삭제돼요" : "내 기록 초기화"}</button></div><div className="about-character"><span>인생, 별거 없지만<br/>이런 재미로 사는 거지.</span><Mascot/></div></section></>
+    <><Header title="별일 관측국은?"/><section className="screen-content about-screen"><div className="brand-lockup"><strong>별일</strong><i>✦</i><span>관측국</span></div><p className="about-lead">아무 일도 아닌 일을<br/>쓸데없이 관측하고, 보도하고, 시상합니다.</p><h2>이 앱은?</h2><p>오늘의 하찮은 예보가 실제로 관측되면 속보 카드가 만들어지고, 공식 보관소에 저장돼요. 아주 가끔은 상도 줍니다.</p><h2>관측 절차</h2><ol><li><b>1</b>미세한 우주 개입 예보 확인</li><li><b>2</b>실제로 일어났는지 관측</li><li><b>3</b>별일 속보 카드 발행</li><li><b>4</b>하찮은 수상작으로 보관</li></ol><div className="about-actions"><button onClick={onGuide}>우주 개입 농도 안내<Icon name="chevron-right"/></button><button onClick={onExamples}>하찮은 수상작 보기<Icon name="chevron-right"/></button><button className={confirming ? "danger" : ""} onClick={onReset}>{confirming ? "한 번 더 누르면 기록이 삭제돼요" : "내 기록 초기화"}</button></div><div className="about-character"><span>우주가 도운 건 3%.<br/>기록한 건 우리.</span><Mascot/></div></section></>
   );
 }
 
@@ -400,7 +416,7 @@ export default function Home() {
   function saveRecord() {
     const created = new Date();
     const record: RecordItem = { id: String(created.getTime()), date: localDateKey(created), time: created.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }), fortuneId: fortune.id, title: fortune.cardTitle, outcome, category, note: note.trim(), photoDataUrl: photo ?? undefined };
-    persist([record, ...records]); setActiveRecord(record); setView("card"); setToast("도감에 자동 저장했어요");
+    persist([record, ...records]); setActiveRecord(record); setView("card"); setToast("속보 발행 완료 · 보관소에 자동 저장했어요");
   }
 
   async function shareRecord() {
