@@ -46,7 +46,17 @@ export type CharacterArt =
   | "openBag"
   | "cardSleeve"
   | "fullEarbuds"
-  | "oneStaple";
+  | "oneStaple"
+  | "cookieRescue"
+  | "spoonBridge"
+  | "sheetCorner"
+  | "cleanPopcorn"
+  | "twinToast"
+  | "oneShampoo"
+  | "cleanSeasoning"
+  | "peaToothpaste"
+  | "readySlippers"
+  | "soloDumpling";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -712,6 +722,106 @@ export const fortunes: Fortune[] = [
     characterArt: "oneStaple",
     category: "일상",
   },
+  {
+    id: 84,
+    title: "우유에 찍은 쿠키가 안 부서지고 다시 올라올 수도 있습니다.",
+    cardTitle: "우유에 빠진 쿠키를 구조함",
+    copy: "쿠키가 우유 속에 영구 취업하지 않고 원래 모양으로 귀환했습니다. 숟가락 구조대는 오늘 쉽니다.",
+    aside: "우유 속\n실종자 0명.",
+    asset: "snack",
+    characterArt: "cookieRescue",
+    category: "음식",
+  },
+  {
+    id: 85,
+    title: "국그릇에 걸쳐 둔 숟가락이 안으로 미끄러지지 않을 수도 있습니다.",
+    cardTitle: "숟가락이 국에 잠수하지 않음",
+    copy: "손잡이까지 따뜻해지는 비극 없이 양쪽 그릇 턱에서 균형을 지켰습니다. 식탁 위 작은 현수교가 완공됐습니다.",
+    aside: "숟가락\n입수 취소.",
+    asset: "snack",
+    characterArt: "spoonBridge",
+    category: "음식",
+  },
+  {
+    id: 86,
+    title: "잠자는 동안 침대 시트 모서리가 한 군데도 빠지지 않을 수도 있습니다.",
+    cardTitle: "침대 시트 네 모서리가 밤새 버팀",
+    copy: "아침에 일어났는데 매트리스가 배를 드러내지 않았습니다. 네 모서리가 야간 근무를 무사히 마쳤습니다.",
+    aside: "밤새 탈주한\n모서리 0개.",
+    asset: "laundry",
+    characterArt: "sheetCorner",
+    category: "일상",
+  },
+  {
+    id: 87,
+    title: "팝콘을 다 먹고도 이 사이에 껍질이 하나도 안 낄 수도 있습니다.",
+    cardTitle: "팝콘 껍질이 이에 안 낌",
+    copy: "혀로 치과 탐사할 일 없이 입안이 조용합니다. 영화 엔딩과 함께 팝콘도 깔끔하게 퇴장했습니다.",
+    aside: "혀의 잔업\n없었음.",
+    asset: "snack",
+    characterArt: "cleanPopcorn",
+    category: "음식",
+  },
+  {
+    id: 88,
+    title: "토스터에서 나온 식빵 두 장이 똑같은 색일 수도 있습니다.",
+    cardTitle: "식빵 두 장이 같은 만큼 구워짐",
+    copy: "한 장만 석양이고 다른 한 장은 새벽인 참사 없이 둘 다 같은 아침을 맞았습니다. 잼도 편을 고를 필요가 없습니다.",
+    aside: "탄 쪽 찾기\n실패.",
+    asset: "bread",
+    characterArt: "twinToast",
+    category: "음식",
+  },
+  {
+    id: 89,
+    title: "샴푸 펌프를 한 번 눌렀는데 정말 한 번 분량만 나올 수도 있습니다.",
+    cardTitle: "샴푸가 한 번만큼만 나옴",
+    copy: "반 펌프도 두 펌프도 아닌 계획한 만큼만 손바닥에 착륙했습니다. 머리카락보다 펌프가 먼저 철들었습니다.",
+    aside: "욕심 없는\n한 펌프.",
+    asset: "laundry",
+    characterArt: "oneShampoo",
+    category: "일상",
+  },
+  {
+    id: 90,
+    title: "라면 스프 봉지가 가루 한 톨 날리지 않고 열릴 수도 있습니다.",
+    cardTitle: "라면 스프가 조용히 개봉됨",
+    copy: "식탁도 손가락도 매운 먼지 없이 봉투 입구만 얌전히 열렸습니다. 재채기와의 면담은 취소됐습니다.",
+    aside: "매운 안개\n발생 안 함.",
+    asset: "snack",
+    characterArt: "cleanSeasoning",
+    category: "음식",
+  },
+  {
+    id: 91,
+    title: "치약이 칫솔 위에 콩알만큼만 나올 수도 있습니다.",
+    cardTitle: "치약이 진짜 콩알만큼 나옴",
+    copy: "광고처럼 길게 눕지도 세면대로 추락하지도 않고 칫솔 중앙에 작은 점으로 앉았습니다. 치약이 단위를 지켰습니다.",
+    aside: "콩알과\n협의 완료.",
+    asset: "pen",
+    characterArt: "peaToothpaste",
+    category: "일상",
+  },
+  {
+    id: 92,
+    title: "현관 슬리퍼 두 짝이 신기 좋게 바깥쪽을 보고 있을 수도 있습니다.",
+    cardTitle: "슬리퍼가 먼저 외출 준비함",
+    copy: "발로 돌려놓을 필요 없이 두 짝 모두 문밖을 바라보고 있었습니다. 나보다 먼저 마음은 외출 중입니다.",
+    aside: "발 넣고\n바로 출발.",
+    asset: "delivery",
+    characterArt: "readySlippers",
+    category: "일상",
+  },
+  {
+    id: 93,
+    title: "냉동만두가 서로 붙지 않고 한 개씩 떨어질 수도 있습니다.",
+    cardTitle: "냉동만두가 각자 살고 있음",
+    copy: "봉지를 바닥에 내려칠 필요 없이 만두들이 개인 생활을 존중하고 있었습니다. 오늘 해동할 사람만 조용히 나왔습니다.",
+    aside: "만두 단체전\n취소.",
+    asset: "snack",
+    characterArt: "soloDumpling",
+    category: "음식",
+  },
 ];
 
 export const outcomeMeta: Record<
@@ -778,6 +888,16 @@ export function makeSampleRecords(now = new Date()): RecordItem[] {
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
+    { id: "sample-84", date: monthDate(key, safeDay(3)), time: "16:08", fortuneId: 84, title: "우유에 빠진 쿠키를 구조함", outcome: "happened", category: "음식", note: "쿠키가 안 부서지고 그대로 다시 올라옴", sample: true },
+    { id: "sample-85", date: monthDate(key, safeDay(4)), time: "12:36", fortuneId: 85, title: "숟가락이 국에 잠수하지 않음", outcome: "close", category: "음식", note: "그릇 위에서 끝까지 균형을 지킴", sample: true },
+    { id: "sample-86", date: monthDate(key, safeDay(5)), time: "07:21", fortuneId: 86, title: "침대 시트 네 모서리가 밤새 버팀", outcome: "happened", category: "일상", note: "아침에도 시트 모서리가 전부 붙어 있었음", sample: true },
+    { id: "sample-87", date: monthDate(key, safeDay(6)), time: "22:17", fortuneId: 87, title: "팝콘 껍질이 이에 안 낌", outcome: "happened", category: "음식", note: "한 통 다 먹었는데 혀가 할 일이 없었음", sample: true },
+    { id: "sample-88", date: monthDate(key, safeDay(7)), time: "08:02", fortuneId: 88, title: "식빵 두 장이 같은 만큼 구워짐", outcome: "close", category: "음식", note: "두 장 색이 거의 복사한 것처럼 똑같았음", sample: true },
+    { id: "sample-89", date: monthDate(key, safeDay(8)), time: "07:44", fortuneId: 89, title: "샴푸가 한 번만큼만 나옴", outcome: "happened", category: "일상", note: "펌프가 욕심 안 내고 딱 한 번만 나옴", sample: true },
+    { id: "sample-90", date: monthDate(key, safeDay(9)), time: "19:13", fortuneId: 90, title: "라면 스프가 조용히 개봉됨", outcome: "happened", category: "음식", note: "가루 한 톨 안 날리고 봉지만 열림", sample: true },
+    { id: "sample-91", date: monthDate(key, safeDay(10)), time: "23:04", fortuneId: 91, title: "치약이 진짜 콩알만큼 나옴", outcome: "close", category: "일상", note: "칫솔 가운데에 아주 작게 착륙함", sample: true },
+    { id: "sample-92", date: monthDate(key, safeDay(11)), time: "09:38", fortuneId: 92, title: "슬리퍼가 먼저 외출 준비함", outcome: "happened", category: "일상", note: "두 짝 모두 문 쪽을 보고 기다리고 있었음", sample: true },
+    { id: "sample-93", date: monthDate(key, safeDay(12)), time: "18:51", fortuneId: 93, title: "냉동만두가 각자 살고 있음", outcome: "happened", category: "음식", note: "봉지 흔들자 만두가 한 개씩 바로 떨어짐", sample: true },
     { id: "sample-74", date: monthDate(key, safeDay(24)), time: "12:18", fortuneId: 74, title: "나무젓가락이 정확히 반으로 갈라짐", outcome: "happened", category: "음식", note: "양쪽이 똑같이 반듯해서 사진까지 찍음", sample: true },
     { id: "sample-75", date: monthDate(key, safeDay(25)), time: "20:11", fortuneId: 75, title: "귤껍질이 한 줄로 이어짐", outcome: "close", category: "음식", note: "마지막까지 안 끊기고 긴 리본처럼 나옴", sample: true },
     { id: "sample-76", date: monthDate(key, safeDay(26)), time: "07:46", fortuneId: 76, title: "요거트 뚜껑이 깨끗함", outcome: "happened", category: "음식", note: "뚜껑 안쪽에 요거트가 하나도 없었음", sample: true },
