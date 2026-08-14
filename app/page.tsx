@@ -24,7 +24,6 @@ import {
 import { BottomNav, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, Stars, StatusBar } from "./byeoril-ui";
 
 const FortuneBall = lazy(() => import("./fortune-ball").then((module) => ({ default: module.FortuneBall })));
-const fortuneBallKinds = ["ceramic", "crystal", "mochi", "dubai", "butter_bar", "brick_cake", "slice_cake"] as const;
 
 const storageKey = "byeoril-records-v2";
 const legacyStorageKey = "byeoril-records-v1";
@@ -199,7 +198,7 @@ function TodayScreen({
           <h2>{revealed ? fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
           <p>{revealed ? "우주 기여도 3% · 큰 기대는 금물!" : "돌리고, 누르고, 문지르면 예보가 나옵니다."}</p>
           <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
-            <FortuneBall key={fortune.id} fortune={fortune.title} aside={fortune.aside} ballKind={fortuneBallKinds[fortuneIndex % fortuneBallKinds.length]} onReveal={onReveal} />
+            <FortuneBall key={fortune.id} fortune={fortune.title} aside={fortune.aside} onReveal={onReveal} />
           </Suspense>
         </article>
         <section className={`outcome-section ${revealed ? "" : "is-locked"}`} aria-hidden={!revealed}>

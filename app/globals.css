@@ -84,6 +84,10 @@ img { display: block; }
 .fortune-ball:focus-visible { box-shadow: inset 0 0 0 2px #d6a928; }
 .fortune-ball-canvas { position: absolute; inset: 0; }
 .fortune-ball-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
+.wakppu-break-scene { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+.wakppu-break-canvas { display: block; width: 100%; height: 100%; outline: none; cursor: grab; touch-action: none; }
+.wakppu-break-canvas:active { cursor: grabbing; }
+.wakppu-break-loading { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; color: #867e72; font-size: 11px; font-weight: 760; pointer-events: none; }
 .fortune-ball-guide { position: absolute; z-index: 5; left: 50%; bottom: 7px; width: 172px; display: grid; gap: 7px; transform: translateX(-50%); text-align: center; pointer-events: none; }
 .fortune-ball-guide > span { font-size: 11px; font-weight: 820; letter-spacing: -.025em; text-shadow: 0 1px 0 #fffdf8; }
 .fortune-ball-guide > i { width: 100%; height: 5px; overflow: hidden; border: 1px solid #bda871; border-radius: 999px; background: rgba(255,255,255,.75); }
