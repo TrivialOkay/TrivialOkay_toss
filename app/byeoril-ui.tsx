@@ -132,7 +132,11 @@ export function FortuneScene({ kind, speech, card = false, characterArt }: { kin
 }
 
 export function OutcomeFace({ outcome }: { outcome: Outcome }) {
-  return <span className={`outcome-face face-${outcome}`} aria-hidden="true"><i className="eye left"/><i className="eye right"/><i className="expression"/></span>;
+  return (
+    <span className={`outcome-face face-${outcome}`} aria-hidden="true">
+      <img src={`/outcome-mascot-${outcome}.png`} alt="" />
+    </span>
+  );
 }
 
 export function StatusBar() {
