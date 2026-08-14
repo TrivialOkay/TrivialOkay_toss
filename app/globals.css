@@ -385,7 +385,7 @@ img { display: block; }
 .collection-item { position: relative; width: 100%; height: 72px; padding: 9px 11px; display: grid; grid-template-columns: 24px 1fr 58px; align-items: center; gap: 6px; overflow: hidden; text-align: left; border: 1px solid #d6cfc5; border-radius: 11px; background: white; }
 .collection-item.featured { border-color: #d1b775; background: #fff8e8; }.collection-number { align-self: start; font-size: 10px; font-weight: 850; }.collection-art { grid-column: 3; grid-row: 1; justify-self: center; }.collection-copy { grid-column: 2; grid-row: 1; min-width: 0; }.collection-copy strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }.collection-copy small { display: flex; gap: 7px; margin-top: 9px; color: #635f58; font-size: 9px; font-weight: 750; }.collection-copy small b { color: #948c82; }
 .collection-poster-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.collection-poster { position: relative; min-width: 0; height: 225px; padding: 10px; display: flex; flex-direction: column; overflow: hidden; text-align: left; border: 1.3px solid #aaa197; border-radius: 13px; background: #fffdf8; box-shadow: 0 3px 0 rgba(71,62,50,.05); }
+.collection-poster { position: relative; min-width: 0; height: 250px; padding: 10px; display: grid; grid-template-rows: 19px 20px 102px 31px 25px 12px; row-gap: 3px; align-content: start; overflow: hidden; text-align: left; border: 1.3px solid #aaa197; border-radius: 13px; background: #fffdf8; box-shadow: 0 3px 0 rgba(71,62,50,.05); }
 .collection-poster::after { content: ""; position: absolute; left: 8px; right: 8px; top: 36px; height: 1px; background: rgba(102,92,78,.18); }
 .collection-poster.poster-observation { border-color: #a99cc3; background: linear-gradient(145deg, #fffdf8, #f3effb); }
 .collection-poster.poster-news { border-color: #c69a38; background: linear-gradient(145deg, #fffdf8, #fff7dc); }
@@ -395,15 +395,15 @@ img { display: block; }
 .poster-top em { padding: 3px 5px; border-radius: 4px; background: #7663a7; color: white; font-size: 7px; line-height: 1; font-style: normal; font-weight: 860; letter-spacing: .06em; }
 .poster-news .poster-top em { background: #d19d28; }
 .poster-award .poster-top em { background: #9b721c; }
-.poster-type { margin-top: 10px; color: #756d62; font-size: 8px; font-weight: 820; letter-spacing: .02em; }
-.poster-art { height: 91px; display: grid; place-items: center; }
+.poster-type { display: flex; align-items: flex-end; color: #756d62; font-size: 8px; font-weight: 820; letter-spacing: .02em; }
+.poster-art { min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; }
 .poster-art .object-art { width: 111px; height: 93px; }
 .poster-art .object-character-pose { width: 118px; height: 99px; }
-.poster-title { min-height: 31px; display: -webkit-box; overflow: hidden; font-size: 11px; line-height: 1.4; letter-spacing: -.025em; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.poster-footer { height: 25px; margin-top: 6px; padding: 0 5px; display: grid; place-items: center; border-top: 1px solid rgba(119,100,168,.25); border-bottom: 1px solid rgba(119,100,168,.25); color: #665580; text-align: center; font-size: 7px; font-weight: 820; white-space: nowrap; }
+.poster-title { min-width: 0; min-height: 0; max-height: 31px; display: -webkit-box; overflow: hidden; font-size: 11px; line-height: 1.4; letter-spacing: -.025em; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.poster-footer { min-width: 0; height: 25px; padding: 0 5px; display: grid; place-items: center; overflow: hidden; border-top: 1px solid rgba(119,100,168,.25); border-bottom: 1px solid rgba(119,100,168,.25); color: #665580; text-align: center; text-overflow: ellipsis; font-size: 7px; font-weight: 820; white-space: nowrap; }
 .poster-news .poster-footer { border-color: #d4a738; background: rgba(244,205,98,.42); color: #6b4e14; }
 .poster-award .poster-footer { border: 1px solid #b88925; border-radius: 4px; background: #edc55c; color: #65480f; }
-.collection-poster > small { margin-top: 7px; color: #70695f; font-size: 8px; font-weight: 780; }
+.collection-poster > small { align-self: end; overflow: hidden; color: #70695f; font-size: 8px; line-height: 1; font-weight: 780; white-space: nowrap; }
 .empty-state { min-height: 260px; display: grid; place-items: center; align-content: center; gap: 13px; color: #716a62; font-size: 12px; }.empty-state .mascot { width: 78px; height: 88px; }.empty-state.compact { min-height: 150px; }.empty-state.compact .mascot { width: 58px; height: 68px; }
 
 .records-screen { padding-top: 1px; }
