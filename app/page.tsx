@@ -47,6 +47,24 @@ const archiveTypes: Array<{ key: ArchiveType; label: string }> = [
   { key: "award", label: "하찮은 수상작" },
 ];
 
+const collectionPageSize = 6;
+const recordsPageSize = 5;
+
+function Pagination({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
+  if (totalPages <= 1) return null;
+
+  const firstPage = Math.max(1, Math.min(page - 2, totalPages - 4));
+  const visiblePages = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPage + index);
+
+  return (
+    <nav className="pagination" aria-label="페이지 이동">
+      <button className="pagination-arrow" disabled={page === 1} onClick={() => onPage(page - 1)} aria-label="이전 페이지">‹</button>
+      {visiblePages.map((item) => <button key={item} className={page === item ? "active" : ""} onClick={() => onPage(item)} aria-current={page === item ? "page" : undefined}>{item}</button>)}
+      <button className="pagination-arrow" disabled={page === totalPages} onClick={() => onPage(page + 1)} aria-label="다음 페이지">›</button>
+    </nav>
+  );
+}
+
 function awardTitle(record: Pick<RecordItem, "fortuneId" | "title">) {
   const awards = ["뜻밖의 평화상", "아슬아슬 생존상", "쓸데없이 정확상", "오늘의 피식상", "3% 우주 기여상"];
   return awards[record.fortuneId % awards.length];
@@ -271,6 +289,7 @@ function CardScreen({ record, onBack, onShare, onCollection, onReplay, onDelete 
 }
 
 function CollectionScreen({ records, filter, archiveType, searchOpen, search, onFilter, onArchiveType, onSearchOpen, onSearch, onOpen, onGuide, onExamples }: { records: RecordItem[]; filter: string; archiveType: ArchiveType; searchOpen: boolean; search: string; onFilter: (value: string) => void; onArchiveType: (value: ArchiveType) => void; onSearchOpen: () => void; onSearch: (value: string) => void; onOpen: (record: RecordItem) => void; onGuide: () => void; onExamples: () => void }) {
+  const [page, setPage] = useState(1);
   const summaryMonth = new Date().getMonth() + 1;
   const filtered = records.filter((record) => {
     const matchesGrade = filter === "전체" || gradeFor(record).grade === filter;
@@ -278,17 +297,20 @@ function CollectionScreen({ records, filter, archiveType, searchOpen, search, on
     const matchesSearch = !search.trim() || record.title.includes(search.trim());
     return matchesGrade && matchesType && matchesSearch;
   });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / collectionPageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleRecords = filtered.slice((currentPage - 1) * collectionPageSize, currentPage * collectionPageSize);
   return (
     <>
       <Header title="별일 관측 보관소" right={<><button className="icon-button" onClick={onGuide} aria-label="별일 등급 안내"><Icon name="help" /></button><button className="icon-button" onClick={onSearchOpen} aria-label="도감 검색"><Icon name="search" /></button></>} />
       <section className="screen-content collection-screen">
         <button className="month-summary" data-theme-month={summaryMonth} onClick={onExamples}><span><small>{summaryMonth}월 관측국 브리핑</small><strong>대단한 우주 개입은 없었습니다.<br/>그래도 몇 번 피식했습니다.</strong></span><MonthlyMascot month={summaryMonth} className="summary-mascot" /></button>
         <p className="archive-intro">지금까지 공식 확인된<br/><strong>쓸데없이 소중한 별일들입니다.</strong></p>
-        {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="별일을 검색해보세요"/></label>}
-        <div className="archive-type-row" role="group" aria-label="카드 유형 필터">{archiveTypes.map((item) => <button key={item.key} className={archiveType === item.key ? "active" : ""} onClick={() => onArchiveType(item.key)}>{item.label}</button>)}</div>
-        <div className="filter-row" role="group" aria-label="도감 필터">{collectionFilters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => onFilter(item)}>{item}</button>)}</div>
+        {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => { setPage(1); onSearch(event.target.value); }} placeholder="별일을 검색해보세요"/></label>}
+        <div className="archive-type-row" role="group" aria-label="카드 유형 필터">{archiveTypes.map((item) => <button key={item.key} className={archiveType === item.key ? "active" : ""} onClick={() => { setPage(1); onArchiveType(item.key); }}>{item.label}</button>)}</div>
+        <div className="filter-row" role="group" aria-label="도감 필터">{collectionFilters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => { setPage(1); onFilter(item); }}>{item}</button>)}</div>
         <div className="collection-poster-grid">
-          {filtered.map((record) => {
+          {visibleRecords.map((record) => {
             const fortune = fortuneFor(record.fortuneId);
             const grade = gradeFor(record);
             const type = archiveTypeFor(record);
@@ -296,26 +318,32 @@ function CollectionScreen({ records, filter, archiveType, searchOpen, search, on
           })}
           {!filtered.length && <div className="empty-state"><Mascot/><strong>조건에 맞는 별일이 없어요.</strong></div>}
         </div>
+        <Pagination page={currentPage} totalPages={totalPages} onPage={setPage} />
       </section>
     </>
   );
 }
 
 function RecordsScreen({ records, selectedMonth, onMonth, onReport, onOpen }: { records: RecordItem[]; selectedMonth: string; onMonth: (value: string) => void; onReport: () => void; onOpen: (record: RecordItem) => void }) {
+  const [page, setPage] = useState(1);
   const monthRecords = records.filter((record) => record.date.startsWith(selectedMonth));
+  const totalPages = Math.max(1, Math.ceil(monthRecords.length / recordsPageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleRecords = monthRecords.slice((currentPage - 1) * recordsPageSize, currentPage * recordsPageSize);
   const cells = calendarCells(selectedMonth);
   const today = localDateKey();
   return (
     <>
       <Header title="관측 일지" right={<button className="icon-button" onClick={onReport} aria-label="월간 리포트"><Icon name="chart" /></button>} />
       <section className="screen-content records-screen">
-        <div className="month-switcher"><button onClick={() => onMonth(shiftMonth(selectedMonth, -1))}><Icon name="back" /></button><strong>{monthLabel(selectedMonth)}</strong><button onClick={() => onMonth(shiftMonth(selectedMonth, 1))}><Icon name="chevron-right" /></button></div>
+        <div className="month-switcher"><button onClick={() => { setPage(1); onMonth(shiftMonth(selectedMonth, -1)); }}><Icon name="back" /></button><strong>{monthLabel(selectedMonth)}</strong><button onClick={() => { setPage(1); onMonth(shiftMonth(selectedMonth, 1)); }}><Icon name="chevron-right" /></button></div>
         <div className="calendar"><div className="week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid">{cells.map((day, index) => { const key = day ? `${selectedMonth}-${String(day).padStart(2, "0")}` : ""; const has = monthRecords.some((record) => record.date === key); return <span key={`${day}-${index}`} className={`${key === today ? "today" : ""} ${has ? "has-record" : ""}`}>{day || ""}</span>; })}</div></div>
         <h2>{Number(selectedMonth.slice(5))}월의 기록</h2>
         <div className="record-list">
-          {monthRecords.map((record) => { const fortune = fortuneFor(record.fortuneId); const grade = gradeFor(record); return <button key={record.id} onClick={() => onOpen(record)}><span className="record-thumb"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} compact /></span><span><strong>{record.title}</strong><small>{record.time} · {record.category}</small></span><em className={`grade-badge tone-${grade.tone}`}>{grade.grade}</em></button>; })}
+          {visibleRecords.map((record) => { const fortune = fortuneFor(record.fortuneId); const grade = gradeFor(record); return <button key={record.id} onClick={() => onOpen(record)}><span className="record-thumb"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} compact /></span><span><strong>{record.title}</strong><small>{record.time} · {record.category}</small></span><em className={`grade-badge tone-${grade.tone}`}>{grade.grade}</em></button>; })}
           {!monthRecords.length && <div className="empty-state compact"><Mascot/><strong>이 달의 기록이 아직 없어요.</strong></div>}
         </div>
+        <Pagination page={currentPage} totalPages={totalPages} onPage={setPage} />
         <button className="month-comment" onClick={onReport}><span><small>관측국 코멘트</small><strong>인생에 큰 영향은 없었지만,<br/>보고서 쓸 정도는 됐습니다.</strong></span><Mascot /></button>
       </section>
     </>
