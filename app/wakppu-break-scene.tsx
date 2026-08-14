@@ -1,6 +1,5 @@
 "use client";
 
-import RAPIER from "@dimforge/rapier3d-compat";
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -32,11 +31,6 @@ type ActivePress = {
   pointerId: number;
   startedAt: number;
   deformation: SurfaceDeformation;
-  startX: number;
-  startY: number;
-  lastX: number;
-  lastY: number;
-  isOrbiting: boolean;
 };
 
 type NoteDrag = {
@@ -45,42 +39,17 @@ type NoteDrag = {
   startY: number;
 };
 
-type FragmentBody = {
-  mesh: THREE.Mesh;
-  body: RAPIER.RigidBody;
-};
-
-type FragmentDrag = {
-  pointerId: number;
-  lastX: number;
-  lastY: number;
-  body: RAPIER.RigidBody;
-};
-
-type AnimatedFragment = {
-  mesh: THREE.Mesh;
-  startPosition: THREE.Vector3;
-  startQuaternion: THREE.Quaternion;
-  velocity: THREE.Vector3;
-  rotationAxis: THREE.Vector3;
-  spin: number;
-  startedAt: number;
-  floorY: number;
-};
-
 type NestFragmentMotion = NestLayoutTarget & {
   startPosition: THREE.Vector3;
   startQuaternion: THREE.Quaternion;
   startScale: THREE.Vector3;
 };
 
-type NestPhase = "idle" | "burst" | "gathering" | "ready";
+type NestPhase = "idle" | "gathering" | "ready";
 
 type ElasticArm = {
   outline: THREE.Mesh;
   fill: THREE.Mesh;
-  handOutline: THREE.Mesh;
-  handFill: THREE.Mesh;
 };
 
 type SceneRuntime = {
@@ -99,13 +68,8 @@ type SceneRuntime = {
   impactPoint: THREE.Vector3;
   activePress: ActivePress | null;
   noteDrag: NoteDrag | null;
-  fragmentDrag: FragmentDrag | null;
   lastPressStrength: number;
   fracturePatternAligned: boolean;
-  orbitYaw: number;
-  orbitPitch: number;
-  orbitYawTarget: number;
-  orbitPitchTarget: number;
   cameraTarget: THREE.Vector3;
   cameraLookAt: THREE.Vector3;
   cameraLookTarget: THREE.Vector3;
@@ -126,21 +90,14 @@ type SceneRuntime = {
   nestGatherStartedAt: number;
   nestMotions: NestFragmentMotion[];
   reduceMotion: boolean;
-  world: RAPIER.World | null;
-  fragmentBodies: FragmentBody[];
-  fragmentBodyByMesh: Map<THREE.Mesh, RAPIER.RigidBody>;
-  animatedFragments: AnimatedFragment[];
   frameId: number;
-  physicsTimer: number | null;
-  physicsBatchTimers: number[];
-  noteRevealTimer: number | null;
   disposed: boolean;
 };
 
 const BALL_RADIUS = 1.55;
 const NOTE_MODEL = "/models/fortune-note.glb?v=20260813-folded-reference-2";
 const MASCOT_IMAGE = "/outcome-mascot-happened.png";
-const NOTE_SCALE = 0.62;
+const NOTE_SCALE = 0.78;
 const NEST_GATHER_DURATION = 1480;
 const CAMERA_STAGE_POSITIONS = [
   new THREE.Vector3(0, 0.34, 8.45),
@@ -182,13 +139,9 @@ function createElasticArm(): ElasticArm {
   const fillMaterial = new THREE.MeshBasicMaterial({ color: 0xfffdf9, transparent: true, depthWrite: false });
   const outline = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), outlineMaterial);
   const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), fillMaterial);
-  const handOutline = new THREE.Mesh(new THREE.CircleGeometry(1, 24), outlineMaterial);
-  const handFill = new THREE.Mesh(new THREE.CircleGeometry(1, 24), fillMaterial);
   outline.renderOrder = 7;
   fill.renderOrder = 8;
-  handOutline.renderOrder = 7;
-  handFill.renderOrder = 8;
-  return { outline, fill, handOutline, handFill };
+  return { outline, fill };
 }
 
 function placeElasticArm(arm: ElasticArm, start: THREE.Vector3, end: THREE.Vector3) {
@@ -204,10 +157,6 @@ function placeElasticArm(arm: ElasticArm, start: THREE.Vector3, end: THREE.Vecto
   arm.fill.position.set(midpointX, midpointY, 1.082);
   arm.fill.rotation.z = angle;
   arm.fill.scale.set(Math.max(distance - 0.015, 0.045), 0.105, 1);
-  arm.handOutline.position.set(end.x, end.y, 1.09);
-  arm.handOutline.scale.setScalar(0.115);
-  arm.handFill.position.set(end.x, end.y, 1.096);
-  arm.handFill.scale.setScalar(0.082);
 }
 
 function createOpalTexture() {
@@ -519,13 +468,8 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       impactPoint: new THREE.Vector3(0, 0, BALL_RADIUS),
       activePress: null,
       noteDrag: null,
-      fragmentDrag: null,
       lastPressStrength: 0.35,
       fracturePatternAligned: false,
-      orbitYaw: 0,
-      orbitPitch: 0,
-      orbitYawTarget: 0,
-      orbitPitchTarget: 0,
       cameraTarget: CAMERA_STAGE_POSITIONS[0].clone(),
       cameraLookAt: new THREE.Vector3(0, 0.16, 0),
       cameraLookTarget: new THREE.Vector3(0, 0.16, 0),
@@ -546,14 +490,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       nestGatherStartedAt: 0,
       nestMotions: [],
       reduceMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-      world: null,
-      fragmentBodies: [],
-      fragmentBodyByMesh: new Map(),
-      animatedFragments: [],
       frameId: 0,
-      physicsTimer: null,
-      physicsBatchTimers: [],
-      noteRevealTimer: null,
       disposed: false,
     };
     runtimeRef.current = runtime;
@@ -580,6 +517,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
           if (!(child instanceof THREE.Mesh)) return;
           child.castShadow = true;
           child.receiveShadow = true;
+          child.renderOrder = 9;
         });
         noteRoot.add(gltf.scene);
         runtime.noteLoaded = true;
@@ -589,15 +527,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
         if (!runtime.disposed) runtime.noteLoaded = true;
       },
     );
-
-    void RAPIER.init().then(() => {
-      if (runtime.disposed) return;
-      runtime.world = new RAPIER.World({ x: 0, y: -7.8, z: 0 });
-      const groundBody = runtime.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, -2.12, 0));
-      runtime.world.createCollider(RAPIER.ColliderDesc.cuboid(4, 0.12, 4).setRestitution(0.2), groundBody);
-    }).catch(() => {
-      runtime.world = null;
-    });
 
     function resize() {
       const width = mount.clientWidth;
@@ -616,25 +545,11 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       return runtime.raycaster.intersectObject(runtime.noteRoot, true).length > 0;
     }
 
-    function pickFragmentBody(event: PointerEvent) {
-      if (!runtime.exploded || runtime.fragmentBodyByMesh.size === 0) return null;
-      setPointerRay(runtime, event);
-      const meshes = Array.from(runtime.fragmentBodyByMesh.keys());
-      const hit = runtime.raycaster.intersectObjects(meshes, false)[0];
-      return hit?.object instanceof THREE.Mesh ? runtime.fragmentBodyByMesh.get(hit.object) ?? null : null;
-    }
-
     function handlePointerDown(event: PointerEvent) {
-      if (runtime.noteDrag || runtime.fragmentDrag || runtime.activePress) return;
+      if (runtime.noteDrag || runtime.activePress) return;
       if (stageRef.current >= 5) {
         if (pickNote(event)) {
           runtime.noteDrag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
-          renderer.domElement.setPointerCapture?.(event.pointerId);
-          return;
-        }
-        const fragmentBody = pickFragmentBody(event);
-        if (fragmentBody) {
-          runtime.fragmentDrag = { pointerId: event.pointerId, lastX: event.clientX, lastY: event.clientY, body: fragmentBody };
           renderer.domElement.setPointerCapture?.(event.pointerId);
         }
         return;
@@ -649,11 +564,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
         pointerId: event.pointerId,
         startedAt: performance.now(),
         deformation: { direction: runtime.impactPoint.clone(), currentDepth: 0, targetDepth: 0.055 },
-        startX: event.clientX,
-        startY: event.clientY,
-        lastX: event.clientX,
-        lastY: event.clientY,
-        isOrbiting: false,
       };
       renderer.domElement.setPointerCapture?.(event.pointerId);
     }
@@ -675,29 +585,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
         }
         return;
       }
-      if (runtime.fragmentDrag?.pointerId === event.pointerId) {
-        const dx = event.clientX - runtime.fragmentDrag.lastX;
-        const dy = event.clientY - runtime.fragmentDrag.lastY;
-        runtime.fragmentDrag.body.applyImpulse({ x: dx * 0.018, y: -dy * 0.018 + 0.025, z: 0.02 }, true);
-        runtime.fragmentDrag.body.applyTorqueImpulse({ x: dy * 0.008, y: dx * 0.009, z: -dx * 0.005 }, true);
-        runtime.fragmentDrag.lastX = event.clientX;
-        runtime.fragmentDrag.lastY = event.clientY;
-        return;
-      }
-
-      const activePress = runtime.activePress;
-      if (!activePress || activePress.pointerId !== event.pointerId) return;
-      const totalX = event.clientX - activePress.startX;
-      const totalY = event.clientY - activePress.startY;
-      if (!activePress.isOrbiting && Math.hypot(totalX, totalY) > 9) activePress.isOrbiting = true;
-      if (activePress.isOrbiting) {
-        const deltaX = event.clientX - activePress.lastX;
-        const deltaY = event.clientY - activePress.lastY;
-        runtime.orbitYawTarget -= deltaX * 0.006;
-        runtime.orbitPitchTarget = THREE.MathUtils.clamp(runtime.orbitPitchTarget + deltaY * 0.004, -0.42, 0.42);
-      }
-      activePress.lastX = event.clientX;
-      activePress.lastY = event.clientY;
     }
 
     function finishPointer(event: PointerEvent) {
@@ -706,16 +593,10 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
         renderer.domElement.releasePointerCapture?.(event.pointerId);
         return;
       }
-      if (runtime.fragmentDrag?.pointerId === event.pointerId) {
-        runtime.fragmentDrag = null;
-        renderer.domElement.releasePointerCapture?.(event.pointerId);
-        return;
-      }
       const activePress = runtime.activePress;
       if (!activePress || activePress.pointerId !== event.pointerId) return;
       runtime.activePress = null;
       renderer.domElement.releasePointerCapture?.(event.pointerId);
-      if (activePress.isOrbiting) return;
       const duration = performance.now() - activePress.startedAt;
       const holdStrength = clamp((duration - 70) / 1050);
       if (!runtime.fracturePatternAligned) {
@@ -735,7 +616,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
 
     function cancelPointer(event: PointerEvent) {
       if (runtime.noteDrag?.pointerId === event.pointerId) runtime.noteDrag = null;
-      if (runtime.fragmentDrag?.pointerId === event.pointerId) runtime.fragmentDrag = null;
       if (runtime.activePress?.pointerId === event.pointerId) runtime.activePress = null;
       renderer.domElement.releasePointerCapture?.(event.pointerId);
     }
@@ -745,10 +625,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
     renderer.domElement.addEventListener("pointerup", finishPointer);
     renderer.domElement.addEventListener("pointercancel", cancelPointer);
 
-    let previousTime = performance.now();
-    const cameraOffset = new THREE.Vector3();
-    const desiredCameraPosition = new THREE.Vector3();
-    const cameraSpherical = new THREE.Spherical();
     const fragmentTarget = new THREE.Vector3();
     const leftArmStart = new THREE.Vector3();
     const rightArmStart = new THREE.Vector3();
@@ -756,20 +632,9 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
     const rightArmEnd = new THREE.Vector3();
     const noteIdleTarget = new THREE.Vector3();
     function render(time: number) {
-      const delta = Math.min((time - previousTime) / 1000, 1 / 30);
-      previousTime = time;
-      if (runtime.exploded && runtime.world && runtime.nestPhase === "burst") {
-        runtime.world.timestep = Math.max(delta, 1 / 120);
-        runtime.world.step();
-        runtime.fragmentBodies.forEach(({ mesh, body }) => {
-          const position = body.translation();
-          const rotation = body.rotation();
-          mesh.position.set(position.x, position.y, position.z);
-          mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
-        });
-      } else if (!runtime.exploded) {
+      if (!runtime.exploded) {
         let geometryChanged = false;
-        if (runtime.activePress && !runtime.activePress.isOrbiting) {
+        if (runtime.activePress) {
           const heldFor = performance.now() - runtime.activePress.startedAt;
           const previewStrength = clamp(heldFor / 1120);
           runtime.activePress.deformation.targetDepth = 0.055 + previewStrength * 0.285;
@@ -784,7 +649,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
           }
           geometryChanged = true;
         }
-        const visibleDeformations = runtime.activePress && !runtime.activePress.isOrbiting
+        const visibleDeformations = runtime.activePress
           ? [...runtime.deformations, runtime.activePress.deformation]
           : runtime.deformations;
         visibleDeformations.forEach((deformation) => {
@@ -801,15 +666,8 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
             runtime.outerShellFragments,
           );
         }
-        runtime.orbitYaw = THREE.MathUtils.lerp(runtime.orbitYaw, runtime.orbitYawTarget, 0.14);
-        runtime.orbitPitch = THREE.MathUtils.lerp(runtime.orbitPitch, runtime.orbitPitchTarget, 0.14);
         runtime.cameraLookAt.lerp(runtime.cameraLookTarget, 0.065);
-        cameraOffset.copy(runtime.cameraTarget).sub(runtime.cameraLookTarget);
-        cameraSpherical.setFromVector3(cameraOffset);
-        cameraSpherical.theta += runtime.orbitYaw;
-        cameraSpherical.phi = THREE.MathUtils.clamp(cameraSpherical.phi + runtime.orbitPitch, 0.28, Math.PI - 0.28);
-        desiredCameraPosition.setFromSpherical(cameraSpherical).add(runtime.cameraLookTarget);
-        runtime.camera.position.lerp(desiredCameraPosition, 0.08);
+        runtime.camera.position.lerp(runtime.cameraTarget, 0.08);
         runtime.camera.lookAt(runtime.cameraLookAt);
         runtime.intactBall.scale.lerp(runtime.shellScaleTarget, 0.16);
         runtime.outerShell.scale.lerp(runtime.shellScaleTarget, 0.16);
@@ -822,20 +680,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
           fragment.mesh.position.lerp(fragmentTarget, 0.15);
           fragment.mesh.quaternion.slerp(fragment.targetQuaternion, 0.13);
           fragment.mesh.scale.lerp(fragment.targetScale, 0.14);
-        });
-      }
-
-      if (runtime.nestPhase === "burst") {
-        runtime.animatedFragments.forEach((fragment) => {
-          const elapsed = clamp((time - fragment.startedAt) / 1000, 0, 1.8);
-          fragment.mesh.position.copy(fragment.startPosition).addScaledVector(fragment.velocity, elapsed);
-          fragment.mesh.position.y = Math.max(
-            fragment.floorY,
-            fragment.startPosition.y + fragment.velocity.y * elapsed - 3.6 * elapsed * elapsed,
-          );
-          fragment.mesh.quaternion.copy(fragment.startQuaternion).multiply(
-            new THREE.Quaternion().setFromAxisAngle(fragment.rotationAxis, fragment.spin * elapsed),
-          );
         });
       }
 
@@ -923,10 +767,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       renderer.domElement.removeEventListener("pointerup", finishPointer);
       renderer.domElement.removeEventListener("pointercancel", cancelPointer);
       window.cancelAnimationFrame(runtime.frameId);
-      if (runtime.physicsTimer !== null) window.clearTimeout(runtime.physicsTimer);
-      runtime.physicsBatchTimers.forEach((timer) => window.clearTimeout(timer));
-      if (runtime.noteRevealTimer !== null) window.clearTimeout(runtime.noteRevealTimer);
-      runtime.world?.free();
       disposeScene(scene);
       renderer.dispose();
       renderer.domElement.remove();
