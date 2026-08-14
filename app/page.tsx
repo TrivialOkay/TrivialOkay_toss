@@ -21,7 +21,7 @@ import {
   type Tab,
   type View,
 } from "./byeoril-data";
-import { BottomNav, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, Stars, StatusBar } from "./byeoril-ui";
+import { BottomNav, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, SpeechBubble, Stars, StatusBar } from "./byeoril-ui";
 
 const FortuneBall = lazy(() => import("./fortune-ball").then((module) => ({ default: module.FortuneBall })));
 
@@ -393,7 +393,7 @@ function GuideScreen({ onBack }: { onBack: () => void }) {
 
 function AboutScreen({ onGuide, onExamples, onReset, confirming }: { onGuide: () => void; onExamples: () => void; onReset: () => void; confirming: boolean }) {
   return (
-    <><Header title="별일 관측국은?"/><section className="screen-content about-screen"><div className="brand-lockup"><strong>별일</strong><i>✦</i><span>관측국</span></div><p className="about-lead">아무 일도 아닌 일을<br/>쓸데없이 관측하고, 보도하고, 시상합니다.</p><h2>이 앱은?</h2><p>오늘의 하찮은 예보가 실제로 관측되면 속보 카드가 만들어지고, 공식 보관소에 저장돼요. 아주 가끔은 상도 줍니다.</p><h2>관측 절차</h2><ol><li><b>1</b>미세한 우주 개입 예보 확인</li><li><b>2</b>실제로 일어났는지 관측</li><li><b>3</b>별일 속보 카드 발행</li><li><b>4</b>하찮은 수상작으로 보관</li></ol><div className="about-actions"><button onClick={onGuide}>우주 개입 농도 안내<Icon name="chevron-right"/></button><button onClick={onExamples}>하찮은 수상작 보기<Icon name="chevron-right"/></button><button className={confirming ? "danger" : ""} onClick={onReset}>{confirming ? "한 번 더 누르면 기록이 삭제돼요" : "내 기록 초기화"}</button></div><div className="about-character"><span>우주가 도운 건 3%.<br/>기록한 건 우리.</span><Mascot/></div></section></>
+    <><Header title="별일 관측국은?"/><section className="screen-content about-screen"><div className="brand-lockup"><strong>별일</strong><i>✦</i><span>관측국</span></div><p className="about-lead">아무 일도 아닌 일을<br/>쓸데없이 관측하고, 보도하고, 시상합니다.</p><h2>이 앱은?</h2><p>오늘의 하찮은 예보가 실제로 관측되면 속보 카드가 만들어지고, 공식 보관소에 저장돼요. 아주 가끔은 상도 줍니다.</p><h2>관측 절차</h2><ol><li><b>1</b>미세한 우주 개입 예보 확인</li><li><b>2</b>실제로 일어났는지 관측</li><li><b>3</b>별일 속보 카드 발행</li><li><b>4</b>하찮은 수상작으로 보관</li></ol><div className="about-actions"><button onClick={onGuide}>우주 개입 농도 안내<Icon name="chevron-right"/></button><button onClick={onExamples}>하찮은 수상작 보기<Icon name="chevron-right"/></button><button className={confirming ? "danger" : ""} onClick={onReset}>{confirming ? "한 번 더 누르면 기록이 삭제돼요" : "내 기록 초기화"}</button></div><div className="about-character"><SpeechBubble className="about-speech" tail="right">우주가 도운 건 3%.<br/>기록한 건 우리.</SpeechBubble><Mascot/></div></section></>
   );
 }
 

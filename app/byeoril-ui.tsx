@@ -27,6 +27,21 @@ export function Mascot({ className = "", resting = false, waiting = false }: { c
   return <img className={`mascot ${className}`.trim()} src={source} alt="" aria-hidden="true" />;
 }
 
+export function SpeechBubble({ children, className = "", tail = "left" }: { children: ReactNode; className?: string; tail?: "left" | "right" }) {
+  return (
+    <div className={`speech-bubble ${className}`.trim()}>
+      <svg className="speech-bubble-outline" viewBox="0 0 116 82" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          d="M58 1 C91 1 115 11 115 31 C115 46 94 57 62 60 L31 78 L35 58 C14 54 1 44 1 31 C1 11 25 1 58 1 Z"
+          transform={tail === "right" ? "translate(116 0) scale(-1 1)" : undefined}
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      <div className="speech-bubble-copy">{children}</div>
+    </div>
+  );
+}
+
 const characterArtSources: Record<CharacterArt, string> = {
   umbrella: "/mascot-poses/mascot-umbrella.png",
   coffee: "/mascot-poses/mascot-coffee.png",
@@ -126,7 +141,7 @@ export function FortuneScene({ kind, speech, card = false, characterArt }: { kin
       <span className="scene-spark spark-a"/><span className="scene-spark spark-b"/><span className="scene-spark spark-c"/>
       <FortuneObject kind={kind} characterArt={characterArt} />
       {!characterArt && kind !== "mascot" && <Mascot className="scene-character" resting={kind === "book" || kind === "laundry"} waiting={kind === "elevator"} />}
-      <span className="scene-speech">{speech.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</span>
+      <SpeechBubble className="scene-speech">{speech.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</SpeechBubble>
     </div>
   );
 }
