@@ -91,6 +91,7 @@ function playCrunchFeedback(intensity = 0.5) {
 export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
   const [stage, setStage] = useState(0);
   const [pulled, setPulled] = useState(false);
+  const [nestReady, setNestReady] = useState(false);
   const announced = useRef(false);
   const feedbackPlayed = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -100,12 +101,14 @@ export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
   const slipY = useMotionValue(0);
   const broken = stage >= 5;
   const hint = useMemo(() => {
+    if (broken && !nestReady && !pulled) return "파편들이 둥지를 만드는 중...";
+    if (broken && nestReady && !pulled) return "캐릭터가 든 쪽지를 잡아당기기";
     if (pulled) return "오늘의 운세 발견";
     if (broken) return "파편을 밀거나 쪽지를 잡아당기기";
     if (stage >= 4) return "거의 다 깨졌음!";
     if (stage >= 2) return "금이 가는 중...";
     return "톡톡 누르거나 길게 눌러서 깨기";
-  }, [broken, pulled, stage]);
+  }, [broken, nestReady, pulled, stage]);
 
   useEffect(() => {
     boundsRef.current = rootRef.current?.closest<HTMLElement>(".phone-surface") ?? null;
@@ -167,8 +170,8 @@ export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         if (pulled) return;
-        if (broken) pullSlipWithKeyboard();
-        else handleImpact();
+        if (broken && nestReady) pullSlipWithKeyboard();
+        else if (!broken) handleImpact();
       }}
     >
       <div className="fortune-ball-canvas">
@@ -176,6 +179,7 @@ export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
           stage={stage}
           revealed={pulled}
           onImpact={handleImpact}
+          onNestReady={() => setNestReady(true)}
           onNotePull={revealPulledSlip}
         />
       </div>
