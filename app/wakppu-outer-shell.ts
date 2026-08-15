@@ -299,13 +299,15 @@ export function alignOuterShellPattern(
   });
 }
 
-function deformSpherePoint(
+function deformSpherePointInto(
+  point: THREE.Vector3,
+  normal: THREE.Vector3,
   base: THREE.Vector3,
   deformations: OuterShellDeformation[],
   depthScale: number,
 ) {
-  const point = base.clone();
-  const normal = base.clone().normalize();
+  point.copy(base);
+  normal.copy(base).normalize();
   deformations.forEach(({ direction, currentDepth }) => {
     if (currentDepth < 0.001) return;
     const dot = THREE.MathUtils.clamp(normal.dot(direction), -1, 1);
@@ -317,6 +319,15 @@ function deformSpherePoint(
     point.addScaledVector(normal, depth * 0.24 * bulge);
     point.y -= depth * dent * 0.08;
   });
+}
+
+function deformSpherePoint(
+  base: THREE.Vector3,
+  deformations: OuterShellDeformation[],
+  depthScale: number,
+) {
+  const point = new THREE.Vector3();
+  deformSpherePointInto(point, new THREE.Vector3(), base, deformations, depthScale);
   return point;
 }
 
@@ -329,10 +340,12 @@ export function updateOuterShellGeometry(
   const positions = geometry.getAttribute('position') as THREE.BufferAttribute;
   const normals = geometry.getAttribute('normal') as THREE.BufferAttribute;
   const base = new THREE.Vector3();
+  const point = new THREE.Vector3();
   const normal = new THREE.Vector3();
+  const collapsed = new THREE.Vector3();
   fragments.forEach((fragment) => {
     const firstVertex = fragment.shellVertexStart;
-    const deformedVertices: THREE.Vector3[] = [];
+    collapsed.set(0, 0, 0);
     for (let offset = 0; offset < fragment.shellVertexCount; offset += 1) {
       const vertexIndex = firstVertex + offset;
       const arrayOffset = vertexIndex * 3;
@@ -341,25 +354,24 @@ export function updateOuterShellGeometry(
         basePositions[arrayOffset + 1],
         basePositions[arrayOffset + 2],
       );
-      deformedVertices.push(deformSpherePoint(base, deformations, 0.92));
+      deformSpherePointInto(point, normal, base, deformations, 0.92);
+      if (fragment.broken) {
+        collapsed.add(point);
+        continue;
+      }
+      positions.setXYZ(vertexIndex, point.x, point.y, point.z);
+      normal.copy(point).normalize();
+      normals.setXYZ(vertexIndex, normal.x, normal.y, normal.z);
     }
 
     if (fragment.broken) {
-      const collapsed = deformedVertices
-        .reduce((sum, corner) => sum.add(corner), new THREE.Vector3())
-        .multiplyScalar(1 / deformedVertices.length);
+      collapsed.multiplyScalar(1 / fragment.shellVertexCount);
+      normal.copy(collapsed).normalize();
       for (let offset = 0; offset < fragment.shellVertexCount; offset += 1) {
         positions.setXYZ(firstVertex + offset, collapsed.x, collapsed.y, collapsed.z);
-        normal.copy(collapsed).normalize();
         normals.setXYZ(firstVertex + offset, normal.x, normal.y, normal.z);
       }
-      return;
     }
-    deformedVertices.forEach((corner, offset) => {
-      positions.setXYZ(firstVertex + offset, corner.x, corner.y, corner.z);
-      normal.copy(corner).normalize();
-      normals.setXYZ(firstVertex + offset, normal.x, normal.y, normal.z);
-    });
   });
 
   positions.needsUpdate = true;
@@ -435,4 +447,3 @@ export function prepareOuterShellForFinalBreak(
     fragment.targetScale.setScalar(0.98);
   });
 }
-
