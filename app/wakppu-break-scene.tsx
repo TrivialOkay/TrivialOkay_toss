@@ -47,11 +47,6 @@ type NestFragmentMotion = NestLayoutTarget & {
 
 type NestPhase = "idle" | "gathering" | "ready";
 
-type ElasticArm = {
-  outline: THREE.Mesh;
-  fill: THREE.Mesh;
-};
-
 type SceneRuntime = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
@@ -82,10 +77,6 @@ type SceneRuntime = {
   noteHome: THREE.Vector3;
   mascotRoot: THREE.Group;
   mascotHome: THREE.Vector3;
-  elasticArmsRoot: THREE.Group;
-  leftArm: ElasticArm;
-  rightArm: ElasticArm;
-  faceTintMaterial: THREE.SpriteMaterial;
   nestPhase: NestPhase;
   nestGatherStartedAt: number;
   nestMotions: NestFragmentMotion[];
@@ -115,48 +106,6 @@ function clamp(value: number, min = 0, max = 1) {
 function smoothstep(value: number) {
   const clamped = clamp(value);
   return clamped * clamped * (3 - 2 * clamped);
-}
-
-function createFaceTintTexture() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 96;
-  const context = canvas.getContext("2d");
-  if (!context) return new THREE.CanvasTexture(canvas);
-  const gradient = context.createRadialGradient(64, 48, 5, 64, 48, 58);
-  gradient.addColorStop(0, "rgba(255,104,110,.82)");
-  gradient.addColorStop(0.5, "rgba(255,128,132,.48)");
-  gradient.addColorStop(1, "rgba(255,150,150,0)");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
-
-function createElasticArm(): ElasticArm {
-  const outlineMaterial = new THREE.MeshBasicMaterial({ color: 0x1b1715, transparent: true, depthWrite: false });
-  const fillMaterial = new THREE.MeshBasicMaterial({ color: 0xfffdf9, transparent: true, depthWrite: false });
-  const outline = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), outlineMaterial);
-  const fill = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), fillMaterial);
-  outline.renderOrder = 7;
-  fill.renderOrder = 8;
-  return { outline, fill };
-}
-
-function placeElasticArm(arm: ElasticArm, start: THREE.Vector3, end: THREE.Vector3) {
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const distance = Math.max(Math.hypot(dx, dy), 0.06);
-  const angle = Math.atan2(dy, dx);
-  const midpointX = (start.x + end.x) * 0.5;
-  const midpointY = (start.y + end.y) * 0.5;
-  arm.outline.position.set(midpointX, midpointY, 1.075);
-  arm.outline.rotation.z = angle;
-  arm.outline.scale.set(distance, 0.15, 1);
-  arm.fill.position.set(midpointX, midpointY, 1.082);
-  arm.fill.rotation.z = angle;
-  arm.fill.scale.set(Math.max(distance - 0.015, 0.045), 0.105, 1);
 }
 
 function createOpalTexture() {
@@ -429,28 +378,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
     mascotSprite.position.set(0, 0.16, 0);
     mascotSprite.renderOrder = 7;
     mascotRoot.add(mascotSprite);
-    const faceTintMaterial = new THREE.SpriteMaterial({
-      map: createFaceTintTexture(),
-      transparent: true,
-      opacity: 0,
-      depthTest: false,
-      depthWrite: false,
-      toneMapped: false,
-    });
-    const faceTint = new THREE.Sprite(faceTintMaterial);
-    faceTint.scale.set(0.82, 0.58, 1);
-    faceTint.position.set(0, 0.43, 0.08);
-    faceTint.renderOrder = 10;
-    mascotRoot.add(faceTint);
     scene.add(mascotRoot);
-
-    const elasticArmsRoot = new THREE.Group();
-    elasticArmsRoot.visible = false;
-    const leftArm = createElasticArm();
-    const rightArm = createElasticArm();
-    Object.values(leftArm).forEach((mesh) => elasticArmsRoot.add(mesh));
-    Object.values(rightArm).forEach((mesh) => elasticArmsRoot.add(mesh));
-    scene.add(elasticArmsRoot);
 
     const runtime: SceneRuntime = {
       renderer,
@@ -482,10 +410,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       noteHome: new THREE.Vector3(0, -0.34, 1.18),
       mascotRoot,
       mascotHome: new THREE.Vector3(0, -0.28, 0.28),
-      elasticArmsRoot,
-      leftArm,
-      rightArm,
-      faceTintMaterial,
       nestPhase: "idle",
       nestGatherStartedAt: 0,
       nestMotions: [],
@@ -626,10 +550,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
     renderer.domElement.addEventListener("pointercancel", cancelPointer);
 
     const fragmentTarget = new THREE.Vector3();
-    const leftArmStart = new THREE.Vector3();
-    const rightArmStart = new THREE.Vector3();
-    const leftArmEnd = new THREE.Vector3();
-    const rightArmEnd = new THREE.Vector3();
     const noteIdleTarget = new THREE.Vector3();
     function render(time: number) {
       if (!runtime.exploded) {
@@ -725,33 +645,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
           noteIdleTarget.set(runtime.noteHome.x, runtime.noteHome.y + idle, runtime.noteHome.z);
           runtime.noteRoot.position.lerp(noteIdleTarget, runtime.reduceMotion ? 1 : 0.2);
         }
-        if (runtime.noteRoot.visible) {
-          runtime.elasticArmsRoot.visible = true;
-          leftArmStart.set(
-            runtime.mascotRoot.position.x - 0.31,
-            runtime.mascotRoot.position.y - 0.08,
-            1.075,
-          );
-          rightArmStart.set(
-            runtime.mascotRoot.position.x + 0.31,
-            runtime.mascotRoot.position.y - 0.08,
-            1.075,
-          );
-          leftArmEnd.set(runtime.noteRoot.position.x - 0.22, runtime.noteRoot.position.y, 1.09);
-          rightArmEnd.set(runtime.noteRoot.position.x + 0.22, runtime.noteRoot.position.y, 1.09);
-          placeElasticArm(runtime.leftArm, leftArmStart, leftArmEnd);
-          placeElasticArm(runtime.rightArm, rightArmStart, rightArmEnd);
-          const pullLength = runtime.noteRoot.position.distanceTo(runtime.noteHome);
-          const targetBlush = clamp(pullLength / 0.82) * 0.54;
-          runtime.faceTintMaterial.opacity = THREE.MathUtils.lerp(
-            runtime.faceTintMaterial.opacity,
-            targetBlush,
-            runtime.reduceMotion ? 1 : 0.24,
-          );
-        } else {
-          runtime.elasticArmsRoot.visible = false;
-          runtime.faceTintMaterial.opacity = THREE.MathUtils.lerp(runtime.faceTintMaterial.opacity, 0, 0.28);
-        }
       }
       renderer.render(scene, camera);
       runtime.frameId = window.requestAnimationFrame(render);
@@ -838,8 +731,6 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
 
     runtime.intactBall.visible = false;
     runtime.outerShell.visible = false;
-    runtime.elasticArmsRoot.visible = false;
-    runtime.faceTintMaterial.opacity = 0;
     runtime.nestMotions = createNestLayout(runtime.outerShellFragments).map((target) => ({
       ...target,
       startPosition: target.fragment.mesh.position.clone(),
