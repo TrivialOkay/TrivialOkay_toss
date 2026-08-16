@@ -13,7 +13,7 @@ async function render() {
   );
 }
 
-test("server-renders the Byeoril Today screen", async () => {
+test("server-renders the Byeolil Today screen", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -37,6 +37,6 @@ test("keeps the legacy record migration in the client bundle", async () => {
   const chunkRoot = new URL("../dist/client/_next/static/chunks/", import.meta.url);
   const chunks = await readdir(chunkRoot);
   const source = (await Promise.all(chunks.filter((name) => name.endsWith(".js")).map((name) => readFile(new URL(name, chunkRoot), "utf8")))).join("\n");
-  assert.match(source, /byeoril-records-v1/);
-  assert.match(source, /byeoril-records-v2/);
+  assert.match(source, /byeolil-records-v1/);
+  assert.match(source, /byeolil-records-v2/);
 });

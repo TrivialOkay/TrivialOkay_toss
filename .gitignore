@@ -51,6 +51,10 @@ yarn-error.log*
 /.codex_tmp_*/
 *.pid
 
+# AI agent local state (keep shared settings, ignore per-user files)
+.claude/settings.local.json
+.claude/local/
+
 # Local editor and OS files
 /.idea/
 /.vscode/

@@ -1,7 +1,7 @@
 import { defineConfig } from '@apps-in-toss/web-framework/config';
 
 export default defineConfig({
-  appName: 'byeoril',
+  appName: 'byeolil',
   brand: {
     primaryColor: '#F2B72A',
   },

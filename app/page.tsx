@@ -20,15 +20,15 @@ import {
   type RecordItem,
   type Tab,
   type View,
-} from "./byeoril-data";
-import { BottomNav, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, SpeechBubble, Stars, StatusBar } from "./byeoril-ui";
+} from "./byeolil-data";
+import { BottomNav, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, SpeechBubble, Stars, StatusBar } from "./byeolil-ui";
 
 const FortuneBall = lazy(() => import("./fortune-ball").then((module) => ({ default: module.FortuneBall })));
 
-const storageKey = "byeoril-records-v2";
-const legacyStorageKey = "byeoril-records-v1";
-const migrationKey = "byeoril-records-v1-migrated";
-const sampleCatalogKey = "byeoril-sample-catalog-version";
+const storageKey = "byeolil-records-v2";
+const legacyStorageKey = "byeolil-records-v1";
+const migrationKey = "byeolil-records-v1-migrated";
+const sampleCatalogKey = "byeolil-sample-catalog-version";
 const sampleCatalogVersion = "2026-08-fortunes-83-lucky-near-misses";
 
 const outcomeLabels: Record<Outcome, string> = {
@@ -248,7 +248,7 @@ function CaptureScreen({
         </div>
         <h2>사진 <span>(선택)</span></h2>
         <button className="capture-photo" onClick={() => inputRef.current?.click()} aria-label="사진 선택 또는 변경">
-          {photo ? <img src={photo} alt="선택한 사진" /> : <span className="capture-placeholder"><img src="/byeoril-elevator.png" alt="" /><Mascot className="capture-mascot" /></span>}
+          {photo ? <img src={photo} alt="선택한 사진" /> : <span className="capture-placeholder"><img src="/byeolil-elevator.png" alt="" /><Mascot className="capture-mascot" /></span>}
           <span className="photo-change"><Icon name="camera" />사진 변경</span>
         </button>
         <input ref={inputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={(event) => event.target.files?.[0] && onPhoto(event.target.files[0])} />
