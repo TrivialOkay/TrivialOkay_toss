@@ -1,0 +1,3 @@
+# Python tooling dependency for design/blender/process_wakppu_textures.py.
+# bpy and mathutils are provided by Blender and are not installed with pip.
+Pillow>=10.0,<13.0
