@@ -6,7 +6,6 @@ import { WakppuBreakScene } from "./wakppu-break-scene";
 
 type FortuneBallProps = {
   fortune: string;
-  aside: string;
   onReveal: () => void;
 };
 
@@ -43,6 +42,40 @@ function playBreakFeedback() {
     source.addEventListener("ended", () => { void context.close(); }, { once: true });
   } catch {
     // 브라우저가 Web Audio를 막아도 파괴 동작은 그대로 진행한다.
+  }
+}
+
+function playSliceFeedback() {
+  navigator.vibrate?.([7, 16, 13]);
+  try {
+    const AudioContextClass = window.AudioContext
+      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const duration = 0.34;
+    const buffer = context.createBuffer(1, Math.floor(context.sampleRate * duration), context.sampleRate);
+    const samples = buffer.getChannelData(0);
+    for (let index = 0; index < samples.length; index += 1) {
+      const time = index / context.sampleRate;
+      const sweep = Math.sin(time * Math.PI * 2 * (460 + time * 2400));
+      const whoosh = Math.sin(Math.min(time / 0.19, 1) * Math.PI) * Math.exp(-time * 2.8);
+      const cut = time > 0.17 ? Math.exp(-(time - 0.17) * 76) : 0;
+      samples[index] = sweep * whoosh * 0.32 + (Math.random() * 2 - 1) * (whoosh * 0.5 + cut * 0.8);
+    }
+    const source = context.createBufferSource();
+    const highpass = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    highpass.type = "highpass";
+    highpass.frequency.value = 720;
+    gain.gain.setValueAtTime(0.045, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
+    source.connect(highpass).connect(gain).connect(context.destination);
+    source.start();
+    source.stop(context.currentTime + duration);
+    source.addEventListener("ended", () => { void context.close(); }, { once: true });
+  } catch {
+    // Web Audio를 지원하지 않아도 한방컷 동작은 그대로 진행한다.
   }
 }
 
@@ -88,10 +121,11 @@ function playCrunchFeedback(intensity = 0.5) {
   }
 }
 
-export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
+export function FortuneBall({ fortune, onReveal }: FortuneBallProps) {
   const [stage, setStage] = useState(0);
   const [pulled, setPulled] = useState(false);
-  const [nestReady, setNestReady] = useState(false);
+  const [noteReady, setNoteReady] = useState(false);
+  const [sliced, setSliced] = useState(false);
   const announced = useRef(false);
   const feedbackPlayed = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -101,14 +135,14 @@ export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
   const slipY = useMotionValue(0);
   const broken = stage >= 5;
   const hint = useMemo(() => {
-    if (broken && !nestReady && !pulled) return "파편들이 둥지를 만드는 중...";
-    if (broken && nestReady && !pulled) return "캐릭터가 든 쪽지를 잡아당기기";
+    if (broken && !noteReady && !pulled) return sliced ? "슥— 한방컷! 파편 떨어지는 중..." : "파편들이 후두둑 떨어지는 중...";
+    if (broken && noteReady && !pulled) return "캐릭터가 든 쪽지를 잡아당기기";
     if (pulled) return "오늘의 운세 발견";
     if (broken) return "파편을 밀거나 쪽지를 잡아당기기";
     if (stage >= 4) return "거의 다 깨졌음!";
     if (stage >= 2) return "금이 가는 중...";
-    return "톡톡 누르거나 길게 눌러서 깨기";
-  }, [broken, nestReady, pulled, stage]);
+    return "톡톡 누르거나 빠르게 베어서 한방컷";
+  }, [broken, noteReady, pulled, sliced, stage]);
 
   useEffect(() => {
     boundsRef.current = rootRef.current?.closest<HTMLElement>(".phone-surface") ?? null;
@@ -133,6 +167,18 @@ export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
         playCrunchFeedback(0.35 + nextStage * 0.12);
       }
       return nextStage;
+    });
+  }, []);
+
+  const handleSlice = useCallback(() => {
+    setSliced(true);
+    setStage((currentStage) => {
+      if (currentStage >= 5) return currentStage;
+      if (!feedbackPlayed.current) {
+        feedbackPlayed.current = true;
+        playSliceFeedback();
+      }
+      return 5;
     });
   }, []);
 
@@ -170,7 +216,7 @@ export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         if (pulled) return;
-        if (broken && nestReady) pullSlipWithKeyboard();
+        if (broken && noteReady) pullSlipWithKeyboard();
         else if (!broken) handleImpact();
       }}
     >
@@ -179,7 +225,8 @@ export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
           stage={stage}
           revealed={pulled}
           onImpact={handleImpact}
-          onNestReady={() => setNestReady(true)}
+          onSlice={handleSlice}
+          onNoteReady={() => setNoteReady(true)}
           onNotePull={revealPulledSlip}
         />
       </div>
@@ -209,9 +256,7 @@ export function FortuneBall({ fortune, aside, onReveal }: FortuneBallProps) {
                 ? { duration: 0.15 }
                 : { duration: 1.05, ease: [0.22, 0.72, 0.2, 1] }}
             >
-              <span>오늘의 하찮은 운세</span>
               <strong>{fortune}</strong>
-              <small>{aside.replaceAll("\n", " ")}</small>
             </motion.div>
           </motion.div>
         )}

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 332 369" role="img" aria-label="접힌 운세 쪽지">
+  <defs>
+    <linearGradient id="paperTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffefa"/>
+      <stop offset="0.72" stop-color="#f7f4ee"/>
+      <stop offset="1" stop-color="#d8d6d1"/>
+    </linearGradient>
+    <linearGradient id="paperLeft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#faf9f5"/>
+      <stop offset="1" stop-color="#d9d7d2"/>
+    </linearGradient>
+    <linearGradient id="paperRight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#deddd8"/>
+      <stop offset="0.55" stop-color="#f7f6f2"/>
+      <stop offset="1" stop-color="#d4d2cd"/>
+    </linearGradient>
+    <linearGradient id="paperTail" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffefb"/>
+      <stop offset="0.67" stop-color="#f4f2ec"/>
+      <stop offset="1" stop-color="#dedbd5"/>
+    </linearGradient>
+    <filter id="foldShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#171717" flood-opacity="0.34"/>
+    </filter>
+  </defs>
+  <g filter="url(#foldShadow)">
+    <path d="M65 0H267L166 102Z" fill="url(#paperTop)"/>
+    <path d="M65 0L166 102L65 202Z" fill="url(#paperLeft)"/>
+    <path d="M267 0V202L166 102Z" fill="url(#paperRight)"/>
+    <path d="M65 202L166 304L102 369L0 267Z" fill="url(#paperLeft)"/>
+    <path d="M166 102L332 267L230 369L65 202Z" fill="url(#paperTail)"/>
+  </g>
+  <path d="M65 0L166 102L267 0M65 202L166 102L267 202" fill="none" stroke="#76746f" stroke-opacity="0.16" stroke-width="1.5"/>
+</svg>

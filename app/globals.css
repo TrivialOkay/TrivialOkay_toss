@@ -96,6 +96,7 @@ img { display: block; }
 .fortune-ball.is-broken .fortune-ball-guide { bottom: 4px; }
 .fortune-ball.is-broken .fortune-ball-guide > span { color: #7c5d13; }
 .fortune-slip-drag { position: absolute; z-index: 6; left: 0; right: 0; top: 61px; width: min(88%, 308px); min-height: 154px; margin: 0 auto; display: grid; place-items: center; touch-action: none; pointer-events: none; }
+.fortune-slip-drag::after { content: ""; position: absolute; z-index: 2; right: -39px; bottom: -27px; width: 82px; height: 94px; background: url("/outcome-mascot-happened.png") center / contain no-repeat; filter: drop-shadow(0 3px 1px rgba(47,42,36,.12)); pointer-events: none; }
 .fortune-slip-drag > * { pointer-events: auto; cursor: grab; touch-action: none; }
 .fortune-slip-drag > *:active { cursor: grabbing; }
 /* 접힌 포춘쿠키 쪽지. 왼쪽은 접힌 등, 오른쪽은 열린 단면, 가운데는 접힌 자국. */
@@ -109,18 +110,14 @@ img { display: block; }
 .fortune-note::before { content: ""; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 8px; border-radius: 4px 1px 1px 4px; background: linear-gradient(90deg, #f2e6ca, rgba(242,230,202,0)); }
 .fortune-note::after { content: ""; position: absolute; left: 15px; right: 13px; top: 63%; height: 2px; border-radius: 1px; background: rgba(196,66,42,.4); }
 /* 펼쳐진 종이에도 접혔던 자국과 종이 결을 남긴다. */
-.fortune-slip { position: relative; width: 100%; min-height: 154px; padding: 18px 24px 17px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #8f816e; border-radius: 4px; box-shadow: 0 9px 24px rgba(70,52,28,.19), inset 0 0 24px rgba(190,150,78,.08); transform-origin: center; text-align: center;
+.fortune-slip { position: relative; z-index: 1; width: 100%; min-height: 154px; padding: 18px 24px 17px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #8f816e; border-radius: 4px; box-shadow: 0 9px 24px rgba(70,52,28,.19), inset 0 0 24px rgba(190,150,78,.08); transform-origin: center; text-align: center;
   background:
     linear-gradient(90deg, transparent 0 49.5%, rgba(147,121,72,.11) 49.5% 50%, rgba(255,255,255,.75) 50% 50.6%, transparent 50.6%),
     linear-gradient(transparent 0 49.4%, rgba(147,121,72,.15) 49.4% 50%, rgba(255,255,255,.8) 50% 50.7%, transparent 50.7%),
     repeating-linear-gradient(97deg, rgba(163,138,92,.038) 0 1px, transparent 1px 4px),
     linear-gradient(165deg, #fffefa, #f5ecd5);
 }
-.fortune-slip::before, .fortune-slip::after { content: "✦"; position: absolute; top: 13px; color: #c79724; font-size: 11px; }
-.fortune-slip::before { left: 13px; }.fortune-slip::after { right: 13px; }
-.fortune-slip span { display: block; color: #90732e; font-size: 9px; font-weight: 850; letter-spacing: .08em; }
-.fortune-slip strong { display: block; width: 100%; margin-top: 12px; font-size: 16px; line-height: 1.5; letter-spacing: -.04em; overflow-wrap: anywhere; }
-.fortune-slip small { display: block; margin-top: 10px; color: #746a5d; font-size: 10px; font-weight: 720; }
+.fortune-slip strong { display: block; width: 100%; font-size: 16px; line-height: 1.5; letter-spacing: -.04em; overflow-wrap: anywhere; }
 
 .fortune-scene { position: relative; height: 218px; overflow: visible; perspective: 620px; }
 .fortune-scene .object-art { position: absolute; z-index: 1; left: 45%; bottom: 4px; transform: translateX(-50%); }

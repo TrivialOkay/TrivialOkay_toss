@@ -2,22 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import {
   alignOuterShellPattern,
   createOuterShell,
   prepareOuterShellForFinalBreak,
+  syncOuterShellFragmentBatches,
   updateOuterShellFracture,
   updateOuterShellGeometry,
+  type OuterShellFragmentBatches,
   type OuterShellFragment,
 } from "./wakppu-outer-shell";
-import { createNestLayout, type NestLayoutTarget } from "./wakppu-nest-layout";
+import { createFallLayout, type FallLayoutTarget } from "./wakppu-fall-layout";
 
 type WakppuBreakSceneProps = {
   stage: number;
   revealed: boolean;
   onImpact: () => void;
-  onNestReady: () => void;
+  onSlice: () => void;
+  onNoteReady: () => void;
   onNotePull: () => void;
 };
 
@@ -30,7 +32,15 @@ type SurfaceDeformation = {
 type ActivePress = {
   pointerId: number;
   startedAt: number;
+  startX: number;
+  startY: number;
   deformation: SurfaceDeformation;
+};
+
+type SliceEffect = {
+  startedAt: number;
+  direction: THREE.Vector2;
+  angle: number;
 };
 
 type NoteDrag = {
@@ -39,13 +49,14 @@ type NoteDrag = {
   startY: number;
 };
 
-type NestFragmentMotion = NestLayoutTarget & {
+type FallingFragmentMotion = FallLayoutTarget & {
   startPosition: THREE.Vector3;
   startQuaternion: THREE.Quaternion;
   startScale: THREE.Vector3;
+  floorHitTime: number;
 };
 
-type NestPhase = "idle" | "gathering" | "ready";
+type FragmentPhase = "idle" | "falling" | "ready";
 
 type SceneRuntime = {
   renderer: THREE.WebGLRenderer;
@@ -59,6 +70,7 @@ type SceneRuntime = {
   outerShellGeometry: THREE.BufferGeometry;
   outerShellBasePositions: Float32Array;
   outerShellFragments: OuterShellFragment[];
+  fragmentBatches: OuterShellFragmentBatches;
   deformations: SurfaceDeformation[];
   impactPoint: THREE.Vector3;
   activePress: ActivePress | null;
@@ -77,19 +89,28 @@ type SceneRuntime = {
   noteHome: THREE.Vector3;
   mascotRoot: THREE.Group;
   mascotHome: THREE.Vector3;
-  nestPhase: NestPhase;
-  nestGatherStartedAt: number;
-  nestMotions: NestFragmentMotion[];
+  bladeRoot: THREE.Group;
+  bladeMaterial: THREE.MeshPhysicalMaterial;
+  bladeHandleMaterial: THREE.MeshPhysicalMaterial;
+  sliceLine: THREE.Mesh;
+  sliceLineMaterial: THREE.MeshBasicMaterial;
+  sliceEffect: SliceEffect | null;
+  fragmentPhase: FragmentPhase;
+  fragmentFallStartedAt: number;
+  fragmentMotions: FallingFragmentMotion[];
+  notePresented: boolean;
   reduceMotion: boolean;
   frameId: number;
   disposed: boolean;
 };
 
 const BALL_RADIUS = 1.55;
-const NOTE_MODEL = "/models/fortune-note.glb?v=20260813-folded-reference-2";
+const NOTE_IMAGE = "/models/fortune-note-folded.svg?v=20260817-reference-1";
 const MASCOT_IMAGE = "/outcome-mascot-happened.png";
-const NOTE_SCALE = 0.78;
-const NEST_GATHER_DURATION = 1480;
+const FRAGMENT_FALL_DURATION = 1650;
+const NOTE_REVEAL_DELAY = 520;
+const FRAGMENT_GRAVITY = 3.6;
+const DEFORMATION_MIN_DOT = Math.cos(0.96);
 const CAMERA_STAGE_POSITIONS = [
   new THREE.Vector3(0, 0.34, 8.45),
   new THREE.Vector3(0.58, 0.52, 8.28),
@@ -178,20 +199,21 @@ function deformShellGeometry(
     base.set(basePositions[offset], basePositions[offset + 1], basePositions[offset + 2]);
     point.copy(base);
     normal.copy(base).normalize();
-    deformations.forEach(({ direction, currentDepth }) => {
-      if (currentDepth < 0.001) return;
-      const angle = Math.acos(THREE.MathUtils.clamp(normal.dot(direction), -1, 1));
+    for (const { direction, currentDepth } of deformations) {
+      if (currentDepth < 0.001) continue;
+      const dot = THREE.MathUtils.clamp(normal.dot(direction), -1, 1);
+      if (dot < DEFORMATION_MIN_DOT) continue;
+      const angle = Math.acos(dot);
       const dent = smoothstep(1 - angle / 0.88);
       const bulge = smoothstep(1 - Math.abs(angle - 0.72) / 0.24);
       point.addScaledVector(direction, -currentDepth * dent);
       point.addScaledVector(normal, currentDepth * 0.24 * bulge);
       point.y -= currentDepth * dent * 0.08;
-    });
+    }
     positions.setXYZ(index, point.x, point.y, point.z);
   }
   positions.needsUpdate = true;
   geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
 }
 
 function disposeMaterial(material: THREE.Material | THREE.Material[]) {
@@ -209,7 +231,8 @@ function disposeScene(scene: THREE.Scene) {
     if (!(object instanceof THREE.Mesh)) return;
     if (!geometries.has(object.geometry)) {
       geometries.add(object.geometry);
-      object.geometry.dispose();
+      if (object instanceof THREE.BatchedMesh) object.dispose();
+      else object.geometry.dispose();
     }
     const items = Array.isArray(object.material) ? object.material : [object.material];
     items.forEach((material) => {
@@ -229,13 +252,14 @@ function setPointerRay(runtime: SceneRuntime, event: PointerEvent) {
   runtime.raycaster.setFromCamera(pointer, runtime.camera);
 }
 
-export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNotePull }: WakppuBreakSceneProps) {
+export function WakppuBreakScene({ stage, revealed, onImpact, onSlice, onNoteReady, onNotePull }: WakppuBreakSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<SceneRuntime | null>(null);
   const stageRef = useRef(stage);
   const revealedRef = useRef(revealed);
   const impactCallbackRef = useRef(onImpact);
-  const nestReadyCallbackRef = useRef(onNestReady);
+  const sliceCallbackRef = useRef(onSlice);
+  const noteReadyCallbackRef = useRef(onNoteReady);
   const notePullCallbackRef = useRef(onNotePull);
   const [ready, setReady] = useState(false);
 
@@ -243,9 +267,10 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
     stageRef.current = stage;
     revealedRef.current = revealed;
     impactCallbackRef.current = onImpact;
-    nestReadyCallbackRef.current = onNestReady;
+    sliceCallbackRef.current = onSlice;
+    noteReadyCallbackRef.current = onNoteReady;
     notePullCallbackRef.current = onNotePull;
-  }, [stage, revealed, onImpact, onNestReady, onNotePull]);
+  }, [stage, revealed, onImpact, onSlice, onNoteReady, onNotePull]);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -292,6 +317,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       side: THREE.DoubleSide,
     });
     const shellGeometry = new THREE.SphereGeometry(BALL_RADIUS, 48, 32);
+    shellGeometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), BALL_RADIUS + 0.45);
     const shellPosition = shellGeometry.getAttribute("position") as THREE.BufferAttribute;
     const shellBasePositions = new Float32Array(shellPosition.array as Float32Array);
     const intactBall = new THREE.Mesh(shellGeometry, shellMaterial);
@@ -340,7 +366,65 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       edge: edgeMaterial,
     });
     scene.add(outerShellState.mesh);
-    outerShellState.fragments.forEach((fragment) => scene.add(fragment.mesh));
+    scene.add(outerShellState.fragmentBatches.surface, outerShellState.fragmentBatches.edge);
+
+    const bladeRoot = new THREE.Group();
+    bladeRoot.visible = false;
+    bladeRoot.position.z = 2.35;
+    const bladeShape = new THREE.Shape();
+    bladeShape.moveTo(-0.72, -0.09);
+    bladeShape.lineTo(0.92, -0.065);
+    bladeShape.lineTo(1.38, 0);
+    bladeShape.lineTo(0.92, 0.065);
+    bladeShape.lineTo(-0.72, 0.09);
+    bladeShape.closePath();
+    const bladeMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x91d4f5,
+      emissive: 0x6fc7f1,
+      emissiveIntensity: 0.72,
+      metalness: 0.76,
+      roughness: 0.14,
+      clearcoat: 1,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const blade = new THREE.Mesh(new THREE.ShapeGeometry(bladeShape), bladeMaterial);
+    blade.renderOrder = 20;
+    bladeRoot.add(blade);
+    const bladeHandleMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x583247,
+      emissive: 0x190b12,
+      emissiveIntensity: 0.3,
+      roughness: 0.34,
+      metalness: 0.18,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const bladeHandle = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.25, 0.08), bladeHandleMaterial);
+    bladeHandle.position.x = -1.02;
+    bladeHandle.renderOrder = 20;
+    bladeRoot.add(bladeHandle);
+    scene.add(bladeRoot);
+
+    const sliceLineMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffa9da,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+    const sliceLine = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 0.05), sliceLineMaterial);
+    sliceLine.visible = false;
+    sliceLine.position.z = 2.18;
+    sliceLine.renderOrder = 19;
+    scene.add(sliceLine);
 
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(2.7, 64),
@@ -355,6 +439,17 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
     noteRoot.visible = false;
     noteRoot.position.set(0, -0.34, 1.18);
     noteRoot.rotation.set(0.1, 0.08, -0.09);
+    const noteMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      alphaTest: 0.02,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    const noteMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.8), noteMaterial);
+    noteMesh.renderOrder = 9;
+    noteRoot.add(noteMesh);
     const noteHitbox = new THREE.Mesh(
       new THREE.BoxGeometry(0.72, 0.8, 0.12),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
@@ -392,6 +487,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       outerShellGeometry: outerShellState.geometry,
       outerShellBasePositions: outerShellState.basePositions,
       outerShellFragments: outerShellState.fragments,
+      fragmentBatches: outerShellState.fragmentBatches,
       deformations: [],
       impactPoint: new THREE.Vector3(0, 0, BALL_RADIUS),
       activePress: null,
@@ -410,9 +506,16 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       noteHome: new THREE.Vector3(0, -0.34, 1.18),
       mascotRoot,
       mascotHome: new THREE.Vector3(0, -0.28, 0.28),
-      nestPhase: "idle",
-      nestGatherStartedAt: 0,
-      nestMotions: [],
+      bladeRoot,
+      bladeMaterial,
+      bladeHandleMaterial,
+      sliceLine,
+      sliceLineMaterial,
+      sliceEffect: null,
+      fragmentPhase: "idle",
+      fragmentFallStartedAt: 0,
+      fragmentMotions: [],
+      notePresented: false,
       reduceMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       frameId: 0,
       disposed: false,
@@ -432,18 +535,18 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       },
     );
 
-    new GLTFLoader().load(
-      NOTE_MODEL,
-      (gltf) => {
-        if (runtime.disposed) return;
-        gltf.scene.scale.setScalar(NOTE_SCALE);
-        gltf.scene.traverse((child) => {
-          if (!(child instanceof THREE.Mesh)) return;
-          child.castShadow = true;
-          child.receiveShadow = true;
-          child.renderOrder = 9;
-        });
-        noteRoot.add(gltf.scene);
+    new THREE.TextureLoader().load(
+      NOTE_IMAGE,
+      (texture) => {
+        if (runtime.disposed) {
+          texture.dispose();
+          return;
+        }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearMipmapLinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        noteMaterial.map = texture;
+        noteMaterial.needsUpdate = true;
         runtime.noteLoaded = true;
       },
       undefined,
@@ -487,6 +590,8 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       runtime.activePress = {
         pointerId: event.pointerId,
         startedAt: performance.now(),
+        startX: event.clientX,
+        startY: event.clientY,
         deformation: { direction: runtime.impactPoint.clone(), currentDepth: 0, targetDepth: 0.055 },
       };
       renderer.domElement.setPointerCapture?.(event.pointerId);
@@ -497,17 +602,50 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
         const dx = event.clientX - runtime.noteDrag.startX;
         const dy = event.clientY - runtime.noteDrag.startY;
         const distance = Math.hypot(dx, dy);
+        const offsetX = THREE.MathUtils.clamp(dx / 105, -1.45, 1.45);
+        const offsetY = THREE.MathUtils.clamp(-dy / 92, -0.18, 1.72);
+        const offsetZ = Math.min(distance / 210, 0.44);
         runtime.noteRoot.position.set(
-          runtime.noteHome.x + THREE.MathUtils.clamp(dx / 105, -1.45, 1.45),
-          runtime.noteHome.y + THREE.MathUtils.clamp(-dy / 92, -0.18, 1.72),
-          runtime.noteHome.z + Math.min(distance / 210, 0.44),
+          runtime.noteHome.x + offsetX,
+          runtime.noteHome.y + offsetY,
+          runtime.noteHome.z + offsetZ,
         );
+        runtime.mascotRoot.position.set(
+          runtime.mascotHome.x + offsetX,
+          runtime.mascotHome.y + offsetY,
+          runtime.mascotHome.z + offsetZ * 0.35,
+        );
+        runtime.mascotRoot.rotation.z = THREE.MathUtils.clamp(dx / 900, -0.12, 0.12);
         if (distance >= 112 || dy <= -92) {
           runtime.noteReady = false;
           runtime.noteRoot.visible = false;
+          runtime.mascotRoot.visible = false;
           notePullCallbackRef.current();
         }
         return;
+      }
+      const activePress = runtime.activePress;
+      if (activePress?.pointerId === event.pointerId) {
+        const dx = event.clientX - activePress.startX;
+        const dy = event.clientY - activePress.startY;
+        const distance = Math.hypot(dx, dy);
+        const duration = performance.now() - activePress.startedAt;
+        const swipeThreshold = Math.max(82, Math.min(112, renderer.domElement.clientWidth * 0.34));
+        const speed = distance / Math.max(duration, 1);
+        if (duration <= 520 && distance >= swipeThreshold && speed >= 0.5) {
+          const direction = new THREE.Vector2(dx / distance, -dy / distance);
+          runtime.activePress = null;
+          runtime.lastPressStrength = 1;
+          runtime.sliceEffect = {
+            startedAt: performance.now(),
+            direction,
+            angle: Math.atan2(direction.y, direction.x),
+          };
+          runtime.bladeRoot.visible = true;
+          runtime.sliceLine.visible = true;
+          renderer.domElement.releasePointerCapture?.(event.pointerId);
+          sliceCallbackRef.current();
+        }
       }
     }
 
@@ -551,7 +689,29 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
 
     const fragmentTarget = new THREE.Vector3();
     const noteIdleTarget = new THREE.Vector3();
+    const fragmentSpinQuaternion = new THREE.Quaternion();
     function render(time: number) {
+      if (runtime.sliceEffect) {
+        const sliceProgress = clamp((time - runtime.sliceEffect.startedAt) / 620);
+        const travel = smoothstep(sliceProgress) * 6.4 - 3.2;
+        runtime.bladeRoot.position.set(
+          runtime.sliceEffect.direction.x * travel,
+          runtime.sliceEffect.direction.y * travel,
+          2.35,
+        );
+        runtime.bladeRoot.rotation.z = runtime.sliceEffect.angle - Math.PI / 2;
+        runtime.sliceLine.rotation.z = runtime.sliceEffect.angle;
+        const bladeOpacity = clamp(Math.sin(sliceProgress * Math.PI) * 1.45);
+        runtime.bladeMaterial.opacity = bladeOpacity;
+        runtime.bladeHandleMaterial.opacity = bladeOpacity;
+        runtime.sliceLineMaterial.opacity = clamp((1 - sliceProgress) * 1.35);
+        if (sliceProgress >= 1) {
+          runtime.bladeRoot.visible = false;
+          runtime.sliceLine.visible = false;
+          runtime.sliceEffect = null;
+        }
+      }
+
       if (!runtime.exploded) {
         let geometryChanged = false;
         if (runtime.activePress) {
@@ -601,49 +761,73 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
           fragment.mesh.quaternion.slerp(fragment.targetQuaternion, 0.13);
           fragment.mesh.scale.lerp(fragment.targetScale, 0.14);
         });
+        syncOuterShellFragmentBatches(runtime.outerShellFragments, runtime.fragmentBatches);
       }
 
-      if (runtime.nestPhase === "gathering") {
-        const rawProgress = runtime.reduceMotion
-          ? 1
-          : clamp((time - runtime.nestGatherStartedAt) / NEST_GATHER_DURATION);
-        runtime.nestMotions.forEach((motion) => {
-          const motionProgress = runtime.reduceMotion
-            ? 1
-            : clamp((rawProgress - motion.delay) / Math.max(1 - motion.delay, 0.01));
-          const progress = smoothstep(motionProgress);
-          const arc = Math.sin(progress * Math.PI);
-          motion.fragment.mesh.position.lerpVectors(motion.startPosition, motion.position, progress);
-          motion.fragment.mesh.position.y += arc * motion.arcHeight;
-          motion.fragment.mesh.position.x += arc * motion.arcSide;
-          motion.fragment.mesh.quaternion.slerpQuaternions(motion.startQuaternion, motion.quaternion, progress);
-          motion.fragment.mesh.scale.lerpVectors(motion.startScale, motion.scale, progress);
+      if (runtime.fragmentPhase === "falling") {
+        const elapsedMilliseconds = runtime.reduceMotion
+          ? FRAGMENT_FALL_DURATION
+          : time - runtime.fragmentFallStartedAt;
+        runtime.fragmentMotions.forEach((motion) => {
+          const elapsed = Math.max(0, elapsedMilliseconds / 1000 - motion.delay);
+          const fallTime = Math.min(elapsed, motion.floorHitTime);
+          const slideTime = elapsed > motion.floorHitTime
+            ? Math.min(elapsed - motion.floorHitTime, 0.42) * 0.18
+            : 0;
+          motion.fragment.mesh.position.set(
+            motion.startPosition.x + motion.velocity.x * (fallTime + slideTime),
+            motion.startPosition.y + motion.velocity.y * fallTime - FRAGMENT_GRAVITY * fallTime * fallTime,
+            motion.startPosition.z + motion.velocity.z * (fallTime + slideTime),
+          );
+          if (elapsed >= motion.floorHitTime) {
+            const bounceTime = elapsed - motion.floorHitTime;
+            const bounce = Math.abs(Math.sin(bounceTime * 13.5)) * 0.13 * Math.exp(-bounceTime * 5.2);
+            motion.fragment.mesh.position.y = motion.floorY + bounce;
+          }
+          fragmentSpinQuaternion.setFromAxisAngle(
+            motion.rotationAxis,
+            motion.spin * Math.min(elapsed, motion.floorHitTime + 0.72),
+          );
+          motion.fragment.mesh.quaternion.copy(motion.startQuaternion).multiply(fragmentSpinQuaternion);
+          motion.fragment.mesh.scale.copy(motion.startScale);
         });
+        syncOuterShellFragmentBatches(runtime.outerShellFragments, runtime.fragmentBatches);
         runtime.camera.position.lerp(runtime.cameraTarget, runtime.reduceMotion ? 1 : 0.055);
         runtime.cameraLookAt.lerp(runtime.cameraLookTarget, runtime.reduceMotion ? 1 : 0.07);
         runtime.camera.lookAt(runtime.cameraLookAt);
 
-        if (rawProgress >= 1) {
-          runtime.nestPhase = "ready";
+        if (!runtime.notePresented && elapsedMilliseconds >= NOTE_REVEAL_DELAY) {
+          runtime.notePresented = true;
           runtime.mascotRoot.position.copy(runtime.mascotHome);
-          runtime.mascotRoot.visible = true;
+          runtime.mascotRoot.rotation.z = 0;
+          runtime.mascotRoot.visible = !revealedRef.current;
           runtime.noteRoot.position.copy(runtime.noteHome);
           runtime.noteRoot.rotation.set(0.1, 0.08, -0.09);
           runtime.noteRoot.visible = !revealedRef.current;
           runtime.noteReady = !revealedRef.current;
-          nestReadyCallbackRef.current();
+          noteReadyCallbackRef.current();
         }
-      } else if (runtime.nestPhase === "ready") {
-        const idle = runtime.reduceMotion ? 0 : Math.sin(time * 0.0021) * 0.025;
-        runtime.mascotRoot.position.set(
-          runtime.mascotHome.x,
-          runtime.mascotHome.y + idle,
-          runtime.mascotHome.z,
-        );
-        runtime.mascotRoot.rotation.z = runtime.reduceMotion ? 0 : Math.sin(time * 0.00135) * 0.015;
-        if (runtime.noteReady && !runtime.noteDrag) {
-          noteIdleTarget.set(runtime.noteHome.x, runtime.noteHome.y + idle, runtime.noteHome.z);
+        if (runtime.notePresented && runtime.noteReady && !runtime.noteDrag) {
+          noteIdleTarget.copy(runtime.noteHome);
           runtime.noteRoot.position.lerp(noteIdleTarget, runtime.reduceMotion ? 1 : 0.2);
+          fragmentTarget.copy(runtime.mascotHome);
+          runtime.mascotRoot.position.lerp(fragmentTarget, runtime.reduceMotion ? 1 : 0.2);
+          runtime.mascotRoot.rotation.z = THREE.MathUtils.lerp(runtime.mascotRoot.rotation.z, 0, 0.2);
+        }
+        if (elapsedMilliseconds >= FRAGMENT_FALL_DURATION) runtime.fragmentPhase = "ready";
+      } else if (runtime.fragmentPhase === "ready") {
+        const idle = runtime.reduceMotion ? 0 : Math.sin(time * 0.0021) * 0.025;
+        if (!runtime.noteDrag) {
+          runtime.mascotRoot.position.set(
+            runtime.mascotHome.x,
+            runtime.mascotHome.y + idle,
+            runtime.mascotHome.z,
+          );
+          runtime.mascotRoot.rotation.z = runtime.reduceMotion ? 0 : Math.sin(time * 0.00135) * 0.015;
+          if (runtime.noteReady) {
+            noteIdleTarget.set(runtime.noteHome.x, runtime.noteHome.y + idle, runtime.noteHome.z);
+            runtime.noteRoot.position.lerp(noteIdleTarget, runtime.reduceMotion ? 1 : 0.2);
+          }
         }
       }
       renderer.render(scene, camera);
@@ -660,6 +844,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       renderer.domElement.removeEventListener("pointerup", finishPointer);
       renderer.domElement.removeEventListener("pointercancel", cancelPointer);
       window.cancelAnimationFrame(runtime.frameId);
+      runtime.outerShellFragments.forEach((fragment) => fragment.mesh.geometry.dispose());
       disposeScene(scene);
       renderer.dispose();
       renderer.domElement.remove();
@@ -709,7 +894,8 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
 
     if (runtime.exploded) return;
     runtime.exploded = true;
-    runtime.nestPhase = "gathering";
+    runtime.fragmentPhase = "falling";
+    runtime.notePresented = false;
     runtime.noteReady = false;
     runtime.noteRoot.visible = false;
     runtime.mascotRoot.visible = false;
@@ -722,6 +908,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
       fragment.mesh.quaternion.copy(fragment.targetQuaternion);
       fragment.mesh.scale.copy(fragment.targetScale);
     });
+    syncOuterShellFragmentBatches(runtime.outerShellFragments, runtime.fragmentBatches);
     updateOuterShellGeometry(
       runtime.outerShellGeometry,
       runtime.outerShellBasePositions,
@@ -731,14 +918,24 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
 
     runtime.intactBall.visible = false;
     runtime.outerShell.visible = false;
-    runtime.nestMotions = createNestLayout(runtime.outerShellFragments).map((target) => ({
-      ...target,
-      startPosition: target.fragment.mesh.position.clone(),
-      startQuaternion: target.fragment.mesh.quaternion.clone(),
-      startScale: target.fragment.mesh.scale.clone(),
-    }));
-    runtime.nestGatherStartedAt = performance.now();
-    runtime.nestPhase = "gathering";
+    runtime.fragmentMotions = createFallLayout(runtime.outerShellFragments, hit).map((target) => {
+      const startPosition = target.fragment.mesh.position.clone();
+      const fallDistance = Math.max(startPosition.y - target.floorY, 0.01);
+      const floorHitTime = (
+        target.velocity.y + Math.sqrt(
+          target.velocity.y * target.velocity.y + 4 * FRAGMENT_GRAVITY * fallDistance,
+        )
+      ) / (2 * FRAGMENT_GRAVITY);
+      return {
+        ...target,
+        startPosition,
+        startQuaternion: target.fragment.mesh.quaternion.clone(),
+        startScale: target.fragment.mesh.scale.clone(),
+        floorHitTime,
+      };
+    });
+    runtime.fragmentFallStartedAt = performance.now();
+    runtime.fragmentPhase = "falling";
     runtime.cameraTarget.set(0, 2.05, 7.45);
     runtime.cameraLookTarget.set(0, -0.66, 0);
   }, [stage, revealed]);
@@ -748,6 +945,7 @@ export function WakppuBreakScene({ stage, revealed, onImpact, onNestReady, onNot
     if (!runtime || !revealed) return;
     runtime.noteReady = false;
     runtime.noteRoot.visible = false;
+    runtime.mascotRoot.visible = false;
   }, [revealed]);
 
   return (

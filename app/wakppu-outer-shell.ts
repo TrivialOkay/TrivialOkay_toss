@@ -3,6 +3,7 @@ import { ConvexHull } from 'three/addons/math/ConvexHull.js';
 
 export const OUTER_SHELL_RADIUS = 1.605;
 export const OUTER_SHELL_FRAGMENT_COUNT = 96;
+const DEFORMATION_MIN_DOT = Math.cos(0.96);
 
 export type OuterShellDeformation = {
   direction: THREE.Vector3;
@@ -11,6 +12,8 @@ export type OuterShellDeformation = {
 
 export type OuterShellFragment = {
   mesh: THREE.Mesh;
+  surfaceBatchId: number;
+  edgeBatchId: number;
   faceIndex: number;
   shellVertexStart: number;
   shellVertexCount: number;
@@ -33,6 +36,11 @@ type OuterShellMaterials = {
   surface: THREE.Material;
   fragmentSurface: THREE.Material;
   edge: THREE.Material;
+};
+
+export type OuterShellFragmentBatches = {
+  surface: THREE.BatchedMesh;
+  edge: THREE.BatchedMesh;
 };
 
 function smoothstep(value: number) {
@@ -203,6 +211,93 @@ function createFragmentGeometry(
   return geometry;
 }
 
+function extractFragmentMaterialGeometry(source: THREE.BufferGeometry, materialIndex: number) {
+  const sourcePositions = source.getAttribute('position') as THREE.BufferAttribute;
+  const sourceNormals = source.getAttribute('normal') as THREE.BufferAttribute;
+  const positions: number[] = [];
+  const normals: number[] = [];
+
+  source.groups.forEach((group) => {
+    if (group.materialIndex !== materialIndex) return;
+    for (let index = group.start; index < group.start + group.count; index += 1) {
+      positions.push(sourcePositions.getX(index), sourcePositions.getY(index), sourcePositions.getZ(index));
+      normals.push(sourceNormals.getX(index), sourceNormals.getY(index), sourceNormals.getZ(index));
+    }
+  });
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+function createFragmentBatches(
+  fragments: OuterShellFragment[],
+  materials: OuterShellMaterials,
+): OuterShellFragmentBatches {
+  const splitGeometries = fragments.map((fragment) => ({
+    surface: extractFragmentMaterialGeometry(fragment.mesh.geometry, 0),
+    edge: extractFragmentMaterialGeometry(fragment.mesh.geometry, 1),
+  }));
+  const surfaceVertexCount = splitGeometries.reduce(
+    (total, item) => total + item.surface.getAttribute('position').count,
+    0,
+  );
+  const edgeVertexCount = splitGeometries.reduce(
+    (total, item) => total + item.edge.getAttribute('position').count,
+    0,
+  );
+  const surface = new THREE.BatchedMesh(
+    fragments.length,
+    surfaceVertexCount,
+    0,
+    materials.fragmentSurface,
+  );
+  const edge = new THREE.BatchedMesh(
+    fragments.length,
+    edgeVertexCount,
+    0,
+    materials.edge,
+  );
+  surface.renderOrder = 6;
+  edge.renderOrder = 6;
+  surface.perObjectFrustumCulled = false;
+  edge.perObjectFrustumCulled = false;
+
+  const identity = new THREE.Matrix4();
+  fragments.forEach((fragment, index) => {
+    const geometries = splitGeometries[index];
+    const surfaceGeometryId = surface.addGeometry(geometries.surface);
+    const edgeGeometryId = edge.addGeometry(geometries.edge);
+    fragment.surfaceBatchId = surface.addInstance(surfaceGeometryId);
+    fragment.edgeBatchId = edge.addInstance(edgeGeometryId);
+    surface.setMatrixAt(fragment.surfaceBatchId, identity);
+    edge.setMatrixAt(fragment.edgeBatchId, identity);
+    surface.setVisibleAt(fragment.surfaceBatchId, false);
+    edge.setVisibleAt(fragment.edgeBatchId, false);
+    geometries.surface.dispose();
+    geometries.edge.dispose();
+  });
+  surface.optimize();
+  edge.optimize();
+  return { surface, edge };
+}
+
+export function syncOuterShellFragmentBatches(
+  fragments: OuterShellFragment[],
+  batches: OuterShellFragmentBatches,
+) {
+  fragments.forEach((fragment) => {
+    fragment.mesh.updateMatrix();
+    batches.surface.setMatrixAt(fragment.surfaceBatchId, fragment.mesh.matrix);
+    batches.edge.setMatrixAt(fragment.edgeBatchId, fragment.mesh.matrix);
+    batches.surface.setVisibleAt(fragment.surfaceBatchId, fragment.mesh.visible);
+    batches.edge.setVisibleAt(fragment.edgeBatchId, fragment.mesh.visible);
+  });
+}
+
 export function createOuterShell(materials: OuterShellMaterials) {
   const cells = createSphericalVoronoiCells();
   const { geometry, ranges } = createOuterShellGeometry(cells);
@@ -236,6 +331,8 @@ export function createOuterShell(materials: OuterShellMaterials) {
 
     fragments.push({
       mesh: fragmentMesh,
+      surfaceBatchId: -1,
+      edgeBatchId: -1,
       faceIndex,
       shellVertexStart: ranges[faceIndex].start,
       shellVertexCount: ranges[faceIndex].count,
@@ -255,7 +352,8 @@ export function createOuterShell(materials: OuterShellMaterials) {
     });
   }
 
-  return { mesh, geometry, basePositions, fragments };
+  const fragmentBatches = createFragmentBatches(fragments, materials);
+  return { mesh, geometry, basePositions, fragments, fragmentBatches };
 }
 
 export function alignOuterShellPattern(
@@ -308,9 +406,10 @@ function deformSpherePointInto(
 ) {
   point.copy(base);
   normal.copy(base).normalize();
-  deformations.forEach(({ direction, currentDepth }) => {
-    if (currentDepth < 0.001) return;
+  for (const { direction, currentDepth } of deformations) {
+    if (currentDepth < 0.001) continue;
     const dot = THREE.MathUtils.clamp(normal.dot(direction), -1, 1);
+    if (dot < DEFORMATION_MIN_DOT) continue;
     const angle = Math.acos(dot);
     const dent = smoothstep(1 - angle / 0.88);
     const bulge = smoothstep(1 - Math.abs(angle - 0.72) / 0.24);
@@ -318,7 +417,7 @@ function deformSpherePointInto(
     point.addScaledVector(direction, -depth * dent);
     point.addScaledVector(normal, depth * 0.24 * bulge);
     point.y -= depth * dent * 0.08;
-  });
+  }
 }
 
 function deformSpherePoint(
@@ -376,7 +475,6 @@ export function updateOuterShellGeometry(
 
   positions.needsUpdate = true;
   normals.needsUpdate = true;
-  geometry.computeBoundingSphere();
 }
 
 export function updateOuterShellFracture(
@@ -387,9 +485,11 @@ export function updateOuterShellFracture(
   maximumAngle = 0.72,
 ) {
   const impact = impactDirection.clone().normalize();
+  const minimumDot = Math.cos(maximumAngle);
   fragments.forEach((fragment) => {
-    const angle = Math.acos(THREE.MathUtils.clamp(fragment.radial.dot(impact), -1, 1));
-    if (angle > maximumAngle) return;
+    const dot = THREE.MathUtils.clamp(fragment.radial.dot(impact), -1, 1);
+    if (dot < minimumDot) return;
+    const angle = Math.acos(dot);
     const radialProgress = smoothstep(angle / maximumAngle);
     const coherence = 1 - radialProgress;
     const threshold = 0.34 + radialProgress * 0.5 + fragment.thresholdSeed * 0.025;
