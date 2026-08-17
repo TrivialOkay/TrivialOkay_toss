@@ -49,8 +49,8 @@ const archiveTypes: Array<{ key: ArchiveType; label: string }> = [
 const collectionPageSize = 6;
 const recordsPageSize = 5;
 
-function Pagination({ page, totalPages, onPage }: { page: number; totalPages: number; onPage: (page: number) => void }) {
-  if (totalPages <= 1) return null;
+function Pagination({ page, totalPages, onPage, showSinglePage = false }: { page: number; totalPages: number; onPage: (page: number) => void; showSinglePage?: boolean }) {
+  if (totalPages <= 1 && !showSinglePage) return null;
 
   const firstPage = Math.max(1, Math.min(page - 2, totalPages - 4));
   const visiblePages = Array.from({ length: Math.min(5, totalPages) }, (_, index) => firstPage + index);
@@ -306,8 +306,8 @@ function CollectionScreen({ records, filter, archiveType, searchOpen, search, on
         <button className="month-summary" data-theme-month={summaryMonth} onClick={onExamples}><span><small>{summaryMonth}월 관측국 브리핑</small><strong>대단한 우주 개입은 없었습니다.<br/>그래도 몇 번 피식했습니다.</strong></span><MonthlyMascot month={summaryMonth} className="summary-mascot" /></button>
         <p className="archive-intro">지금까지 공식 확인된<br/><strong>쓸데없이 소중한 별일들입니다.</strong></p>
         {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => { setPage(1); onSearch(event.target.value); }} placeholder="별일을 검색해보세요"/></label>}
-        <div className="archive-type-row" role="group" aria-label="카드 유형 필터">{archiveTypes.map((item) => <button key={item.key} className={archiveType === item.key ? "active" : ""} onClick={() => { setPage(1); onArchiveType(item.key); }}>{item.label}</button>)}</div>
-        <div className="filter-row" role="group" aria-label="도감 필터">{collectionFilters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => { setPage(1); onFilter(item); }}>{item}</button>)}</div>
+        <div className="archive-type-row" role="group" aria-label="카드 유형 필터">{archiveTypes.map((item) => <button key={item.key} className={archiveType === item.key ? "active" : ""} onClick={() => { setPage(1); onArchiveType(item.key); if (item.key !== "all") onFilter("전체"); }}>{item.label}</button>)}</div>
+        <div className="filter-row" role="group" aria-label="도감 필터">{collectionFilters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => { setPage(1); onFilter(item); if (item !== "전체") onArchiveType("all"); }}>{item}</button>)}</div>
         <div className="collection-poster-grid">
           {visibleRecords.map((record) => {
             const fortune = fortuneFor(record.fortuneId);
@@ -317,7 +317,7 @@ function CollectionScreen({ records, filter, archiveType, searchOpen, search, on
           })}
           {!filtered.length && <div className="empty-state"><Mascot/><strong>조건에 맞는 별일이 없어요.</strong></div>}
         </div>
-        <Pagination page={currentPage} totalPages={totalPages} onPage={setPage} />
+        <Pagination page={currentPage} totalPages={totalPages} onPage={setPage} showSinglePage />
       </section>
     </>
   );
