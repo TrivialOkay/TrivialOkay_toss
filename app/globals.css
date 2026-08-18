@@ -376,6 +376,25 @@ img { display: block; }
 .month-summary[data-theme-month="11"], .report-hero[data-theme-month="11"] { background-color: #fff4eb; }
 .month-summary[data-theme-month="12"], .report-hero[data-theme-month="12"] { background-color: #fff2f0; }
 .search-field { height: 42px; margin-bottom: 10px; padding: 0 12px; display: flex; align-items: center; gap: 8px; border: 1px solid #cbc4ba; border-radius: 11px; background: white; }.search-field .line-icon { width: 19px; }.search-field input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; font-size: 12px; }
+.collection-progress-card { position: relative; min-height: 104px; margin: 7px 0 13px; padding: 16px 16px 17px; display: grid; grid-template-columns: 1fr auto; gap: 13px 10px; overflow: hidden; border: 1px solid #c9bfdf; border-radius: 15px; background: linear-gradient(135deg, #f2edff, #fff6dd); }
+.collection-progress-card::after { content: "✦"; position: absolute; right: 56px; top: 11px; color: #d7ad34; font-size: 11px; }
+.collection-progress-card span { min-width: 0; }.collection-progress-card small { display: block; margin-bottom: 6px; color: #74648e; font-size: 9px; font-weight: 850; letter-spacing: .06em; }.collection-progress-card strong { display: block; font-size: 13px; line-height: 1.4; letter-spacing: -.025em; }.collection-progress-card > b { align-self: end; font-size: 12px; white-space: nowrap; }
+.collection-progress-card > i { grid-column: 1 / -1; height: 8px; overflow: hidden; border-radius: 999px; background: rgba(118,99,167,.18); }.collection-progress-card > i em { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7663a7, #e7ae35); transition: width .25s ease; }
+.collection-status-row { margin-bottom: 11px; padding: 4px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; border-radius: 11px; background: #efebe4; }
+.collection-status-row button { height: 34px; padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: #766f67; font-size: 10px; font-weight: 800; }.collection-status-row button.active { background: #fffdf8; color: #201e1b; box-shadow: 0 2px 7px rgba(49,43,35,.09); }
+.collection-catalog-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.collection-catalog-card { position: relative; min-width: 0; height: 158px; padding: 21px 7px 9px; display: grid; grid-template-rows: 82px 30px 13px; align-items: center; overflow: hidden; border: 1px solid #d8d0c6; border-radius: 13px; background: #fffdf8; text-align: center; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+.collection-catalog-card.is-observed:hover { transform: translateY(-2px); border-color: #9a8abc; box-shadow: 0 5px 12px rgba(72,61,91,.11); }
+.catalog-number { position: absolute; left: 8px; top: 7px; color: #8a8177; font-size: 7px; font-weight: 850; letter-spacing: .04em; }
+.catalog-art { min-width: 0; width: 100%; height: 82px; display: grid; place-items: center; transition: filter .2s ease, opacity .2s ease; }
+.catalog-art .object-art { width: 88px; height: 74px; }
+.catalog-art .object-character-pose { width: 91px; height: 79px; }
+.collection-catalog-card > strong { min-width: 0; width: 100%; max-height: 30px; display: -webkit-box; overflow: hidden; font-size: 9px; line-height: 1.45; letter-spacing: -.02em; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.collection-catalog-card > small { color: #69578f; font-size: 8px; font-weight: 820; }
+.collection-catalog-card.is-locked { border-color: #ddd9d3; background: #f5f3ef; cursor: default; opacity: 1; }
+.collection-catalog-card.is-locked .catalog-art { filter: grayscale(1); opacity: .28; }
+.collection-catalog-card.is-locked > strong, .collection-catalog-card.is-locked > small, .collection-catalog-card.is-locked .catalog-number { color: #a09b95; }
+.collection-empty { grid-column: 1 / -1; }
 .archive-intro { margin: 2px 0 13px; color: #756d63; font-size: 11px; line-height: 1.55; }
 .archive-intro strong { color: #25221f; font-size: 14px; }
 .archive-type-row { margin-bottom: 9px; display: grid; grid-template-columns: repeat(4, max-content); gap: 6px; overflow-x: auto; scrollbar-width: none; }
