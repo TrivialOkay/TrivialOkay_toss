@@ -3,7 +3,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   categories,
-  collectionFilters,
   dateLabel,
   fortuneFor,
   fortunes,
@@ -30,6 +29,7 @@ const legacyStorageKey = "byeolil-records-v1";
 const migrationKey = "byeolil-records-v1-migrated";
 const sampleCatalogKey = "byeolil-sample-catalog-version";
 const sampleCatalogVersion = "2026-08-fortunes-83-lucky-near-misses";
+const observedFortunesKey = "byeolil-observed-fortunes-v1";
 
 const outcomeLabels: Record<Outcome, string> = {
   happened: "관측 성공",
@@ -37,16 +37,7 @@ const outcomeLabels: Record<Outcome, string> = {
   missed: "관측 실패",
 };
 
-type ArchiveType = "all" | "observation" | "news" | "award";
-
-const archiveTypes: Array<{ key: ArchiveType; label: string }> = [
-  { key: "all", label: "전체" },
-  { key: "observation", label: "관측 보고서" },
-  { key: "news", label: "별일 속보" },
-  { key: "award", label: "하찮은 수상작" },
-];
-
-const collectionPageSize = 6;
+const collectionPageSize = 12;
 const recordsPageSize = 5;
 
 function Pagination({ page, totalPages, onPage, showSinglePage = false }: { page: number; totalPages: number; onPage: (page: number) => void; showSinglePage?: boolean }) {
@@ -121,6 +112,23 @@ function loadRecords() {
     return current;
   } catch {
     return makeSampleRecords();
+  }
+}
+
+function loadObservedFortuneIds(records: RecordItem[]) {
+  try {
+    const stored = window.localStorage.getItem(observedFortunesKey);
+    const parsed = stored ? JSON.parse(stored) : [];
+    const validFortuneIds = new Set(fortunes.map((fortune) => fortune.id));
+    const savedIds = Array.isArray(parsed)
+      ? parsed.filter((value): value is number => typeof value === "number" && validFortuneIds.has(value))
+      : [];
+    const recordedIds = records.filter((record) => !record.sample).map((record) => record.fortuneId);
+    const observedIds = [...new Set([...savedIds, ...recordedIds])];
+    window.localStorage.setItem(observedFortunesKey, JSON.stringify(observedIds));
+    return observedIds;
+  } catch {
+    return records.filter((record) => !record.sample).map((record) => record.fortuneId);
   }
 }
 
@@ -287,35 +295,56 @@ function CardScreen({ record, onBack, onShare, onCollection, onReplay, onDelete 
   );
 }
 
-function CollectionScreen({ records, filter, archiveType, searchOpen, search, onFilter, onArchiveType, onSearchOpen, onSearch, onOpen, onGuide, onExamples }: { records: RecordItem[]; filter: string; archiveType: ArchiveType; searchOpen: boolean; search: string; onFilter: (value: string) => void; onArchiveType: (value: ArchiveType) => void; onSearchOpen: () => void; onSearch: (value: string) => void; onOpen: (record: RecordItem) => void; onGuide: () => void; onExamples: () => void }) {
+type CollectionStatus = "all" | "observed" | "locked";
+
+function CollectionScreen({ observedFortuneIds, searchOpen, search, onSearchOpen, onSearch, onOpen }: { observedFortuneIds: number[]; searchOpen: boolean; search: string; onSearchOpen: () => void; onSearch: (value: string) => void; onOpen: (fortuneId: number) => void }) {
   const [page, setPage] = useState(1);
-  const summaryMonth = new Date().getMonth() + 1;
-  const filtered = records.filter((record) => {
-    const matchesGrade = filter === "전체" || gradeFor(record).grade === filter;
-    const matchesType = archiveType === "all" || archiveTypeFor(record).key === archiveType;
-    const matchesSearch = !search.trim() || record.title.includes(search.trim());
-    return matchesGrade && matchesType && matchesSearch;
+  const [status, setStatus] = useState<CollectionStatus>("all");
+  const observedIds = new Set(observedFortuneIds);
+  const catalog = [...fortunes].sort((left, right) => left.id - right.id);
+  const filtered = catalog.filter((fortune) => {
+    const observed = observedIds.has(fortune.id);
+    const matchesStatus = status === "all" || (status === "observed" ? observed : !observed);
+    const query = search.trim();
+    const matchesSearch = !query || (observed && fortune.cardTitle.includes(query));
+    return matchesStatus && matchesSearch;
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / collectionPageSize));
   const currentPage = Math.min(page, totalPages);
-  const visibleRecords = filtered.slice((currentPage - 1) * collectionPageSize, currentPage * collectionPageSize);
+  const visibleFortunes = filtered.slice((currentPage - 1) * collectionPageSize, currentPage * collectionPageSize);
+  const completion = Math.round((observedFortuneIds.length / catalog.length) * 100);
   return (
     <>
-      <Header title="별일 관측 보관소" right={<><button className="icon-button" onClick={onGuide} aria-label="별일 등급 안내"><Icon name="help" /></button><button className="icon-button" onClick={onSearchOpen} aria-label="도감 검색"><Icon name="search" /></button></>} />
+      <Header title="별일 운세 도감" right={<button className="icon-button" onClick={onSearchOpen} aria-label="도감 검색"><Icon name="search" /></button>} />
       <section className="screen-content collection-screen">
-        <button className="month-summary" data-theme-month={summaryMonth} onClick={onExamples}><span><small>{summaryMonth}월 관측국 브리핑</small><strong>대단한 우주 개입은 없었습니다.<br/>그래도 몇 번 피식했습니다.</strong></span><MonthlyMascot month={summaryMonth} className="summary-mascot" /></button>
-        <p className="archive-intro">지금까지 공식 확인된<br/><strong>쓸데없이 소중한 별일들입니다.</strong></p>
+        <div className="collection-progress-card">
+          <span><small>별일 관측국 · 수집 기록</small><strong>관측한 운세는 본래의 빛을 되찾아요.</strong></span>
+          <b>{observedFortuneIds.length} / {catalog.length}</b>
+          <i role="progressbar" aria-label="운세 도감 수집률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion}><em style={{ width: `${completion}%` }} /></i>
+        </div>
         {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => { setPage(1); onSearch(event.target.value); }} placeholder="별일을 검색해보세요"/></label>}
-        <div className="archive-type-row" role="group" aria-label="카드 유형 필터">{archiveTypes.map((item) => <button key={item.key} className={archiveType === item.key ? "active" : ""} onClick={() => { setPage(1); onArchiveType(item.key); if (item.key !== "all") onFilter("전체"); }}>{item.label}</button>)}</div>
-        <div className="filter-row" role="group" aria-label="도감 필터">{collectionFilters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => { setPage(1); onFilter(item); if (item !== "전체") onArchiveType("all"); }}>{item}</button>)}</div>
-        <div className="collection-poster-grid">
-          {visibleRecords.map((record) => {
-            const fortune = fortuneFor(record.fortuneId);
-            const grade = gradeFor(record);
-            const type = archiveTypeFor(record);
-            return <button className={`collection-poster poster-${type.key}`} key={record.id} onClick={() => onOpen(record)}><span className="poster-top"><b>NO.{String(record.fortuneId).padStart(3, "0")}</b><em>{type.mark}</em></span><span className="poster-type">{type.label}</span><span className="poster-art"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} /></span><strong className="poster-title">{record.title}</strong><span className="poster-footer">{type.key === "award" ? awardTitle(record) : type.key === "news" ? "인명 피해 없음" : `개입도 ${grade.stars}% · 오차 ${record.outcome === "close" ? 1 : 3}cm`}</span><small>★ {grade.grade}</small></button>;
+        <div className="collection-status-row" role="group" aria-label="도감 수집 상태 필터">
+          {([ ["all", "전체"], ["observed", "관측 완료"], ["locked", "미관측"] ] as const).map(([key, label]) => <button key={key} className={status === key ? "active" : ""} onClick={() => { setPage(1); setStatus(key); }}>{label}</button>)}
+        </div>
+        <div className="collection-catalog-grid">
+          {visibleFortunes.map((fortune) => {
+            const observed = observedIds.has(fortune.id);
+            return (
+              <button
+                className={`collection-catalog-card ${observed ? "is-observed" : "is-locked"}`}
+                key={fortune.id}
+                disabled={!observed}
+                onClick={() => onOpen(fortune.id)}
+                aria-label={observed ? `${fortune.cardTitle}, 관측 완료` : `NO.${String(fortune.id).padStart(3, "0")}, 아직 미관측`}
+              >
+                <span className="catalog-number">NO.{String(fortune.id).padStart(3, "0")}</span>
+                <span className="catalog-art"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} /></span>
+                <strong>{observed ? fortune.cardTitle : "아직 미관측"}</strong>
+                <small>{observed ? "관측 완료" : "???"}</small>
+              </button>
+            );
           })}
-          {!filtered.length && <div className="empty-state"><Mascot/><strong>조건에 맞는 별일이 없어요.</strong></div>}
+          {!filtered.length && <div className="empty-state collection-empty"><Mascot/><strong>조건에 맞는 별일이 없어요.</strong></div>}
         </div>
         <Pagination page={currentPage} totalPages={totalPages} onPage={setPage} showSinglePage />
       </section>
@@ -408,9 +437,8 @@ export default function Home() {
   const [note, setNote] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [records, setRecords] = useState<RecordItem[]>(makeSampleRecords(now));
+  const [observedFortuneIds, setObservedFortuneIds] = useState<number[]>([]);
   const [activeRecord, setActiveRecord] = useState<RecordItem | null>(null);
-  const [filter, setFilter] = useState<string>("전체");
-  const [archiveType, setArchiveType] = useState<ArchiveType>("all");
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(monthKey(now));
@@ -420,7 +448,11 @@ export default function Home() {
   const fortune = fortunes[fortuneIndex];
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setRecords(loadRecords()), 0);
+    const timer = window.setTimeout(() => {
+      const loadedRecords = loadRecords();
+      setRecords(loadedRecords);
+      setObservedFortuneIds(loadObservedFortuneIds(loadedRecords));
+    }, 0);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -443,12 +475,31 @@ export default function Home() {
     }
   }
 
+  function markFortuneObserved(fortuneId: number) {
+    setObservedFortuneIds((current) => {
+      if (current.includes(fortuneId)) return current;
+      const next = [...current, fortuneId];
+      try {
+        window.localStorage.setItem(observedFortunesKey, JSON.stringify(next));
+      } catch {
+        setToast("도감 해금 상태를 저장하지 못했어요");
+      }
+      return next;
+    });
+  }
+
   function moveTab(next: Tab) {
     setTab(next); setView("main"); setActiveRecord(null); setConfirmDelete(false); window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function openCard(record: RecordItem) {
     setActiveRecord(record); setView("card"); setConfirmDelete(false); window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openCollectedFortune(fortuneId: number) {
+    const record = records.find((item) => !item.sample && item.fortuneId === fortuneId);
+    if (record) { openCard(record); return; }
+    setToast("도감 등록 완료 · 관측 기록은 아직 없어요");
   }
 
   function cycleFortune() {
@@ -466,7 +517,7 @@ export default function Home() {
   function saveRecord() {
     const created = new Date();
     const record: RecordItem = { id: String(created.getTime()), date: localDateKey(created), time: created.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false }), fortuneId: fortune.id, title: fortune.cardTitle, outcome, category, note: note.trim(), photoDataUrl: photo ?? undefined };
-    persist([record, ...records]); setActiveRecord(record); setView("card"); setToast("속보 발행 완료 · 보관소에 자동 저장했어요");
+    markFortuneObserved(fortune.id); persist([record, ...records]); setActiveRecord(record); setView("card"); setToast("속보 발행 완료 · 보관소에 자동 저장했어요");
   }
 
   async function shareRecord() {
@@ -486,7 +537,7 @@ export default function Home() {
 
   function resetRecords() {
     if (!confirmReset) { setConfirmReset(true); return; }
-    persist([]); window.localStorage.setItem(legacyStorageKey, "[]"); window.localStorage.setItem(migrationKey, "done"); window.localStorage.setItem(sampleCatalogKey, sampleCatalogVersion); setConfirmReset(false); setToast("내 기록을 모두 지웠어요");
+    persist([]); setObservedFortuneIds([]); window.localStorage.setItem(observedFortunesKey, "[]"); window.localStorage.setItem(legacyStorageKey, "[]"); window.localStorage.setItem(migrationKey, "done"); window.localStorage.setItem(sampleCatalogKey, sampleCatalogVersion); setConfirmReset(false); setToast("내 기록과 도감을 모두 지웠어요");
   }
 
   function backToMain() { setView("main"); setActiveRecord(null); setConfirmDelete(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
@@ -500,8 +551,8 @@ export default function Home() {
         {view === "report" && <ReportScreen records={records} month={selectedMonth} onBack={backToMain} onMonth={setSelectedMonth} />}
         {view === "examples" && <ExamplesScreen onBack={backToMain} />}
         {view === "guide" && <GuideScreen onBack={backToMain} />}
-        {mainVisible && tab === "today" && <TodayScreen fortuneIndex={fortuneIndex} revealed={fortuneRevealed} outcome={outcome} onOutcome={setOutcome} onCycle={cycleFortune} onReveal={() => setFortuneRevealed(true)} onCapture={() => { setCategory(fortune.category); setView("capture"); }} onAbout={() => moveTab("about")} />}
-        {mainVisible && tab === "collection" && <CollectionScreen records={records} filter={filter} archiveType={archiveType} searchOpen={searchOpen} search={search} onFilter={setFilter} onArchiveType={setArchiveType} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCard} onGuide={() => setView("guide")} onExamples={() => setView("examples")} />}
+        {mainVisible && tab === "today" && <TodayScreen fortuneIndex={fortuneIndex} revealed={fortuneRevealed} outcome={outcome} onOutcome={setOutcome} onCycle={cycleFortune} onReveal={() => { setFortuneRevealed(true); markFortuneObserved(fortune.id); }} onCapture={() => { setCategory(fortune.category); setView("capture"); }} onAbout={() => moveTab("about")} />}
+        {mainVisible && tab === "collection" && <CollectionScreen observedFortuneIds={observedFortuneIds} searchOpen={searchOpen} search={search} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCollectedFortune} />}
         {mainVisible && tab === "records" && <RecordsScreen records={records} selectedMonth={selectedMonth} onMonth={setSelectedMonth} onReport={() => setView("report")} onOpen={openCard} />}
         {mainVisible && tab === "about" && <AboutScreen onGuide={() => setView("guide")} onExamples={() => setView("examples")} onReset={resetRecords} confirming={confirmReset} />}
         {mainVisible && <BottomNav tab={tab} onMove={moveTab} />}
