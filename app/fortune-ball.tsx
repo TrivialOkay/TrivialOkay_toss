@@ -6,6 +6,7 @@ import { WakppuBreakScene } from "./wakppu-break-scene";
 
 type FortuneBallProps = {
   fortune: string;
+  fortuneId: number;
   onReveal: () => void;
 };
 
@@ -121,7 +122,7 @@ function playCrunchFeedback(intensity = 0.5) {
   }
 }
 
-export function FortuneBall({ fortune, onReveal }: FortuneBallProps) {
+export function FortuneBall({ fortune, fortuneId, onReveal }: FortuneBallProps) {
   const [stage, setStage] = useState(0);
   const [pulled, setPulled] = useState(false);
   const [noteReady, setNoteReady] = useState(false);
@@ -224,6 +225,8 @@ export function FortuneBall({ fortune, onReveal }: FortuneBallProps) {
         <WakppuBreakScene
           stage={stage}
           revealed={pulled}
+          fortune={fortune}
+          fortuneId={fortuneId}
           onImpact={handleImpact}
           onSlice={handleSlice}
           onNoteReady={() => setNoteReady(true)}

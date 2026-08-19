@@ -206,7 +206,7 @@ function TodayScreen({
           <h2>{revealed ? fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
           <p>{revealed ? "우주 기여도 3% · 큰 기대는 금물!" : "돌리고, 누르고, 문지르면 예보가 나옵니다."}</p>
           <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
-            <FortuneBall key={fortune.id} fortune={fortune.title} onReveal={onReveal} />
+            <FortuneBall key={fortune.id} fortune={fortune.title} fortuneId={fortune.id} onReveal={onReveal} />
           </Suspense>
         </article>
         <section className={`outcome-section ${revealed ? "" : "is-locked"}`} aria-hidden={!revealed}>
