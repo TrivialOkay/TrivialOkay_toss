@@ -20,8 +20,10 @@ test("server-renders the Byeolil Today screen", async () => {
   const html = await response.text();
   assert.match(html, /<title>별일 관측국 — 하찮은 일을 쓸데없이 진지하게<\/title>/i);
   assert.match(html, /오늘의 별일 예보/);
-  assert.match(html, /실제로 관측됐나요/);
-  assert.match(html, /관측 증거 남기기/);
+  assert.match(html, /관측 결과 분류함/);
+  assert.match(html, /카드를 실제 결과와 맞는 투입구에 넣어주세요/);
+  assert.match(html, /현장 증거 더하기/);
+  assert.match(html, /예보를 꺼내면 관측할 수 있어요/);
   assert.match(html, />보관소</);
   assert.doesNotMatch(html, /codex-preview|Building your site|Your site is taking shape/i);
 });
@@ -39,4 +41,7 @@ test("keeps the legacy record migration in the client bundle", async () => {
   const source = (await Promise.all(chunks.filter((name) => name.endsWith(".js")).map((name) => readFile(new URL(name, chunkRoot), "utf8")))).join("\n");
   assert.match(source, /byeolil-records-v1/);
   assert.match(source, /byeolil-records-v2/);
+  assert.match(source, /분류 완료 · 도감과 관측일지에 등록했어요/);
+  assert.match(source, /카드를 분류하면 기록할 수 있어요/);
+  assert.match(source, /현장 증거 확보 · 별가루 \+1/);
 });

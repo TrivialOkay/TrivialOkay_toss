@@ -154,8 +154,13 @@ export function OutcomeFace({ outcome }: { outcome: Outcome }) {
   );
 }
 
-export function StatusBar() {
-  return <div className="status-bar" aria-hidden="true"><strong>9:41</strong><span className="status-symbols"><i className="signal-bars"><b/><b/><b/><b/></i><i className="wifi"/><i className="battery"/></span></div>;
+export function BureauCode({ children, status = "정상 수신" }: { children: ReactNode; status?: string }) {
+  return (
+    <div className="bureau-code" aria-label={`${children} · ${status}`}>
+      <span>{children}</span>
+      <b><i aria-hidden="true" />{status}</b>
+    </div>
+  );
 }
 
 export function BottomNav({ tab, onMove }: { tab: Tab; onMove: (tab: Tab) => void }) {

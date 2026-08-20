@@ -12,17 +12,19 @@ import {
   type OuterShellFragmentBatches,
   type OuterShellFragment,
 } from "./wakppu-outer-shell";
-import { createFallLayout, type FallLayoutTarget } from "./wakppu-fall-layout";
+import { createFloatLayout, type FloatLayoutTarget, type FragmentMotionStyle } from "./wakppu-fall-layout";
 
 type WakppuBreakSceneProps = {
   stage: number;
   revealed: boolean;
   fortune: string;
   fortuneId: number;
+  launchRequested: boolean;
   onImpact: () => void;
   onSlice: () => void;
-  onNoteReady: () => void;
-  onNotePull: () => void;
+  onRocketReady: () => void;
+  onRocketLaunch: () => void;
+  onCardReveal: () => void;
 };
 
 type SurfaceDeformation = {
@@ -45,26 +47,25 @@ type SliceEffect = {
   angle: number;
 };
 
-type NoteDrag = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-};
-
 type MascotDrag = {
   pointerId: number;
   startX: number;
   startY: number;
 };
 
-type FallingFragmentMotion = FallLayoutTarget & {
+type FloatingFragmentMotion = FloatLayoutTarget & {
   startPosition: THREE.Vector3;
   startQuaternion: THREE.Quaternion;
   startScale: THREE.Vector3;
-  floorHitTime: number;
+  interactionOffset: THREE.Vector3;
+  interactionVelocity: THREE.Vector3;
+  interactionAngle: number;
+  interactionSpin: number;
 };
 
-type FragmentPhase = "idle" | "falling" | "ready";
+type FragmentPhase = "idle" | "spreading" | "floating";
+
+type WakppuVariant = "chewyCookie" | "butterBar" | "sun" | "earth" | "mars" | "jupiter" | "moon" | "saturn" | "blackHole";
 
 type SceneRuntime = {
   renderer: THREE.WebGLRenderer;
@@ -82,7 +83,6 @@ type SceneRuntime = {
   deformations: SurfaceDeformation[];
   impactPoint: THREE.Vector3;
   activePress: ActivePress | null;
-  noteDrag: NoteDrag | null;
   mascotDrag: MascotDrag | null;
   mascotElastic: THREE.Vector2;
   mascotElasticTarget: THREE.Vector2;
@@ -93,11 +93,22 @@ type SceneRuntime = {
   cameraLookAt: THREE.Vector3;
   cameraLookTarget: THREE.Vector3;
   shellScaleTarget: THREE.Vector3;
+  shellBaseScale: THREE.Vector3;
+  variant: WakppuVariant;
+  variantDecoration: THREE.Object3D | null;
   exploded: boolean;
-  noteRoot: THREE.Group;
-  noteHitbox: THREE.Mesh;
-  noteReady: boolean;
-  noteHome: THREE.Vector3;
+  rocketRoot: THREE.Group;
+  rocketHitbox: THREE.Mesh;
+  rocketFlame: THREE.Mesh;
+  rocketHalo: THREE.Mesh;
+  rocketHaloMaterial: THREE.MeshBasicMaterial;
+  rocketBeacon: THREE.Mesh;
+  rocketBeaconMaterial: THREE.MeshBasicMaterial;
+  rocketReady: boolean;
+  rocketHome: THREE.Vector3;
+  rocketLaunchedAt: number | null;
+  cardDropRoot: THREE.Group;
+  cardRevealDispatched: boolean;
   mascotRoot: THREE.Group;
   mascotSprite: THREE.Sprite;
   mascotHome: THREE.Vector3;
@@ -109,8 +120,8 @@ type SceneRuntime = {
   sliceEffect: SliceEffect | null;
   fragmentPhase: FragmentPhase;
   fragmentFallStartedAt: number;
-  fragmentMotions: FallingFragmentMotion[];
-  notePresented: boolean;
+  fragmentMotions: FloatingFragmentMotion[];
+  rocketPresented: boolean;
   reduceMotion: boolean;
   frameId: number;
   disposed: boolean;
@@ -121,13 +132,15 @@ const MASCOT_IMAGE = "/byeolil-jelly-mascot.webp";
 const MASCOT_FALLBACK_IMAGE = "/outcome-mascot-happened.png";
 const MASCOT_HEIGHT = 2.02 * 1.2;
 const MASCOT_HOME_Y = -0.4;
-const AWARD_CARD_WIDTH = 0.82;
-const AWARD_CARD_HEIGHT = 1.7;
-const AWARD_CARD_HOME_X = -0.72;
-const AWARD_CARD_HOME_Y = -0.2;
-const FRAGMENT_FALL_DURATION = 1650;
-const NOTE_REVEAL_DELAY = 520;
-const FRAGMENT_GRAVITY = 3.6;
+const AWARD_CARD_WIDTH = 0.92;
+const AWARD_CARD_HEIGHT = 1.9;
+const ROCKET_HOME_X = -0.72;
+const ROCKET_HOME_Y = -0.14;
+const ROCKET_HOME_Z = 2.55;
+const ROCKET_SCALE = 1.12;
+const FRAGMENT_SPREAD_DURATION = 1450;
+const ROCKET_REVEAL_DELAY = 520;
+const ROCKET_SEQUENCE_DURATION = 1650;
 const DEFORMATION_MIN_DOT = Math.cos(0.96);
 const CAMERA_STAGE_POSITIONS = [
   new THREE.Vector3(0, 0.34, 8.45),
@@ -137,6 +150,52 @@ const CAMERA_STAGE_POSITIONS = [
   new THREE.Vector3(-0.72, 0.12, 7.86),
   new THREE.Vector3(0, 0.34, 8.35),
 ];
+
+const WAKPPU_VARIANTS: WakppuVariant[] = ["chewyCookie", "butterBar", "sun", "earth", "mars", "jupiter", "moon", "saturn", "blackHole"];
+
+export function wakppuVariantFor(fortuneId: number) {
+  return WAKPPU_VARIANTS[Math.abs(fortuneId) % WAKPPU_VARIANTS.length];
+}
+
+export function wakppuBreakThresholdFor(fortuneId: number) {
+  return wakppuVariantFor(fortuneId) === "blackHole" ? 8 : 5;
+}
+
+export const wakppuVariantLabels: Record<WakppuVariant, string> = {
+  chewyCookie: "두쫀쿠",
+  butterBar: "버터바",
+  sun: "태양",
+  earth: "지구",
+  mars: "화성",
+  jupiter: "목성",
+  moon: "달",
+  saturn: "토성",
+  blackHole: "블랙홀",
+};
+
+const variantMotionStyles: Record<WakppuVariant, FragmentMotionStyle> = {
+  chewyCookie: "stretch",
+  butterBar: "crumble",
+  sun: "flare",
+  earth: "plate",
+  mars: "dust",
+  jupiter: "shear",
+  moon: "chunk",
+  saturn: "orbit",
+  blackHole: "collapse",
+};
+
+const variantBreakResponses: Record<WakppuVariant, { deformation: number; squash: number; pressure: number }> = {
+  chewyCookie: { deformation: 1.65, squash: 1.55, pressure: 0.78 },
+  butterBar: { deformation: 0.72, squash: 0.5, pressure: 1.28 },
+  sun: { deformation: 0.45, squash: 0.3, pressure: 1.38 },
+  earth: { deformation: 0.92, squash: 0.82, pressure: 1 },
+  mars: { deformation: 0.7, squash: 0.62, pressure: 1.18 },
+  jupiter: { deformation: 0.58, squash: 0.48, pressure: 1.24 },
+  moon: { deformation: 0.36, squash: 0.22, pressure: 1.45 },
+  saturn: { deformation: 0.54, squash: 0.42, pressure: 1.3 },
+  blackHole: { deformation: 0.3, squash: 0.18, pressure: 1.5 },
+};
 
 function clamp(value: number, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
@@ -387,48 +446,118 @@ function createFortuneAwardCardTexture(fortune: string, fortuneId: number) {
   return texture;
 }
 
-function createOpalTexture() {
+function createWakppuTexture(variant: WakppuVariant) {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = 512;
   const context = canvas.getContext("2d");
   if (!context) return new THREE.CanvasTexture(canvas);
 
-  const baseOpal = context.createLinearGradient(0, canvas.height, canvas.width, 0);
-  baseOpal.addColorStop(0, "#cdb8bd");
-  baseOpal.addColorStop(0.22, "#ddd0bf");
-  baseOpal.addColorStop(0.5, "#cbd8cf");
-  baseOpal.addColorStop(0.72, "#c7d4d2");
-  baseOpal.addColorStop(1, "#d4cad8");
-  context.fillStyle = baseOpal;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = "rgba(255,252,248,.38)";
+  const palette: Record<WakppuVariant, [string, string, string]> = {
+    chewyCookie: ["#3a201c", "#6f3c2c", "#21110f"],
+    butterBar: ["#f5cf61", "#d99a31", "#fff0a6"],
+    sun: ["#ff8b16", "#ffd34d", "#ef4b0b"],
+    earth: ["#0c65b8", "#43a8d8", "#07386e"],
+    mars: ["#8e321f", "#d2663e", "#5d2119"],
+    jupiter: ["#d79a61", "#f0d1a0", "#9f6548"],
+    moon: ["#777b82", "#c8c9c4", "#555a62"],
+    saturn: ["#c28d4d", "#ead4a1", "#8e6638"],
+    blackHole: ["#010204", "#11151a", "#030405"],
+  };
+  const [start, middle, end] = palette[variant];
+  const base = context.createLinearGradient(0, canvas.height, canvas.width, 0);
+  base.addColorStop(0, start);
+  base.addColorStop(0.5, middle);
+  base.addColorStop(1, end);
+  context.fillStyle = base;
   context.fillRect(0, 0, canvas.width, canvas.height);
 
-  [
-    { x: 0.08, y: 0.28, radius: 0.42, color: "rgba(232,190,198,.34)" },
-    { x: 0.34, y: 0.76, radius: 0.38, color: "rgba(235,214,185,.3)" },
-    { x: 0.55, y: 0.23, radius: 0.4, color: "rgba(190,218,205,.34)" },
-    { x: 0.76, y: 0.7, radius: 0.43, color: "rgba(190,210,215,.3)" },
-    { x: 0.96, y: 0.32, radius: 0.39, color: "rgba(215,201,221,.3)" },
-  ].forEach(({ x, y, radius, color }) => {
-    const gradient = context.createRadialGradient(
-      x * canvas.width,
-      y * canvas.height,
-      0,
-      x * canvas.width,
-      y * canvas.height,
-      radius * canvas.width,
-    );
-    gradient.addColorStop(0, color);
-    gradient.addColorStop(0.58, color.replace(/0\.\d+\)/, "0.12)"));
-    gradient.addColorStop(1, "rgba(255,255,255,0)");
-    context.fillStyle = gradient;
+  if (variant === "chewyCookie") {
+    for (let index = 0; index < 70; index += 1) {
+      const x = (Math.sin(index * 91.7) * 0.5 + 0.5) * canvas.width;
+      const y = (Math.sin(index * 47.3 + 2) * 0.5 + 0.5) * canvas.height;
+      const radius = 5 + (index % 5) * 2.2;
+      context.fillStyle = index % 4 === 0 ? "#70a55a" : index % 3 === 0 ? "#d9b782" : "#160b09";
+      context.beginPath();
+      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (variant === "butterBar") {
+    context.fillStyle = "rgba(119,68,20,.15)";
+    for (let index = 0; index < 54; index += 1) {
+      const x = (Math.sin(index * 63.1) * 0.5 + 0.5) * canvas.width;
+      const y = (Math.sin(index * 29.7 + 1) * 0.5 + 0.5) * canvas.height;
+      context.beginPath();
+      context.arc(x, y, 2 + index % 4, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (variant === "sun") {
+    context.fillStyle = "rgba(255,245,154,.48)";
+    for (let index = 0; index < 34; index += 1) {
+      const x = index * 37 - 80;
+      const y = 70 + (index % 6) * 74;
+      context.beginPath();
+      context.ellipse(x, y, 62, 14, -0.18, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (variant === "earth") {
+    context.fillStyle = "#4caa62";
+    [
+      [110, 120, 210, 105], [360, 305, 250, 130], [650, 145, 180, 120], [880, 360, 230, 115],
+    ].forEach(([x, y, width, height]) => {
+      context.beginPath();
+      context.ellipse(x, y, width / 2, height / 2, x * 0.003, 0, Math.PI * 2);
+      context.fill();
+    });
+    context.fillStyle = "rgba(245,252,255,.72)";
+    context.fillRect(0, 74, canvas.width, 16);
+    context.fillRect(0, 418, canvas.width, 22);
+  } else if (variant === "mars") {
+    for (let index = 0; index < 38; index += 1) {
+      const x = (Math.sin(index * 51.2) * 0.5 + 0.5) * canvas.width;
+      const y = (Math.sin(index * 77.9 + 1.4) * 0.5 + 0.5) * canvas.height;
+      const radius = 5 + index % 5 * 4;
+      context.fillStyle = index % 3 === 0 ? "rgba(78,25,20,.48)" : "rgba(244,145,91,.3)";
+      context.beginPath();
+      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (variant === "jupiter" || variant === "saturn") {
+    const bands = variant === "saturn"
+      ? ["#87613a", "#ead6a7", "#c99558", "#f2dfb4", "#b47a43", "#e6c98f", "#795535"]
+      : ["#9d654d", "#f1d9ae", "#c47f55", "#ecd1a2", "#805044", "#dfaa72", "#f3debc"];
+    bands.forEach((color, index, colors) => {
+      context.fillStyle = color;
+      context.fillRect(0, index * canvas.height / colors.length, canvas.width, canvas.height / colors.length + 3);
+    });
+    if (variant === "jupiter") {
+      context.fillStyle = "#a94d3f";
+      context.beginPath();
+      context.ellipse(760, 318, 112, 43, -0.08, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (variant === "moon") {
+    for (let index = 0; index < 46; index += 1) {
+      const x = (Math.sin(index * 39.4) * 0.5 + 0.5) * canvas.width;
+      const y = (Math.sin(index * 61.8 + 0.7) * 0.5 + 0.5) * canvas.height;
+      const radius = 5 + index % 6 * 4;
+      context.fillStyle = index % 2 ? "rgba(55,59,66,.28)" : "rgba(238,239,232,.24)";
+      context.beginPath();
+      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else {
+    const glow = context.createRadialGradient(512, 256, 22, 512, 256, 480);
+    glow.addColorStop(0, "#000000");
+    glow.addColorStop(0.44, "#020304");
+    glow.addColorStop(0.72, "#1a2023");
+    glow.addColorStop(1, "#030405");
+    context.fillStyle = glow;
     context.fillRect(0, 0, canvas.width, canvas.height);
-  });
+  }
 
   const sheen = context.createLinearGradient(0, 0, 0, canvas.height);
-  sheen.addColorStop(0, "rgba(255,255,255,.68)");
+  sheen.addColorStop(0, variant === "blackHole" ? "rgba(255,238,199,.12)" : "rgba(255,255,255,.56)");
   sheen.addColorStop(0.4, "rgba(255,255,255,.08)");
   sheen.addColorStop(1, "rgba(74,62,69,.16)");
   context.fillStyle = sheen;
@@ -437,7 +566,7 @@ function createOpalTexture() {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.RepeatWrapping;
-  texture.repeat.set(1.25, 1);
+  texture.repeat.set(variant === "jupiter" || variant === "saturn" ? 1 : 1.15, 1);
   texture.needsUpdate = true;
   return texture;
 }
@@ -510,15 +639,29 @@ function setPointerRay(runtime: SceneRuntime, event: PointerEvent) {
   runtime.raycaster.setFromCamera(pointer, runtime.camera);
 }
 
+function beginRocketLaunch(runtime: SceneRuntime, onLaunch: () => void) {
+  if (!runtime.rocketReady || runtime.rocketLaunchedAt !== null) return;
+  runtime.rocketReady = false;
+  runtime.rocketLaunchedAt = performance.now();
+  runtime.rocketFlame.visible = true;
+  runtime.rocketHalo.visible = false;
+  runtime.rocketBeacon.visible = false;
+  runtime.mascotDrag = null;
+  runtime.mascotElasticTarget.set(0, 0);
+  onLaunch();
+}
+
 export function WakppuBreakScene({
   stage,
   revealed,
   fortune,
   fortuneId,
+  launchRequested,
   onImpact,
   onSlice,
-  onNoteReady,
-  onNotePull,
+  onRocketReady,
+  onRocketLaunch,
+  onCardReveal,
 }: WakppuBreakSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const runtimeRef = useRef<SceneRuntime | null>(null);
@@ -526,18 +669,22 @@ export function WakppuBreakScene({
   const revealedRef = useRef(revealed);
   const impactCallbackRef = useRef(onImpact);
   const sliceCallbackRef = useRef(onSlice);
-  const noteReadyCallbackRef = useRef(onNoteReady);
-  const notePullCallbackRef = useRef(onNotePull);
+  const rocketReadyCallbackRef = useRef(onRocketReady);
+  const rocketLaunchCallbackRef = useRef(onRocketLaunch);
+  const cardRevealCallbackRef = useRef(onCardReveal);
   const [ready, setReady] = useState(false);
+  const variant = wakppuVariantFor(fortuneId);
+  const breakThreshold = wakppuBreakThresholdFor(fortuneId);
 
   useEffect(() => {
     stageRef.current = stage;
     revealedRef.current = revealed;
     impactCallbackRef.current = onImpact;
     sliceCallbackRef.current = onSlice;
-    noteReadyCallbackRef.current = onNoteReady;
-    notePullCallbackRef.current = onNotePull;
-  }, [stage, revealed, onImpact, onSlice, onNoteReady, onNotePull]);
+    rocketReadyCallbackRef.current = onRocketReady;
+    rocketLaunchCallbackRef.current = onRocketLaunch;
+    cardRevealCallbackRef.current = onCardReveal;
+  }, [stage, revealed, onImpact, onSlice, onRocketReady, onRocketLaunch, onCardReveal]);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -570,17 +717,32 @@ export function WakppuBreakScene({
     blushRimLight.position.set(4.2, 1.2, -4.8);
     scene.add(blushRimLight);
 
-    const opalTexture = createOpalTexture();
+    const variantStyle: Record<WakppuVariant, { scale: [number, number, number]; fragment: number; edge: number; roughness: number }> = {
+      chewyCookie: { scale: [1.06, 0.9, 0.98], fragment: 0x5c3026, edge: 0x21110f, roughness: 0.58 },
+      butterBar: { scale: [1.13, 0.73, 0.91], fragment: 0xe0aa43, edge: 0x8f5d23, roughness: 0.5 },
+      sun: { scale: [1.03, 1.03, 1.03], fragment: 0xff8b19, edge: 0xffe16a, roughness: 0.3 },
+      earth: { scale: [1, 1, 1], fragment: 0x267eb6, edge: 0xa9dff1, roughness: 0.3 },
+      mars: { scale: [0.97, 0.97, 0.97], fragment: 0xb94c31, edge: 0xf09a69, roughness: 0.62 },
+      jupiter: { scale: [1.08, 0.96, 1], fragment: 0xc78c61, edge: 0xf0d4ad, roughness: 0.4 },
+      moon: { scale: [0.94, 0.94, 0.94], fragment: 0x96999e, edge: 0xd6d6d0, roughness: 0.72 },
+      saturn: { scale: [1.02, 0.95, 1], fragment: 0xc79558, edge: 0xf0d9a8, roughness: 0.46 },
+      blackHole: { scale: [0.9, 0.9, 0.9], fragment: 0x080b0d, edge: 0xffdf9f, roughness: 0.14 },
+    };
+    const style = variantStyle[variant];
+    const shellBaseScale = new THREE.Vector3(...style.scale);
+    const wakppuTexture = createWakppuTexture(variant);
     const shellMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
-      map: opalTexture,
-      roughness: 0.27,
+      map: wakppuTexture,
+      roughness: style.roughness,
       metalness: 0,
-      clearcoat: 0.76,
-      clearcoatRoughness: 0.19,
-      iridescence: 0.58,
+      clearcoat: variant === "chewyCookie" || variant === "butterBar" ? 0.38 : 0.76,
+      clearcoatRoughness: variant === "chewyCookie" || variant === "butterBar" ? 0.32 : 0.19,
+      iridescence: variant === "blackHole" ? 0.08 : 0.18,
       iridescenceIOR: 1.3,
       iridescenceThicknessRange: [180, 520],
+      emissive: variant === "blackHole" ? 0x010203 : variant === "sun" ? 0x8c2600 : 0x000000,
+      emissiveIntensity: variant === "blackHole" ? 0.42 : variant === "sun" ? 0.56 : 0,
       side: THREE.DoubleSide,
     });
     const shellGeometry = new THREE.SphereGeometry(BALL_RADIUS, 48, 32);
@@ -588,41 +750,44 @@ export function WakppuBreakScene({
     const shellPosition = shellGeometry.getAttribute("position") as THREE.BufferAttribute;
     const shellBasePositions = new Float32Array(shellPosition.array as Float32Array);
     const intactBall = new THREE.Mesh(shellGeometry, shellMaterial);
+    intactBall.scale.copy(shellBaseScale);
     scene.add(intactBall);
 
     const outerShellMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xfff5f8,
+      color: style.fragment,
       transparent: true,
-      opacity: 0.14,
-      roughness: 0.12,
+      opacity: variant === "blackHole" ? 0.3 : 0.2,
+      roughness: style.roughness,
       clearcoat: 0.92,
       clearcoatRoughness: 0.08,
       iridescence: 0.42,
-      transmission: 0.34,
+      transmission: variant === "earth" || variant === "blackHole" ? 0.24 : 0.08,
       thickness: 0.035,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
     const fragmentMaterial = outerShellMaterial.clone();
-    fragmentMaterial.color.set(0xfffafd);
-    fragmentMaterial.opacity = 0.2;
-    fragmentMaterial.transmission = 0.78;
-    fragmentMaterial.roughness = 0.08;
+    fragmentMaterial.color.set(style.fragment);
+    fragmentMaterial.opacity = variant === "blackHole" ? 0.82 : 0.72;
+    fragmentMaterial.transmission = variant === "earth" ? 0.12 : 0;
+    fragmentMaterial.roughness = style.roughness;
     fragmentMaterial.clearcoat = 1;
     fragmentMaterial.clearcoatRoughness = 0.05;
     fragmentMaterial.ior = 1.42;
     fragmentMaterial.thickness = 0.018;
+    fragmentMaterial.emissive.set(variant === "sun" ? 0x8f2b00 : variant === "blackHole" ? 0x17110a : 0x000000);
+    fragmentMaterial.emissiveIntensity = variant === "sun" ? 0.62 : variant === "blackHole" ? 0.48 : 0;
     const edgeMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0xffedf6,
+      color: style.edge,
       transparent: true,
-      opacity: 0.3,
+      opacity: variant === "blackHole" ? 0.72 : 0.48,
       roughness: 0.1,
       clearcoat: 0.94,
       clearcoatRoughness: 0.08,
-      iridescence: 0.38,
-      emissive: 0x281620,
-      emissiveIntensity: 0.34,
-      transmission: 0.54,
+      iridescence: variant === "blackHole" ? 0.08 : 0.18,
+      emissive: variant === "blackHole" ? 0x7a531f : 0x281620,
+      emissiveIntensity: variant === "blackHole" ? 0.82 : 0.24,
+      transmission: 0.08,
       thickness: 0.012,
       depthWrite: false,
       side: THREE.DoubleSide,
@@ -632,8 +797,235 @@ export function WakppuBreakScene({
       fragmentSurface: fragmentMaterial,
       edge: edgeMaterial,
     });
+    outerShellState.mesh.scale.copy(shellBaseScale);
     scene.add(outerShellState.mesh);
     scene.add(outerShellState.fragmentBatches.surface, outerShellState.fragmentBatches.edge);
+    if (variant === "blackHole") {
+      intactBall.visible = false;
+      outerShellState.mesh.visible = false;
+      outerShellState.fragmentBatches.surface.visible = false;
+      outerShellState.fragmentBatches.edge.visible = false;
+    }
+
+    let variantDecoration: THREE.Object3D | null = null;
+    if (variant === "sun") {
+      const corona = new THREE.Mesh(
+        new THREE.TorusGeometry(BALL_RADIUS * 1.03, 0.045, 12, 96),
+        new THREE.MeshBasicMaterial({
+          color: 0xffd84d,
+          transparent: true,
+          opacity: 0.62,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      corona.rotation.set(0.12, 0.08, 0);
+      variantDecoration = corona;
+      scene.add(corona);
+    } else if (variant === "saturn") {
+      const ringGroup = new THREE.Group();
+      const ringMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xd6ad6b,
+        emissive: 0x3e260c,
+        emissiveIntensity: 0.22,
+        roughness: 0.38,
+        metalness: 0.16,
+        side: THREE.DoubleSide,
+      });
+      const segmentCount = 20;
+      for (let index = 0; index < segmentCount; index += 1) {
+        const angle = index / segmentCount * Math.PI * 2;
+        const segment = new THREE.Mesh(
+          new THREE.TorusGeometry(BALL_RADIUS * 1.18, 0.075, 8, 5, Math.PI * 2 / segmentCount * 0.82),
+          ringMaterial,
+        );
+        segment.rotation.z = angle;
+        segment.userData.ringAngle = angle;
+        ringGroup.add(segment);
+      }
+      ringGroup.rotation.set(1.08, 0.08, -0.14);
+      variantDecoration = ringGroup;
+      scene.add(ringGroup);
+    } else if (variant === "blackHole") {
+      const blackHoleGroup = new THREE.Group();
+      const addGlowRing = (radius: number, tube: number, color: number, opacity: number) => {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(radius, tube, 16, 128),
+          new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity,
+            blending: THREE.AdditiveBlending,
+            depthTest: false,
+            depthWrite: false,
+          }),
+        );
+        ring.renderOrder = 4;
+        blackHoleGroup.add(ring);
+      };
+      const addLensArc = (
+        radius: number,
+        tube: number,
+        rotation: number,
+        arc: number,
+        color: number,
+        opacity: number,
+        yScale = 1,
+      ) => {
+        const lensArc = new THREE.Mesh(
+          new THREE.TorusGeometry(radius, tube, 16, 96, arc),
+          new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity,
+            blending: THREE.AdditiveBlending,
+            depthTest: false,
+            depthWrite: false,
+          }),
+        );
+        lensArc.rotation.z = rotation;
+        lensArc.scale.y = yScale;
+        lensArc.renderOrder = 5;
+        blackHoleGroup.add(lensArc);
+      };
+      addGlowRing(BALL_RADIUS * 0.99, 0.155, 0xffa94d, 0.025);
+      addGlowRing(BALL_RADIUS * 1.015, 0.076, 0xffd99a, 0.065);
+      addGlowRing(BALL_RADIUS * 1.045, 0.024, 0xffffe8, 0.11);
+      addLensArc(BALL_RADIUS * 1.025, 0.09, -0.14, Math.PI * 0.92, 0xffffef, 0.08);
+      addLensArc(BALL_RADIUS * 1.055, 0.052, Math.PI + 0.18, Math.PI * 0.72, 0xffc778, 0.06);
+      addLensArc(BALL_RADIUS * 1.42, 0.026, 0.38, Math.PI * 1.38, 0xdca348, 0.045, 0.76);
+
+      const diskCanvas = document.createElement("canvas");
+      diskCanvas.width = 1024;
+      diskCanvas.height = 256;
+      const diskContext = diskCanvas.getContext("2d");
+      if (diskContext) {
+        const horizontalGlow = diskContext.createLinearGradient(0, 0, diskCanvas.width, 0);
+        horizontalGlow.addColorStop(0, "rgba(255,173,72,0)");
+        horizontalGlow.addColorStop(0.12, "rgba(255,173,72,.18)");
+        horizontalGlow.addColorStop(0.35, "rgba(255,204,115,.72)");
+        horizontalGlow.addColorStop(0.5, "rgba(255,250,221,1)");
+        horizontalGlow.addColorStop(0.65, "rgba(255,204,115,.72)");
+        horizontalGlow.addColorStop(0.88, "rgba(255,173,72,.18)");
+        horizontalGlow.addColorStop(1, "rgba(255,173,72,0)");
+        const verticalGlow = diskContext.createLinearGradient(0, 0, 0, diskCanvas.height);
+        verticalGlow.addColorStop(0, "rgba(255,255,255,0)");
+        verticalGlow.addColorStop(0.24, "rgba(255,255,255,.08)");
+        verticalGlow.addColorStop(0.4, "rgba(255,255,255,.48)");
+        verticalGlow.addColorStop(0.5, "rgba(255,255,255,1)");
+        verticalGlow.addColorStop(0.6, "rgba(255,255,255,.48)");
+        verticalGlow.addColorStop(0.76, "rgba(255,255,255,.08)");
+        verticalGlow.addColorStop(1, "rgba(255,255,255,0)");
+        diskContext.fillStyle = horizontalGlow;
+        diskContext.fillRect(0, 0, diskCanvas.width, diskCanvas.height);
+        diskContext.globalCompositeOperation = "destination-in";
+        diskContext.fillStyle = verticalGlow;
+        diskContext.fillRect(0, 0, diskCanvas.width, diskCanvas.height);
+        diskContext.globalCompositeOperation = "source-atop";
+        diskContext.lineCap = "round";
+        diskContext.shadowColor = "rgba(255,159,61,.72)";
+        diskContext.shadowBlur = 7;
+        for (let index = 0; index < 58; index += 1) {
+          const wave = Math.sin(index * 91.37);
+          const y = diskCanvas.height * 0.5 + wave * 92;
+          const bend = Math.cos(index * 47.11) * 38;
+          const streakGradient = diskContext.createLinearGradient(0, y, diskCanvas.width, y + bend);
+          streakGradient.addColorStop(0, "rgba(229,98,24,0)");
+          streakGradient.addColorStop(0.16, `rgba(240,112,30,${0.08 + index % 4 * 0.035})`);
+          streakGradient.addColorStop(0.42, `rgba(255,184,83,${0.2 + index % 5 * 0.045})`);
+          streakGradient.addColorStop(0.54, `rgba(255,245,211,${0.3 + index % 3 * 0.08})`);
+          streakGradient.addColorStop(0.82, `rgba(255,153,53,${0.08 + index % 4 * 0.025})`);
+          streakGradient.addColorStop(1, "rgba(229,98,24,0)");
+          diskContext.strokeStyle = streakGradient;
+          diskContext.lineWidth = 0.8 + index % 6 * 0.48;
+          diskContext.beginPath();
+          diskContext.moveTo(-32, y + bend * 0.5);
+          diskContext.bezierCurveTo(210, y - bend * 1.25, 720, y + bend, 1056, y - bend * 0.55);
+          diskContext.stroke();
+        }
+        diskContext.shadowBlur = 0;
+        diskContext.globalCompositeOperation = "source-over";
+      }
+      const diskTexture = new THREE.CanvasTexture(diskCanvas);
+      diskTexture.colorSpace = THREE.SRGBColorSpace;
+      diskTexture.minFilter = THREE.LinearFilter;
+      const diskMaterial = new THREE.MeshBasicMaterial({
+        map: diskTexture,
+        transparent: true,
+        opacity: 0.1,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      const lensedDiskMaterial = diskMaterial.clone();
+      lensedDiskMaterial.opacity = 0.045;
+      lensedDiskMaterial.depthTest = true;
+      const lensedDisk = new THREE.Mesh(
+        new THREE.PlaneGeometry(BALL_RADIUS * 3.15, 0.62),
+        lensedDiskMaterial,
+      );
+      lensedDisk.position.z = -0.28;
+      lensedDisk.rotation.z = Math.PI / 2 - 0.13;
+      lensedDisk.renderOrder = 1;
+      blackHoleGroup.add(lensedDisk);
+
+      const diskHazeMaterial = diskMaterial.clone();
+      diskHazeMaterial.opacity = 0.035;
+      const diskHaze = new THREE.Mesh(
+        new THREE.PlaneGeometry(BALL_RADIUS * 4.65, 1.02),
+        diskHazeMaterial,
+      );
+      diskHaze.position.z = 0.18;
+      diskHaze.rotation.z = -0.13;
+      diskHaze.renderOrder = 5;
+      blackHoleGroup.add(diskHaze);
+
+      const diskGlow = new THREE.Mesh(new THREE.PlaneGeometry(BALL_RADIUS * 4.3, 0.78), diskMaterial);
+      diskGlow.position.z = 0.22;
+      diskGlow.rotation.z = -0.13;
+      diskGlow.renderOrder = 6;
+      blackHoleGroup.add(diskGlow);
+
+      const diskCore = new THREE.Mesh(
+        new THREE.PlaneGeometry(BALL_RADIUS * 3.7, 0.055),
+        new THREE.MeshBasicMaterial({
+          color: 0xfff5d2,
+          transparent: true,
+          opacity: 0.06,
+          blending: THREE.AdditiveBlending,
+          depthTest: false,
+          depthWrite: false,
+        }),
+      );
+      diskCore.position.z = 0.23;
+      diskCore.rotation.z = -0.13;
+      diskCore.renderOrder = 7;
+      blackHoleGroup.add(diskCore);
+
+      const blackHoleTexture = new THREE.TextureLoader().load("/wakppu-black-hole-v2.webp");
+      blackHoleTexture.colorSpace = THREE.SRGBColorSpace;
+      blackHoleTexture.minFilter = THREE.LinearMipmapLinearFilter;
+      blackHoleTexture.magFilter = THREE.LinearFilter;
+      blackHoleTexture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+      const blackHoleSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: blackHoleTexture,
+        color: 0xffffff,
+        transparent: true,
+        alphaTest: 0.018,
+        depthTest: false,
+        depthWrite: false,
+        toneMapped: false,
+      }));
+      const blackHoleSpriteWidth = BALL_RADIUS * 4.3;
+      blackHoleSprite.scale.set(blackHoleSpriteWidth, blackHoleSpriteWidth / (1695 / 928), 1);
+      blackHoleSprite.position.z = 0.26;
+      blackHoleSprite.renderOrder = 8;
+      blackHoleGroup.add(blackHoleSprite);
+
+      variantDecoration = blackHoleGroup;
+      scene.add(blackHoleGroup);
+    }
 
     const bladeRoot = new THREE.Group();
     bladeRoot.visible = false;
@@ -693,21 +1085,8 @@ export function WakppuBreakScene({
     sliceLine.renderOrder = 19;
     scene.add(sliceLine);
 
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(2.7, 64),
-      new THREE.MeshBasicMaterial({ color: 0x9a5364, transparent: true, opacity: 0.1, depthWrite: false }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.scale.set(1, 0.38, 1);
-    ground.position.y = -1.86;
-    scene.add(ground);
-
-    const noteRoot = new THREE.Group();
-    noteRoot.visible = false;
-    noteRoot.position.set(AWARD_CARD_HOME_X, AWARD_CARD_HOME_Y, 1.18);
-    noteRoot.rotation.set(0.04, 0.03, -0.035);
     const awardCardTexture = createFortuneAwardCardTexture(fortune, fortuneId);
-    const noteMaterial = new THREE.MeshBasicMaterial({
+    const cardMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       map: awardCardTexture,
       transparent: true,
@@ -717,32 +1096,146 @@ export function WakppuBreakScene({
       side: THREE.DoubleSide,
       toneMapped: false,
     });
-    const noteMesh = new THREE.Mesh(
+    const cardDropRoot = new THREE.Group();
+    cardDropRoot.visible = false;
+    cardDropRoot.position.set(0, 3.1, 1.45);
+    const cardDropMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(AWARD_CARD_WIDTH, AWARD_CARD_HEIGHT),
-      noteMaterial,
+      cardMaterial,
     );
-    noteMesh.renderOrder = 9;
-    noteRoot.add(noteMesh);
-    const cardGripMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffeee9,
+    cardDropMesh.renderOrder = 12;
+    cardDropRoot.add(cardDropMesh);
+    scene.add(cardDropRoot);
+
+    const rocketRoot = new THREE.Group();
+    rocketRoot.visible = false;
+    rocketRoot.position.set(ROCKET_HOME_X, ROCKET_HOME_Y, ROCKET_HOME_Z);
+    rocketRoot.rotation.z = -0.2;
+    rocketRoot.scale.setScalar(ROCKET_SCALE);
+    const rocketBodyMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xfff8e8,
+      roughness: 0.24,
+      clearcoat: 0.9,
       transparent: true,
-      opacity: 0.96,
+      opacity: 1,
       depthTest: false,
       depthWrite: false,
+    });
+    const rocketAccentMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xf05a42,
+      emissive: 0x4c0d05,
+      emissiveIntensity: 0.24,
+      roughness: 0.3,
+      clearcoat: 0.74,
+      transparent: true,
+      opacity: 1,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const rocketBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.2, 0.25, 0.82, 24),
+      rocketBodyMaterial,
+    );
+    rocketBody.renderOrder = 18;
+    rocketRoot.add(rocketBody);
+    const rocketNose = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.42, 24), rocketAccentMaterial);
+    rocketNose.position.y = 0.61;
+    rocketNose.renderOrder = 18;
+    rocketRoot.add(rocketNose);
+    const windowRing = new THREE.Mesh(
+      new THREE.CircleGeometry(0.105, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0xe4bc48,
+        transparent: true,
+        opacity: 1,
+        depthTest: false,
+        depthWrite: false,
+      }),
+    );
+    windowRing.position.set(0, 0.14, 0.255);
+    windowRing.renderOrder = 19;
+    rocketRoot.add(windowRing);
+    const windowGlass = new THREE.Mesh(
+      new THREE.CircleGeometry(0.067, 24),
+      new THREE.MeshBasicMaterial({
+        color: 0x84d7ef,
+        transparent: true,
+        opacity: 1,
+        depthTest: false,
+        depthWrite: false,
+      }),
+    );
+    windowGlass.position.set(0, 0.14, 0.265);
+    windowGlass.renderOrder = 20;
+    rocketRoot.add(windowGlass);
+    const rocketHaloMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffd75d,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
       toneMapped: false,
     });
-    const grip = new THREE.Mesh(new THREE.CircleGeometry(0.085, 24), cardGripMaterial);
-    grip.position.set(AWARD_CARD_WIDTH / 2 - 0.015, -0.2, 0.02);
-    grip.scale.set(0.72, 1.08, 1);
-    grip.renderOrder = 10;
-    noteRoot.add(grip);
-    const noteHitbox = new THREE.Mesh(
-      new THREE.BoxGeometry(AWARD_CARD_WIDTH, AWARD_CARD_HEIGHT, 0.12),
+    const rocketHalo = new THREE.Mesh(
+      new THREE.RingGeometry(0.4, 0.49, 48),
+      rocketHaloMaterial,
+    );
+    rocketHalo.position.z = -0.02;
+    rocketHalo.visible = false;
+    rocketHalo.renderOrder = 17;
+    rocketRoot.add(rocketHalo);
+    const rocketBeaconMaterial = new THREE.MeshBasicMaterial({
+      color: 0xfff2a8,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      toneMapped: false,
+    });
+    const rocketBeacon = new THREE.Mesh(
+      new THREE.CircleGeometry(0.055, 20),
+      rocketBeaconMaterial,
+    );
+    rocketBeacon.position.set(0.2, 0.4, 0.28);
+    rocketBeacon.visible = false;
+    rocketBeacon.renderOrder = 21;
+    rocketRoot.add(rocketBeacon);
+    [-1, 1].forEach((direction) => {
+      const finShape = new THREE.Shape();
+      finShape.moveTo(0, 0.2);
+      finShape.lineTo(direction * 0.27, -0.17);
+      finShape.lineTo(0, -0.1);
+      finShape.closePath();
+      const fin = new THREE.Mesh(new THREE.ShapeGeometry(finShape), rocketAccentMaterial);
+      fin.position.set(direction * 0.16, -0.32, 0.01);
+      fin.renderOrder = 18;
+      rocketRoot.add(fin);
+    });
+    const rocketFlame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.13, 0.42, 18),
+      new THREE.MeshBasicMaterial({
+        color: 0xffd44d,
+        transparent: true,
+        opacity: 0.92,
+        depthTest: false,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    rocketFlame.position.y = -0.62;
+    rocketFlame.rotation.z = Math.PI;
+    rocketFlame.visible = false;
+    rocketFlame.renderOrder = 18;
+    rocketRoot.add(rocketFlame);
+    const rocketHitbox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.72, 1.55, 0.24),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     );
-    noteHitbox.userData.isFortuneNote = true;
-    noteRoot.add(noteHitbox);
-    scene.add(noteRoot);
+    rocketHitbox.userData.isFortuneRocket = true;
+    rocketRoot.add(rocketHitbox);
+    scene.add(rocketRoot);
 
     const mascotRoot = new THREE.Group();
     mascotRoot.visible = false;
@@ -777,7 +1270,6 @@ export function WakppuBreakScene({
       deformations: [],
       impactPoint: new THREE.Vector3(0, 0, BALL_RADIUS),
       activePress: null,
-      noteDrag: null,
       mascotDrag: null,
       mascotElastic: new THREE.Vector2(),
       mascotElasticTarget: new THREE.Vector2(),
@@ -787,12 +1279,23 @@ export function WakppuBreakScene({
       cameraTarget: CAMERA_STAGE_POSITIONS[0].clone(),
       cameraLookAt: new THREE.Vector3(0, 0.16, 0),
       cameraLookTarget: new THREE.Vector3(0, 0.16, 0),
-      shellScaleTarget: new THREE.Vector3(1, 1, 1),
+      shellScaleTarget: shellBaseScale.clone(),
+      shellBaseScale,
+      variant,
+      variantDecoration,
       exploded: false,
-      noteRoot,
-      noteHitbox,
-      noteReady: false,
-      noteHome: new THREE.Vector3(AWARD_CARD_HOME_X, AWARD_CARD_HOME_Y, 1.18),
+      rocketRoot,
+      rocketHitbox,
+      rocketFlame,
+      rocketHalo,
+      rocketHaloMaterial,
+      rocketBeacon,
+      rocketBeaconMaterial,
+      rocketReady: false,
+      rocketHome: new THREE.Vector3(ROCKET_HOME_X, ROCKET_HOME_Y, ROCKET_HOME_Z),
+      rocketLaunchedAt: null,
+      cardDropRoot,
+      cardRevealDispatched: false,
       mascotRoot,
       mascotSprite,
       mascotHome: new THREE.Vector3(0, MASCOT_HOME_Y, 0.28),
@@ -805,7 +1308,7 @@ export function WakppuBreakScene({
       fragmentPhase: "idle",
       fragmentFallStartedAt: 0,
       fragmentMotions: [],
-      notePresented: false,
+      rocketPresented: false,
       reduceMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       frameId: 0,
       disposed: false,
@@ -847,28 +1350,49 @@ export function WakppuBreakScene({
     resizeObserver.observe(mount);
     resize();
 
-    function pickNote(event: PointerEvent) {
-      if (!runtime.noteReady || !runtime.noteRoot.visible) return false;
+    function pickRocket(event: PointerEvent) {
+      if (!runtime.rocketReady || !runtime.rocketRoot.visible) return false;
       setPointerRay(runtime, event);
-      return runtime.raycaster.intersectObject(runtime.noteRoot, true).length > 0;
+      return runtime.raycaster.intersectObject(runtime.rocketHitbox, false).length > 0;
     }
 
     function pickMascot(event: PointerEvent) {
-      if (!runtime.noteReady || !runtime.mascotRoot.visible) return false;
+      if (!runtime.mascotRoot.visible) return false;
       setPointerRay(runtime, event);
       return runtime.raycaster.intersectObject(runtime.mascotSprite, false).length > 0;
     }
 
+    function pushFragment(event: PointerEvent) {
+      if (runtime.fragmentPhase === "idle" || runtime.fragmentMotions.length === 0) return false;
+      setPointerRay(runtime, event);
+      const hit = runtime.raycaster.intersectObject(runtime.fragmentBatches.surface, false)[0];
+      if (!hit || !("batchId" in hit) || typeof hit.batchId !== "number") return false;
+      const batchId = hit.batchId;
+      const motion = runtime.fragmentMotions.find(
+        (candidate) => candidate.fragment.surfaceBatchId === batchId,
+      );
+      if (!motion) return false;
+      const pushDirection = motion.fragment.radial.clone()
+        .addScaledVector(runtime.raycaster.ray.direction, 0.28)
+        .normalize();
+      motion.interactionVelocity.addScaledVector(pushDirection, 0.82 + motion.fragment.liftSeed * 0.34);
+      motion.interactionOffset.addScaledVector(pushDirection, 0.035);
+      const spinDirection = motion.fragment.twistSeed >= 0.5 ? 1 : -1;
+      motion.interactionSpin += spinDirection * (3.4 + motion.fragment.liftSeed * 2.4);
+      motion.bobAmplitude = Math.min(0.22, motion.bobAmplitude + 0.035);
+      return true;
+    }
+
     function handlePointerDown(event: PointerEvent) {
-      if (runtime.noteDrag || runtime.mascotDrag || runtime.activePress) return;
-      if (stageRef.current >= 5) {
-        if (pickNote(event)) {
-          runtime.noteDrag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
-          runtime.mascotElasticTarget.set(0, 0);
-          renderer.domElement.setPointerCapture?.(event.pointerId);
+      if (runtime.mascotDrag || runtime.activePress) return;
+      if (stageRef.current >= breakThreshold) {
+        if (pickRocket(event)) {
+          beginRocketLaunch(runtime, rocketLaunchCallbackRef.current);
         } else if (pickMascot(event)) {
           runtime.mascotDrag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
           renderer.domElement.setPointerCapture?.(event.pointerId);
+        } else {
+          pushFragment(event);
         }
         return;
       }
@@ -898,32 +1422,6 @@ export function WakppuBreakScene({
         );
         return;
       }
-      if (runtime.noteDrag?.pointerId === event.pointerId) {
-        const dx = event.clientX - runtime.noteDrag.startX;
-        const dy = event.clientY - runtime.noteDrag.startY;
-        const distance = Math.hypot(dx, dy);
-        const offsetX = THREE.MathUtils.clamp(dx / 105, -1.45, 1.45);
-        const offsetY = THREE.MathUtils.clamp(-dy / 92, -0.18, 1.72);
-        const offsetZ = Math.min(distance / 210, 0.44);
-        runtime.noteRoot.position.set(
-          runtime.noteHome.x + offsetX,
-          runtime.noteHome.y + offsetY,
-          runtime.noteHome.z + offsetZ,
-        );
-        runtime.mascotRoot.position.set(
-          runtime.mascotHome.x + offsetX,
-          runtime.mascotHome.y + offsetY,
-          runtime.mascotHome.z + offsetZ * 0.35,
-        );
-        runtime.mascotRoot.rotation.z = THREE.MathUtils.clamp(dx / 900, -0.12, 0.12);
-        if (distance >= 112 || dy <= -92) {
-          runtime.noteReady = false;
-          runtime.noteRoot.visible = false;
-          runtime.mascotRoot.visible = false;
-          notePullCallbackRef.current();
-        }
-        return;
-      }
       const activePress = runtime.activePress;
       if (activePress?.pointerId === event.pointerId) {
         const dx = event.clientX - activePress.startX;
@@ -951,13 +1449,15 @@ export function WakppuBreakScene({
 
     function finishPointer(event: PointerEvent) {
       if (runtime.mascotDrag?.pointerId === event.pointerId) {
+        const drag = runtime.mascotDrag;
+        const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+        if (distance < 12 && !runtime.reduceMotion) {
+          const bounds = renderer.domElement.getBoundingClientRect();
+          const bounceDirection = event.clientX < bounds.left + bounds.width * 0.5 ? 1 : -1;
+          runtime.mascotElasticVelocity.set(bounceDirection * 0.26, 0.42);
+        }
         runtime.mascotDrag = null;
         runtime.mascotElasticTarget.set(0, 0);
-        renderer.domElement.releasePointerCapture?.(event.pointerId);
-        return;
-      }
-      if (runtime.noteDrag?.pointerId === event.pointerId) {
-        runtime.noteDrag = null;
         renderer.domElement.releasePointerCapture?.(event.pointerId);
         return;
       }
@@ -976,14 +1476,14 @@ export function WakppuBreakScene({
         );
         runtime.fracturePatternAligned = true;
       }
-      activePress.deformation.targetDepth = 0.105 + holdStrength * 0.25;
+      activePress.deformation.targetDepth = (0.105 + holdStrength * 0.25)
+        * variantBreakResponses[runtime.variant].deformation;
       runtime.deformations.push(activePress.deformation);
       runtime.lastPressStrength = holdStrength;
       impactCallbackRef.current();
     }
 
     function cancelPointer(event: PointerEvent) {
-      if (runtime.noteDrag?.pointerId === event.pointerId) runtime.noteDrag = null;
       if (runtime.mascotDrag?.pointerId === event.pointerId) {
         runtime.mascotDrag = null;
         runtime.mascotElasticTarget.set(0, 0);
@@ -998,10 +1498,29 @@ export function WakppuBreakScene({
     renderer.domElement.addEventListener("pointercancel", cancelPointer);
 
     const fragmentTarget = new THREE.Vector3();
-    const noteIdleTarget = new THREE.Vector3();
+    const rocketIdleTarget = new THREE.Vector3();
     const fragmentSpinQuaternion = new THREE.Quaternion();
     const mascotSpringForce = new THREE.Vector2();
+    const orbitAxis = new THREE.Vector3(0, 1, 0);
+    let previousFrameTime = performance.now();
     function render(time: number) {
+      const frameDelta = clamp((time - previousFrameTime) / 1000, 0, 0.05);
+      previousFrameTime = time;
+      const mascotCanFloat = runtime.rocketLaunchedAt === null || runtime.cardRevealDispatched;
+      const zeroGravityActive = runtime.rocketPresented
+        && mascotCanFloat
+        && !runtime.mascotDrag
+        && !runtime.reduceMotion;
+      const zeroGravityX = zeroGravityActive
+        ? Math.sin(time * 0.00105) * 0.075 + Math.sin(time * 0.00043 + 1.7) * 0.025
+        : 0;
+      const zeroGravityY = zeroGravityActive
+        ? Math.sin(time * 0.00145 + 0.4) * 0.09 + Math.cos(time * 0.00072) * 0.025
+        : 0;
+      const zeroGravityZ = zeroGravityActive ? Math.sin(time * 0.00082 + 2.3) * 0.035 : 0;
+      const zeroGravityTilt = zeroGravityActive
+        ? Math.sin(time * 0.0011 + 0.2) * 0.045 + Math.sin(time * 0.00037) * 0.015
+        : 0;
       if (runtime.sliceEffect) {
         const sliceProgress = clamp((time - runtime.sliceEffect.startedAt) / 620);
         const travel = smoothstep(sliceProgress) * 6.4 - 3.2;
@@ -1028,9 +1547,15 @@ export function WakppuBreakScene({
         if (runtime.activePress) {
           const heldFor = performance.now() - runtime.activePress.startedAt;
           const previewStrength = clamp(heldFor / 1120);
-          runtime.activePress.deformation.targetDepth = 0.055 + previewStrength * 0.285;
+          const breakResponse = variantBreakResponses[runtime.variant];
+          runtime.activePress.deformation.targetDepth = (0.055 + previewStrength * 0.285) * breakResponse.deformation;
           if (runtime.fracturePatternAligned) {
-            const pressure = clamp(stageRef.current * 0.16 + previewStrength * 0.42, 0, 0.96);
+            const equivalentStage = stageRef.current / breakThreshold * 5;
+            const pressure = clamp(
+              (equivalentStage * 0.16 + previewStrength * 0.42) * breakResponse.pressure,
+              0,
+              0.98,
+            );
             updateOuterShellFracture(
               runtime.outerShellFragments,
               runtime.activePress.deformation.direction,
@@ -1065,6 +1590,13 @@ export function WakppuBreakScene({
         const floatOffset = Math.sin(time * 0.0018) * 0.035;
         runtime.intactBall.position.y = floatOffset;
         runtime.outerShell.position.y = floatOffset;
+        if (runtime.variantDecoration) {
+          runtime.variantDecoration.position.y = floatOffset;
+          if (runtime.variant !== "blackHole") {
+            runtime.variantDecoration.rotation.z += runtime.reduceMotion ? 0 : 0.0035;
+          }
+          runtime.variantDecoration.scale.lerp(runtime.shellScaleTarget, 0.14);
+        }
         runtime.outerShellFragments.forEach((fragment) => {
           fragmentTarget.copy(fragment.targetPosition).multiply(runtime.shellScaleTarget);
           fragmentTarget.y += floatOffset;
@@ -1075,70 +1607,162 @@ export function WakppuBreakScene({
         syncOuterShellFragmentBatches(runtime.outerShellFragments, runtime.fragmentBatches);
       }
 
-      if (runtime.fragmentPhase === "falling") {
+      if (runtime.fragmentPhase === "spreading" || runtime.fragmentPhase === "floating") {
         const elapsedMilliseconds = runtime.reduceMotion
-          ? FRAGMENT_FALL_DURATION
+          ? FRAGMENT_SPREAD_DURATION
           : time - runtime.fragmentFallStartedAt;
         runtime.fragmentMotions.forEach((motion) => {
           const elapsed = Math.max(0, elapsedMilliseconds / 1000 - motion.delay);
-          const fallTime = Math.min(elapsed, motion.floorHitTime);
-          const slideTime = elapsed > motion.floorHitTime
-            ? Math.min(elapsed - motion.floorHitTime, 0.42) * 0.18
-            : 0;
-          motion.fragment.mesh.position.set(
-            motion.startPosition.x + motion.velocity.x * (fallTime + slideTime),
-            motion.startPosition.y + motion.velocity.y * fallTime - FRAGMENT_GRAVITY * fallTime * fallTime,
-            motion.startPosition.z + motion.velocity.z * (fallTime + slideTime),
-          );
-          if (elapsed >= motion.floorHitTime) {
-            const bounceTime = elapsed - motion.floorHitTime;
-            const bounce = Math.abs(Math.sin(bounceTime * 13.5)) * 0.13 * Math.exp(-bounceTime * 5.2);
-            motion.fragment.mesh.position.y = motion.floorY + bounce;
+          const spreadTime = Math.min(elapsed, 1.35);
+          const driftTime = Math.max(0, elapsed - 1.35);
+          if (motion.motionStyle === "collapse") {
+            const collapse = smoothstep(spreadTime / 1.2);
+            motion.fragment.mesh.position.copy(motion.startPosition).multiplyScalar(1 - collapse * 0.78);
+            motion.fragment.mesh.position.addScaledVector(
+              motion.fragment.tangent,
+              Math.sin(elapsed * 2.4 + motion.orbitPhase) * (0.08 + collapse * 0.18),
+            );
+          } else {
+            motion.fragment.mesh.position.copy(motion.startPosition)
+              .addScaledVector(motion.velocity, spreadTime + Math.min(driftTime, 8) * 0.055)
+              .addScaledVector(
+                motion.fragment.tangent,
+                Math.sin(elapsed * motion.bobSpeed + motion.orbitPhase) * motion.bobAmplitude,
+              );
+            if (motion.motionStyle === "orbit") {
+              motion.fragment.mesh.position.applyAxisAngle(orbitAxis, elapsed * 0.24);
+            }
           }
-          fragmentSpinQuaternion.setFromAxisAngle(
-            motion.rotationAxis,
-            motion.spin * Math.min(elapsed, motion.floorHitTime + 0.72),
-          );
+          motion.fragment.mesh.position.y += Math.cos(elapsed * motion.bobSpeed * 0.78 + motion.orbitPhase)
+            * motion.bobAmplitude;
+          motion.interactionOffset.addScaledVector(motion.interactionVelocity, frameDelta);
+          motion.interactionVelocity.multiplyScalar(Math.pow(0.965, frameDelta * 60));
+          motion.interactionOffset.multiplyScalar(Math.pow(0.999, frameDelta * 60));
+          motion.fragment.mesh.position.add(motion.interactionOffset);
+          if (runtime.rocketLaunchedAt !== null) {
+            const exhaustPush = smoothstep(clamp((time - runtime.rocketLaunchedAt) / 720)) * 0.42;
+            motion.fragment.mesh.position.addScaledVector(motion.fragment.radial, exhaustPush);
+            motion.fragment.mesh.position.y -= exhaustPush * 0.36;
+          }
+          motion.interactionAngle += motion.interactionSpin * frameDelta;
+          motion.interactionSpin *= Math.pow(0.97, frameDelta * 60);
+          fragmentSpinQuaternion.setFromAxisAngle(motion.rotationAxis, motion.spin * elapsed + motion.interactionAngle);
           motion.fragment.mesh.quaternion.copy(motion.startQuaternion).multiply(fragmentSpinQuaternion);
           motion.fragment.mesh.scale.copy(motion.startScale);
+          if (motion.motionStyle === "stretch") {
+            const rubber = Math.exp(-elapsed * 1.35) * Math.abs(Math.sin(elapsed * 7.5));
+            motion.fragment.mesh.scale.x *= 1 + rubber * 0.85;
+            motion.fragment.mesh.scale.y *= 1 - rubber * 0.3;
+          } else if (motion.motionStyle === "flare") {
+            motion.fragment.mesh.scale.multiplyScalar(1 - clamp(elapsed / 4) * 0.36);
+          } else if (motion.motionStyle === "collapse") {
+            motion.fragment.mesh.scale.multiplyScalar(1 - smoothstep(spreadTime / 1.2) * 0.74);
+          }
         });
+
+        if (runtime.variantDecoration) {
+          const decorationElapsed = Math.max(0, elapsedMilliseconds / 1000);
+          if (runtime.variant === "sun") {
+            runtime.variantDecoration.scale.setScalar(1 + smoothstep(decorationElapsed / 1.1) * 1.1);
+            runtime.variantDecoration.traverse((object) => {
+              if (object instanceof THREE.Mesh && "opacity" in object.material) {
+                object.material.opacity = Math.max(0, 0.62 * (1 - decorationElapsed / 1.15));
+              }
+            });
+          } else if (runtime.variant === "saturn") {
+            const ringSpread = smoothstep(decorationElapsed / 1.25);
+            runtime.variantDecoration.children.forEach((segment) => {
+              const angle = Number(segment.userData.ringAngle ?? 0);
+              segment.position.set(
+                Math.cos(angle) * ringSpread * 0.44,
+                Math.sin(angle) * ringSpread * 0.18,
+                Math.sin(angle * 2) * ringSpread * 0.12,
+              );
+              segment.rotation.x += runtime.reduceMotion ? 0 : 0.008;
+            });
+            runtime.variantDecoration.rotation.z += runtime.reduceMotion ? 0 : 0.006;
+          } else if (runtime.variant === "blackHole") {
+            const pulse = runtime.reduceMotion ? 1 : 1 + Math.sin(time * 0.009) * 0.045;
+            runtime.variantDecoration.scale.setScalar(pulse);
+          }
+        }
         syncOuterShellFragmentBatches(runtime.outerShellFragments, runtime.fragmentBatches);
         runtime.camera.position.lerp(runtime.cameraTarget, runtime.reduceMotion ? 1 : 0.055);
         runtime.cameraLookAt.lerp(runtime.cameraLookTarget, runtime.reduceMotion ? 1 : 0.07);
         runtime.camera.lookAt(runtime.cameraLookAt);
 
-        if (!runtime.notePresented && elapsedMilliseconds >= NOTE_REVEAL_DELAY) {
-          runtime.notePresented = true;
+        if (!runtime.rocketPresented && elapsedMilliseconds >= ROCKET_REVEAL_DELAY) {
+          runtime.rocketPresented = true;
           runtime.mascotRoot.position.copy(runtime.mascotHome);
           runtime.mascotRoot.rotation.z = 0;
           runtime.mascotRoot.visible = !revealedRef.current;
-          runtime.noteRoot.position.copy(runtime.noteHome);
-          runtime.noteRoot.rotation.set(0.04, 0.03, -0.035);
-          runtime.noteRoot.visible = !revealedRef.current;
-          runtime.noteReady = !revealedRef.current;
-          noteReadyCallbackRef.current();
+          runtime.rocketRoot.position.copy(runtime.rocketHome);
+          runtime.rocketRoot.rotation.set(0, 0, -0.2);
+          runtime.rocketRoot.visible = !revealedRef.current;
+          runtime.rocketReady = !revealedRef.current;
+          rocketReadyCallbackRef.current();
         }
-        if (runtime.notePresented && runtime.noteReady && !runtime.noteDrag && !runtime.mascotDrag) {
-          noteIdleTarget.copy(runtime.noteHome);
-          runtime.noteRoot.position.lerp(noteIdleTarget, runtime.reduceMotion ? 1 : 0.2);
-          fragmentTarget.copy(runtime.mascotHome);
-          runtime.mascotRoot.position.lerp(fragmentTarget, runtime.reduceMotion ? 1 : 0.2);
-          runtime.mascotRoot.rotation.z = THREE.MathUtils.lerp(runtime.mascotRoot.rotation.z, 0, 0.2);
-        }
-        if (elapsedMilliseconds >= FRAGMENT_FALL_DURATION) runtime.fragmentPhase = "ready";
-      } else if (runtime.fragmentPhase === "ready") {
-        const idle = runtime.reduceMotion ? 0 : Math.sin(time * 0.0021) * 0.025;
-        if (!runtime.noteDrag && !runtime.mascotDrag) {
-          runtime.mascotRoot.position.set(
-            runtime.mascotHome.x,
-            runtime.mascotHome.y + idle,
-            runtime.mascotHome.z,
+        if (runtime.rocketPresented && runtime.rocketReady && !runtime.mascotDrag) {
+          const haloPulse = runtime.reduceMotion
+            ? 0.72
+            : (Math.sin(time * 0.0027) + 1) * 0.5;
+          const beaconPulse = runtime.reduceMotion
+            ? 0.82
+            : Math.pow((Math.sin(time * 0.006) + 1) * 0.5, 4);
+          runtime.rocketHalo.visible = true;
+          runtime.rocketBeacon.visible = true;
+          runtime.rocketHaloMaterial.opacity = 0.16 + haloPulse * 0.38;
+          runtime.rocketHalo.scale.setScalar(0.92 + haloPulse * 0.16);
+          runtime.rocketBeaconMaterial.opacity = 0.32 + beaconPulse * 0.68;
+          runtime.rocketBeacon.scale.setScalar(0.82 + beaconPulse * 0.7);
+          rocketIdleTarget.set(
+            runtime.rocketHome.x + zeroGravityX,
+            runtime.rocketHome.y + zeroGravityY,
+            runtime.rocketHome.z + zeroGravityZ,
           );
-          runtime.mascotRoot.rotation.z = runtime.reduceMotion ? 0 : Math.sin(time * 0.00135) * 0.015;
-          if (runtime.noteReady) {
-            noteIdleTarget.set(runtime.noteHome.x, runtime.noteHome.y + idle, runtime.noteHome.z);
-            runtime.noteRoot.position.lerp(noteIdleTarget, runtime.reduceMotion ? 1 : 0.2);
-          }
+          runtime.rocketRoot.position.lerp(rocketIdleTarget, runtime.reduceMotion ? 1 : 0.2);
+          runtime.rocketRoot.rotation.z = -0.2 + zeroGravityTilt * 0.55;
+        }
+        if (elapsedMilliseconds >= FRAGMENT_SPREAD_DURATION) runtime.fragmentPhase = "floating";
+      }
+
+      if (runtime.rocketLaunchedAt !== null) {
+        const elapsed = runtime.reduceMotion
+          ? ROCKET_SEQUENCE_DURATION
+          : time - runtime.rocketLaunchedAt;
+        const launchProgress = clamp(elapsed / 720);
+        const launchEase = smoothstep(launchProgress);
+        runtime.rocketRoot.visible = launchProgress < 1;
+        runtime.rocketRoot.position.set(
+          runtime.rocketHome.x + Math.sin(launchProgress * Math.PI) * 0.34,
+          runtime.rocketHome.y + launchEase * 5.4,
+          runtime.rocketHome.z + launchEase * 0.34,
+        );
+        runtime.rocketRoot.rotation.z = -0.2 + Math.sin(launchProgress * Math.PI) * 0.12;
+        runtime.rocketFlame.scale.set(1 + Math.sin(time * 0.035) * 0.18, 1.25 + Math.sin(time * 0.041) * 0.24, 1);
+
+        const dropProgress = clamp((elapsed - 430) / 970);
+        if (dropProgress > 0 && !runtime.cardRevealDispatched) {
+          const dropEase = 1 - Math.pow(1 - dropProgress, 3);
+          runtime.cardDropRoot.visible = true;
+          runtime.cardDropRoot.position.set(
+            Math.sin(dropProgress * Math.PI * 2) * (1 - dropProgress) * 0.18,
+            3.05 - dropEase * 2.88,
+            1.46,
+          );
+          runtime.cardDropRoot.rotation.set(0, 0, Math.sin(dropProgress * Math.PI * 3) * (1 - dropProgress) * 0.16);
+          runtime.cardDropRoot.scale.set(
+            0.14 + dropEase * 0.86,
+            0.08 + dropEase * 0.92,
+            1,
+          );
+        }
+        if (elapsed >= ROCKET_SEQUENCE_DURATION && !runtime.cardRevealDispatched) {
+          runtime.cardRevealDispatched = true;
+          runtime.rocketRoot.visible = false;
+          runtime.cardDropRoot.visible = false;
+          runtime.mascotRoot.visible = true;
+          cardRevealCallbackRef.current();
         }
       }
 
@@ -1148,42 +1772,33 @@ export function WakppuBreakScene({
       const mascotAspect = mascotTextureImage?.width && mascotTextureImage.height
         ? mascotTextureImage.width / mascotTextureImage.height
         : 0.8;
-      if (runtime.noteDrag) {
-        runtime.mascotElastic.set(0, 0);
-        runtime.mascotElasticTarget.set(0, 0);
+      if (runtime.reduceMotion) {
+        runtime.mascotElastic.copy(runtime.mascotElasticTarget);
         runtime.mascotElasticVelocity.set(0, 0);
-        runtime.mascotSprite.scale.set(MASCOT_HEIGHT * mascotAspect, MASCOT_HEIGHT, 1);
-        runtime.mascotSprite.position.set(0, 0.16, 0);
       } else {
-        if (runtime.reduceMotion) {
-          runtime.mascotElastic.copy(runtime.mascotElasticTarget);
-          runtime.mascotElasticVelocity.set(0, 0);
-        } else {
-          mascotSpringForce.copy(runtime.mascotElasticTarget).sub(runtime.mascotElastic).multiplyScalar(0.14);
-          runtime.mascotElasticVelocity.add(mascotSpringForce).multiplyScalar(0.7);
-          runtime.mascotElastic.add(runtime.mascotElasticVelocity);
-        }
-        const pullX = runtime.mascotElastic.x;
-        const pullY = runtime.mascotElastic.y;
-        const horizontalStretch = Math.abs(pullX) * 0.25;
-        const verticalStretch = Math.abs(pullY) * 0.25;
-        const horizontalCompression = Math.abs(pullY) * 0.08;
-        const verticalCompression = Math.abs(pullX) * 0.08;
-        runtime.mascotSprite.scale.set(
-          MASCOT_HEIGHT * mascotAspect * (1 + horizontalStretch - horizontalCompression),
-          MASCOT_HEIGHT * (1 + verticalStretch - verticalCompression),
-          1,
-        );
-        runtime.mascotSprite.position.set(pullX * 0.06, 0.16 + pullY * 0.06, 0);
-        const idle = runtime.fragmentPhase === "ready" && !runtime.reduceMotion
-          ? Math.sin(time * 0.0021) * 0.025
-          : 0;
+        mascotSpringForce.copy(runtime.mascotElasticTarget).sub(runtime.mascotElastic).multiplyScalar(0.14);
+        runtime.mascotElasticVelocity.add(mascotSpringForce).multiplyScalar(0.7);
+        runtime.mascotElastic.add(runtime.mascotElasticVelocity);
+      }
+      const pullX = runtime.mascotElastic.x;
+      const pullY = runtime.mascotElastic.y;
+      const horizontalStretch = Math.abs(pullX) * 0.25;
+      const verticalStretch = Math.abs(pullY) * 0.25;
+      const horizontalCompression = Math.abs(pullY) * 0.08;
+      const verticalCompression = Math.abs(pullX) * 0.08;
+      runtime.mascotSprite.scale.set(
+        MASCOT_HEIGHT * mascotAspect * (1 + horizontalStretch - horizontalCompression),
+        MASCOT_HEIGHT * (1 + verticalStretch - verticalCompression),
+        1,
+      );
+      runtime.mascotSprite.position.set(pullX * 0.06, 0.16 + pullY * 0.06, 0);
+      if (mascotCanFloat) {
         runtime.mascotRoot.position.set(
-          runtime.mascotHome.x + pullX * 0.22,
-          runtime.mascotHome.y + idle + pullY * 0.22,
-          runtime.mascotHome.z,
+          runtime.mascotHome.x + zeroGravityX + pullX * 0.22,
+          runtime.mascotHome.y + zeroGravityY + pullY * 0.22,
+          runtime.mascotHome.z + zeroGravityZ,
         );
-        runtime.mascotRoot.rotation.z = -pullX * 0.055;
+        runtime.mascotRoot.rotation.z = zeroGravityTilt - pullX * 0.055;
       }
       renderer.render(scene, camera);
       runtime.frameId = window.requestAnimationFrame(render);
@@ -1207,27 +1822,40 @@ export function WakppuBreakScene({
       renderer.domElement.remove();
       runtimeRef.current = null;
     };
-  }, [fortune, fortuneId]);
+  }, [breakThreshold, fortune, fortuneId, variant]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime || stage <= 0) return;
-    if (stage < 5) {
-      const pressure = clamp(stage * 0.18 + runtime.lastPressStrength * 0.22, 0, 0.96);
+    if (stage < breakThreshold) {
+      const breakResponse = variantBreakResponses[runtime.variant];
+      const equivalentStage = stage / breakThreshold * 5;
+      const pressure = clamp(
+        (equivalentStage * 0.18 + runtime.lastPressStrength * 0.22) * breakResponse.pressure,
+        0,
+        0.98,
+      );
       const hit = runtime.impactPoint.clone().normalize();
       if (!runtime.deformations[stage - 1]) {
         runtime.deformations[stage - 1] = {
           direction: hit.clone(),
           currentDepth: 0,
-          targetDepth: 0.2 + stage * 0.018,
+          targetDepth: (0.2 + equivalentStage * 0.018) * breakResponse.deformation,
         };
       }
-      runtime.cameraTarget.copy(CAMERA_STAGE_POSITIONS[stage]);
+      const cameraStage = Math.min(
+        CAMERA_STAGE_POSITIONS.length - 1,
+        Math.max(1, Math.round(equivalentStage)),
+      );
+      runtime.cameraTarget.copy(CAMERA_STAGE_POSITIONS[cameraStage]);
       runtime.cameraTarget.x += hit.x * 0.2;
       runtime.cameraTarget.y += hit.y * 0.1;
       runtime.cameraLookTarget.set(hit.x * 0.1, 0.16 + hit.y * 0.06, 0);
       const holdMultiplier = 0.55 + runtime.lastPressStrength * 0.75;
-      const squash = Math.min((0.13 + pressure * 0.2) * holdMultiplier, 0.32);
+      const squash = Math.min(
+        (0.13 + pressure * 0.2) * holdMultiplier * breakResponse.squash,
+        runtime.variant === "chewyCookie" ? 0.5 : 0.32,
+      );
       updateOuterShellFracture(
         runtime.outerShellFragments,
         hit,
@@ -1240,22 +1868,39 @@ export function WakppuBreakScene({
         runtime.deformations,
         runtime.outerShellFragments,
       );
-      runtime.shellScaleTarget.set(
-        1 + squash * 0.48,
-        1 - squash * (0.62 + Math.abs(hit.y) * 0.18),
-        1 - squash * 0.18,
-      );
-      runtime.noteRoot.visible = false;
+      if (runtime.variant === "blackHole") {
+        const shrink = 1 - equivalentStage * 0.045;
+        runtime.shellScaleTarget.copy(runtime.shellBaseScale).multiplyScalar(shrink);
+      } else if (runtime.variant === "jupiter") {
+        runtime.shellScaleTarget.set(
+          runtime.shellBaseScale.x * (1 + squash * 0.54),
+          runtime.shellBaseScale.y * (1 - squash * 0.28),
+          runtime.shellBaseScale.z * (1 - squash * 0.08),
+        );
+      } else {
+        runtime.shellScaleTarget.set(
+          runtime.shellBaseScale.x * (1 + squash * 0.48),
+          runtime.shellBaseScale.y * (1 - squash * (0.62 + Math.abs(hit.y) * 0.18)),
+          runtime.shellBaseScale.z * (1 - squash * 0.18),
+        );
+      }
+      runtime.rocketRoot.visible = false;
       return;
     }
 
     if (runtime.exploded) return;
     runtime.exploded = true;
-    runtime.fragmentPhase = "falling";
-    runtime.notePresented = false;
-    runtime.noteReady = false;
-    runtime.noteRoot.visible = false;
+    runtime.fragmentPhase = "spreading";
+    runtime.rocketPresented = false;
+    runtime.rocketReady = false;
+    runtime.rocketRoot.visible = false;
+    runtime.cardDropRoot.visible = false;
     runtime.mascotRoot.visible = false;
+    if (runtime.variant === "blackHole" && runtime.variantDecoration) {
+      runtime.variantDecoration.visible = false;
+      runtime.fragmentBatches.surface.visible = true;
+      runtime.fragmentBatches.edge.visible = true;
+    }
     const hit = runtime.impactPoint.clone().normalize();
     const finalDepth = Math.max(runtime.deformations.at(-1)?.targetDepth ?? 0.32, 0.32);
     prepareOuterShellForFinalBreak(runtime.outerShellFragments, hit, finalDepth);
@@ -1275,34 +1920,40 @@ export function WakppuBreakScene({
 
     runtime.intactBall.visible = false;
     runtime.outerShell.visible = false;
-    runtime.fragmentMotions = createFallLayout(runtime.outerShellFragments, hit).map((target) => {
-      const startPosition = target.fragment.mesh.position.clone();
-      const fallDistance = Math.max(startPosition.y - target.floorY, 0.01);
-      const floorHitTime = (
-        target.velocity.y + Math.sqrt(
-          target.velocity.y * target.velocity.y + 4 * FRAGMENT_GRAVITY * fallDistance,
-        )
-      ) / (2 * FRAGMENT_GRAVITY);
-      return {
-        ...target,
-        startPosition,
-        startQuaternion: target.fragment.mesh.quaternion.clone(),
-        startScale: target.fragment.mesh.scale.clone(),
-        floorHitTime,
-      };
-    });
+    runtime.fragmentMotions = createFloatLayout(
+      runtime.outerShellFragments,
+      hit,
+      variantMotionStyles[runtime.variant],
+    ).map((target) => ({
+      ...target,
+      startPosition: target.fragment.mesh.position.clone(),
+      startQuaternion: target.fragment.mesh.quaternion.clone(),
+      startScale: target.fragment.mesh.scale.clone().multiplyScalar(target.fragmentScale),
+      interactionOffset: new THREE.Vector3(),
+      interactionVelocity: new THREE.Vector3(),
+      interactionAngle: 0,
+      interactionSpin: 0,
+    }));
     runtime.fragmentFallStartedAt = performance.now();
-    runtime.fragmentPhase = "falling";
+    runtime.fragmentPhase = "spreading";
     runtime.cameraTarget.set(0, 2.05, 7.45);
     runtime.cameraLookTarget.set(0, -0.66, 0);
-  }, [stage, revealed]);
+  }, [breakThreshold, stage, revealed]);
+
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime || !launchRequested) return;
+    beginRocketLaunch(runtime, rocketLaunchCallbackRef.current);
+  }, [launchRequested]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime || !revealed) return;
-    runtime.noteReady = false;
-    runtime.noteRoot.visible = false;
-    runtime.mascotRoot.visible = false;
+    runtime.rocketReady = false;
+    runtime.rocketRoot.visible = false;
+    runtime.cardDropRoot.visible = false;
+    runtime.mascotRoot.visible = true;
+    if (runtime.variantDecoration) runtime.variantDecoration.visible = false;
   }, [revealed]);
 
   return (
