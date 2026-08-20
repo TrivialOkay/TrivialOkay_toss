@@ -120,6 +120,7 @@ img { display: block; }
 .fortune-ball.is-broken .fortune-ball-guide > span { color: #f8f6ff; }
 .observed-card-drag { position: absolute; z-index: 30; left: 0; right: 0; top: -128px; width: min(94%, 330px); margin: 0 auto; display: grid; place-items: center; touch-action: none; pointer-events: none; will-change: transform; }
 .observed-card-drag > * { pointer-events: auto; cursor: grab; touch-action: none; }
+.observed-card-drag img { pointer-events: none; user-select: none; -webkit-user-drag: none; }
 .observed-card-drag > *:active { cursor: grabbing; }
 .observed-fortune-card { position: relative; width: 100%; min-height: 366px; padding: 14px 17px 15px; overflow: hidden; border: 1.5px solid #c99c36; border-radius: 12px; background: linear-gradient(155deg, #fffdf4, #f9edcc); box-shadow: 0 13px 30px rgba(2,4,16,.42), inset 0 0 24px rgba(214,163,50,.1); color: #29251e; transform-origin: 50% 18%; text-align: left; }
 .observed-fortune-card::before { content: ""; position: absolute; left: 0; top: 0; width: 48%; height: 31px; background: #efc650; clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%); }

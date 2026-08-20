@@ -24,7 +24,7 @@ export function Icon({ name, className = "" }: { name: IconName; className?: str
 
 export function Mascot({ className = "", resting = false, waiting = false }: { className?: string; resting?: boolean; waiting?: boolean }) {
   const source = resting ? "/byeolil-mascot-resting.png" : waiting ? "/byeolil-mascot-waiting.png" : "/byeolil-mascot-final.svg";
-  return <img className={`mascot ${className}`.trim()} src={source} alt="" aria-hidden="true" />;
+  return <img className={`mascot ${className}`.trim()} src={source} alt="" aria-hidden="true" draggable={false} />;
 }
 
 export function SpeechBubble({ children, className = "", tail = "left" }: { children: ReactNode; className?: string; tail?: "left" | "right" }) {
@@ -119,12 +119,12 @@ export function Stars({ count, small = false }: { count: number; small?: boolean
 
 export function FortuneObject({ kind, compact = false, characterArt }: { kind: AssetKind; compact?: boolean; characterArt?: CharacterArt }) {
   if (characterArt) {
-    return <span className={`object-art object-character-pose pose-${characterArt} ${compact ? "compact" : ""}`} aria-hidden="true"><img src={characterArtSources[characterArt]} alt="" /></span>;
+    return <span className={`object-art object-character-pose pose-${characterArt} ${compact ? "compact" : ""}`} aria-hidden="true"><img src={characterArtSources[characterArt]} alt="" draggable={false} /></span>;
   }
   if (kind === "elevator") {
     return (
       <span className={`object-art elevator-art ${compact ? "compact" : ""}`} aria-hidden="true">
-        <img src="/byeolil-elevator.png" alt="" />
+        <img src="/byeolil-elevator.png" alt="" draggable={false} />
       </span>
     );
   }
