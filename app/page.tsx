@@ -193,6 +193,7 @@ function TodayScreen({
   onAbout: () => void;
 }) {
   const fortune = fortunes[fortuneIndex];
+  const grade = gradeFor({ fortuneId: fortune.id, outcome });
   return (
     <>
       <header className="today-header"><div><h1>별일 관측국</h1><small>오늘의 미세한 우주 개입 예보</small></div><button className="icon-button" onClick={onAbout} aria-label="내 정보 열기"><Icon name="settings" /></button></header>
@@ -201,14 +202,28 @@ function TodayScreen({
           <div className="date-button" id="today-date">{dateLabel()} <Icon name="chevron-down" /></div>
           <button className="outline-button fortune-refresh" onClick={onCycle}><Icon name="refresh" />다른 운세 보기</button>
         </div>
-        <article className="fortune-card">
-          <div className="fortune-kicker"><span className="crystal-ball" />오늘의 별일 예보<span className="observation-live">관측 중</span><span className="help-circle">?</span></div>
-          <h2>{revealed ? fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
-          <p>{revealed ? "우주 기여도 3% · 큰 기대는 금물!" : "돌리고, 누르고, 문지르면 예보가 나옵니다."}</p>
-          <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
-            <FortuneBall key={fortune.id} fortune={fortune.title} fortuneId={fortune.id} onReveal={onReveal} />
-          </Suspense>
-        </article>
+        {revealed ? (
+          <article className="fortune-card fortune-card-award" aria-label={`오늘의 운세 카드: ${fortune.cardTitle}, ${grade.grade}, 별점 5점 중 ${grade.stars}점`}>
+            <div className="fortune-award-masthead"><strong>별일 시상위원회</strong><span>AWARD</span></div>
+            <div className="fortune-award-label"><i/><span>오늘의 하찮은 수상작</span><i/></div>
+            <div className="fortune-award-meta"><strong>NO.{String(fortune.id).padStart(3, "0")}</strong><span className={`grade-badge tone-${grade.tone}`}>{grade.grade}</span></div>
+            <h2>{fortune.cardTitle}</h2>
+            <Stars count={grade.stars} />
+            <div className="fortune-award-scene">
+              <FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} />
+              <SpeechBubble className="fortune-award-speech">{fortune.aside.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</SpeechBubble>
+            </div>
+          </article>
+        ) : (
+          <article className="fortune-card">
+            <div className="fortune-kicker"><span className="crystal-ball" />오늘의 별일 예보<span className="observation-live">관측 중</span><span className="help-circle">?</span></div>
+            <h2>왁뿌볼 안에 든 운세를 꺼내보세요.</h2>
+            <p>돌리고, 누르고, 문지르면 예보가 나옵니다.</p>
+            <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
+              <FortuneBall key={fortune.id} fortune={fortune} outcome={outcome} onReveal={onReveal} />
+            </Suspense>
+          </article>
+        )}
         <section className={`outcome-section ${revealed ? "" : "is-locked"}`} aria-hidden={!revealed}>
           <h2>이런 별일, 실제로 관측됐나요?</h2>
           <div className="outcome-grid" role="group" aria-label="오늘의 운세 결과">

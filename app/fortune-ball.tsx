@@ -2,11 +2,13 @@
 
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { gradeFor, type Fortune, type Outcome } from "./byeolil-data";
+import { FortuneObject, SpeechBubble, Stars } from "./byeolil-ui";
 import { WakppuBreakScene } from "./wakppu-break-scene";
 
 type FortuneBallProps = {
-  fortune: string;
-  fortuneId: number;
+  fortune: Fortune;
+  outcome: Outcome;
   onReveal: () => void;
 };
 
@@ -122,38 +124,39 @@ function playCrunchFeedback(intensity = 0.5) {
   }
 }
 
-export function FortuneBall({ fortune, fortuneId, onReveal }: FortuneBallProps) {
+export function FortuneBall({ fortune, outcome, onReveal }: FortuneBallProps) {
   const [stage, setStage] = useState(0);
   const [pulled, setPulled] = useState(false);
+  const [launching, setLaunching] = useState(false);
   const [noteReady, setNoteReady] = useState(false);
   const [sliced, setSliced] = useState(false);
   const announced = useRef(false);
   const feedbackPlayed = useRef(false);
+  const launchTimer = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const boundsRef = useRef<HTMLElement>(null);
   const reduceMotion = useReducedMotion();
   const slipX = useMotionValue(0);
   const slipY = useMotionValue(0);
   const broken = stage >= 5;
+  const grade = gradeFor({ fortuneId: fortune.id, outcome });
   const hint = useMemo(() => {
+    if (launching) return "로켓 발사 중...";
     if (broken && !noteReady && !pulled) return sliced ? "슥— 한방컷! 파편 떨어지는 중..." : "파편들이 후두둑 떨어지는 중...";
-    if (broken && noteReady && !pulled) return "캐릭터가 든 쪽지를 잡아당기기";
+    if (broken && noteReady && !pulled) return "캐릭터가 든 로켓을 잡아당기기";
     if (pulled) return "오늘의 운세 발견";
-    if (broken) return "파편을 밀거나 쪽지를 잡아당기기";
+    if (broken) return "파편을 밀거나 로켓을 잡아당기기";
     if (stage >= 4) return "거의 다 깨졌음!";
     if (stage >= 2) return "금이 가는 중...";
     return "톡톡 누르거나 빠르게 베어서 한방컷";
-  }, [broken, noteReady, pulled, sliced, stage]);
+  }, [broken, launching, noteReady, pulled, sliced, stage]);
 
   useEffect(() => {
     boundsRef.current = rootRef.current?.closest<HTMLElement>(".phone-surface") ?? null;
+    return () => {
+      if (launchTimer.current !== null) window.clearTimeout(launchTimer.current);
+    };
   }, []);
-
-  useEffect(() => {
-    if (!pulled || announced.current) return;
-    announced.current = true;
-    onReveal();
-  }, [onReveal, pulled]);
 
   const handleImpact = useCallback(() => {
     setStage((currentStage) => {
@@ -184,14 +187,25 @@ export function FortuneBall({ fortune, fortuneId, onReveal }: FortuneBallProps) 
   }, []);
 
   const revealPulledSlip = useCallback(() => {
+    if (!announced.current) {
+      announced.current = true;
+      onReveal();
+    }
     setPulled(true);
-  }, []);
+  }, [onReveal]);
+
+  const startRocketLaunch = useCallback(() => {
+    if (launchTimer.current !== null || announced.current) return;
+    setLaunching(true);
+    navigator.vibrate?.(reduceMotion ? 12 : [16, 28, 42]);
+    launchTimer.current = window.setTimeout(() => {
+      launchTimer.current = null;
+      revealPulledSlip();
+    }, reduceMotion ? 180 : 950);
+  }, [reduceMotion, revealPulledSlip]);
 
   function pullSlipWithKeyboard() {
-    setPulled(true);
-    animate(slipY, -72, reduceMotion
-      ? { duration: 0.15 }
-      : { type: "spring", stiffness: 220, damping: 24 });
+    startRocketLaunch();
   }
 
   function returnSlip() {
@@ -209,14 +223,14 @@ export function FortuneBall({ fortune, fortuneId, onReveal }: FortuneBallProps) 
       role="button"
       tabIndex={0}
       aria-label={pulled
-        ? `오늘의 운세: ${fortune}`
+        ? `오늘의 운세 카드: ${fortune.cardTitle}, ${grade.grade}, 별점 5점 중 ${grade.stars}점`
         : broken
-          ? "부서진 왁뿌볼 안에 접힌 운세 쪽지가 있습니다. 끌어당기거나 엔터 키로 꺼내세요."
+          ? "부서진 왁뿌볼 안에 로켓이 있습니다. 끌어당기거나 엔터 키로 꺼내세요."
           : `${hint}. 엔터 또는 스페이스 키로도 깰 수 있습니다.`}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        if (pulled) return;
+        if (pulled || launching) return;
         if (broken && noteReady) pullSlipWithKeyboard();
         else if (!broken) handleImpact();
       }}
@@ -224,15 +238,34 @@ export function FortuneBall({ fortune, fortuneId, onReveal }: FortuneBallProps) 
       <div className="fortune-ball-canvas">
         <WakppuBreakScene
           stage={stage}
-          revealed={pulled}
-          fortune={fortune}
-          fortuneId={fortuneId}
+          revealed={pulled || launching}
+          fortune={fortune.title}
+          fortuneId={fortune.id}
           onImpact={handleImpact}
           onSlice={handleSlice}
           onNoteReady={() => setNoteReady(true)}
-          onNotePull={revealPulledSlip}
+          onNotePull={startRocketLaunch}
         />
       </div>
+
+      <AnimatePresence>
+        {launching && !pulled && (
+          <motion.div
+            className="rocket-launch"
+            initial={{ opacity: 0, scale: 0.94, x: 0, y: 0, rotate: 0 }}
+            animate={reduceMotion
+              ? { opacity: [0, 1, 0] }
+              : { opacity: [0, 1, 1, 0], scale: [0.94, 1, 1.03, 1.06], x: [0, -2, 3, 8], y: [0, 0, -20, -330], rotate: [0, -1, 1, 2] }}
+            transition={reduceMotion
+              ? { duration: 0.18, times: [0, 0.35, 1] }
+              : { duration: 0.95, times: [0, 0.08, 0.26, 1], ease: [0.22, 0.72, 0.2, 1] }}
+            aria-hidden="true"
+          >
+            <span className="rocket-launch-body" />
+            {!reduceMotion && <span className="rocket-launch-flame"><i/><b/></span>}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {pulled && (
@@ -251,7 +284,7 @@ export function FortuneBall({ fortune, fortuneId, onReveal }: FortuneBallProps) 
             whileDrag={reduceMotion ? { scale: 1.02 } : { scale: 1.035, rotate: -1.2 }}
             onDoubleClick={returnSlip}
           >
-            <motion.div
+            <motion.article
               className="fortune-slip"
               initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.18, scaleY: 0.26, rotate: -7 }}
               animate={{ opacity: 1, scaleX: 1, scaleY: 1, rotate: 0 }}
@@ -259,8 +292,16 @@ export function FortuneBall({ fortune, fortuneId, onReveal }: FortuneBallProps) 
                 ? { duration: 0.15 }
                 : { duration: 1.05, ease: [0.22, 0.72, 0.2, 1] }}
             >
-              <strong>{fortune}</strong>
-            </motion.div>
+              <div className="fortune-award-masthead"><strong>별일 시상위원회</strong><span>AWARD</span></div>
+              <div className="fortune-award-label"><i/><span>오늘의 하찮은 수상작</span><i/></div>
+              <div className="fortune-award-meta"><strong>NO.{String(fortune.id).padStart(3, "0")}</strong><span className={`grade-badge tone-${grade.tone}`}>{grade.grade}</span></div>
+              <h3>{fortune.cardTitle}</h3>
+              <Stars count={grade.stars} />
+              <div className="fortune-award-scene">
+                <FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} />
+                <SpeechBubble className="fortune-award-speech">{fortune.aside.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</SpeechBubble>
+              </div>
+            </motion.article>
           </motion.div>
         )}
       </AnimatePresence>

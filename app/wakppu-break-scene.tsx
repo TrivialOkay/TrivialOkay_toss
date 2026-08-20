@@ -121,10 +121,11 @@ const MASCOT_IMAGE = "/byeolil-jelly-mascot.webp";
 const MASCOT_FALLBACK_IMAGE = "/outcome-mascot-happened.png";
 const MASCOT_HEIGHT = 2.02 * 1.2;
 const MASCOT_HOME_Y = -0.4;
-const AWARD_CARD_WIDTH = 0.82;
-const AWARD_CARD_HEIGHT = 1.7;
-const AWARD_CARD_HOME_X = -0.72;
-const AWARD_CARD_HOME_Y = -0.2;
+const ROCKET_IMAGE = "/byeolil-rocket-soft-3d.webp";
+const ROCKET_HEIGHT = MASCOT_HEIGHT * 1.12;
+const ROCKET_WIDTH = ROCKET_HEIGHT * (2 / 3);
+const ROCKET_HOME_X = -0.72;
+const ROCKET_HOME_Y = -0.1;
 const FRAGMENT_FALL_DURATION = 1650;
 const NOTE_REVEAL_DELAY = 520;
 const FRAGMENT_GRAVITY = 3.6;
@@ -702,10 +703,11 @@ export function WakppuBreakScene({
     ground.position.y = -1.86;
     scene.add(ground);
 
+    const textureLoader = new THREE.TextureLoader();
     const noteRoot = new THREE.Group();
     noteRoot.visible = false;
-    noteRoot.position.set(AWARD_CARD_HOME_X, AWARD_CARD_HOME_Y, 1.18);
-    noteRoot.rotation.set(0.04, 0.03, -0.035);
+    noteRoot.position.set(ROCKET_HOME_X, ROCKET_HOME_Y, 1.18);
+    noteRoot.rotation.set(0.02, 0.015, -0.012);
     const awardCardTexture = createFortuneAwardCardTexture(fortune, fortuneId);
     const noteMaterial = new THREE.MeshBasicMaterial({
       color: 0xffffff,
@@ -718,7 +720,7 @@ export function WakppuBreakScene({
       toneMapped: false,
     });
     const noteMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(AWARD_CARD_WIDTH, AWARD_CARD_HEIGHT),
+      new THREE.PlaneGeometry(ROCKET_WIDTH, ROCKET_HEIGHT),
       noteMaterial,
     );
     noteMesh.renderOrder = 9;
@@ -731,13 +733,13 @@ export function WakppuBreakScene({
       depthWrite: false,
       toneMapped: false,
     });
-    const grip = new THREE.Mesh(new THREE.CircleGeometry(0.085, 24), cardGripMaterial);
-    grip.position.set(AWARD_CARD_WIDTH / 2 - 0.015, -0.2, 0.02);
-    grip.scale.set(0.72, 1.08, 1);
+    const grip = new THREE.Mesh(new THREE.CircleGeometry(0.11, 24), cardGripMaterial);
+    grip.position.set(ROCKET_WIDTH / 2 - 0.055, -0.13, 0.02);
+    grip.scale.set(0.78, 1.04, 1);
     grip.renderOrder = 10;
     noteRoot.add(grip);
     const noteHitbox = new THREE.Mesh(
-      new THREE.BoxGeometry(AWARD_CARD_WIDTH, AWARD_CARD_HEIGHT, 0.12),
+      new THREE.BoxGeometry(ROCKET_WIDTH, ROCKET_HEIGHT, 0.12),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     );
     noteHitbox.userData.isFortuneNote = true;
@@ -792,7 +794,7 @@ export function WakppuBreakScene({
       noteRoot,
       noteHitbox,
       noteReady: false,
-      noteHome: new THREE.Vector3(AWARD_CARD_HOME_X, AWARD_CARD_HOME_Y, 1.18),
+      noteHome: new THREE.Vector3(ROCKET_HOME_X, ROCKET_HOME_Y, 1.18),
       mascotRoot,
       mascotSprite,
       mascotHome: new THREE.Vector3(0, MASCOT_HOME_Y, 0.28),
@@ -812,7 +814,18 @@ export function WakppuBreakScene({
     };
     runtimeRef.current = runtime;
 
-    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(ROCKET_IMAGE, (texture) => {
+      if (runtime.disposed) {
+        texture.dispose();
+        return;
+      }
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      noteMaterial.map?.dispose();
+      noteMaterial.map = texture;
+      noteMaterial.needsUpdate = true;
+    });
     const applyMascotTexture = (texture: THREE.Texture) => {
       if (runtime.disposed) {
         texture.dispose();
@@ -1113,7 +1126,7 @@ export function WakppuBreakScene({
           runtime.mascotRoot.rotation.z = 0;
           runtime.mascotRoot.visible = !revealedRef.current;
           runtime.noteRoot.position.copy(runtime.noteHome);
-          runtime.noteRoot.rotation.set(0.04, 0.03, -0.035);
+          runtime.noteRoot.rotation.set(0.02, 0.015, -0.012);
           runtime.noteRoot.visible = !revealedRef.current;
           runtime.noteReady = !revealedRef.current;
           noteReadyCallbackRef.current();
