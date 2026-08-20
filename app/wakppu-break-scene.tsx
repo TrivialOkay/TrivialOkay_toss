@@ -13,15 +13,20 @@ import {
   type OuterShellFragment,
 } from "./wakppu-outer-shell";
 import { createFloatLayout, type FloatLayoutTarget, type FragmentMotionStyle } from "./wakppu-fall-layout";
+import { hiddenCardFor, type HiddenCard, type HiddenCardId } from "./byeolil-data";
+import type { WakppuVariant } from "./wakppu-data";
 
 type WakppuBreakSceneProps = {
   stage: number;
   revealed: boolean;
   fortune: string;
   fortuneId: number;
+  variant: WakppuVariant;
+  specialCardId: HiddenCardId | null;
   launchRequested: boolean;
   onImpact: () => void;
   onSlice: () => void;
+  onChargedBreak: () => void;
   onRocketReady: () => void;
   onRocketLaunch: () => void;
   onCardReveal: () => void;
@@ -65,8 +70,6 @@ type FloatingFragmentMotion = FloatLayoutTarget & {
 
 type FragmentPhase = "idle" | "spreading" | "floating";
 
-type WakppuVariant = "chewyCookie" | "butterBar" | "sun" | "earth" | "mars" | "jupiter" | "moon" | "saturn" | "blackHole";
-
 type SceneRuntime = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
@@ -108,6 +111,7 @@ type SceneRuntime = {
   rocketHome: THREE.Vector3;
   rocketLaunchedAt: number | null;
   cardDropRoot: THREE.Group;
+  cardMaterial: THREE.MeshBasicMaterial;
   cardRevealDispatched: boolean;
   mascotRoot: THREE.Group;
   mascotSprite: THREE.Sprite;
@@ -118,6 +122,10 @@ type SceneRuntime = {
   sliceLine: THREE.Mesh;
   sliceLineMaterial: THREE.MeshBasicMaterial;
   sliceEffect: SliceEffect | null;
+  chargeRoot: THREE.Group;
+  chargeMaterials: [THREE.MeshBasicMaterial, THREE.MeshBasicMaterial];
+  chargeReady: boolean;
+  chargedBreak: boolean;
   fragmentPhase: FragmentPhase;
   fragmentFallStartedAt: number;
   fragmentMotions: FloatingFragmentMotion[];
@@ -141,6 +149,8 @@ const ROCKET_SCALE = 1.12;
 const FRAGMENT_SPREAD_DURATION = 1450;
 const ROCKET_REVEAL_DELAY = 520;
 const ROCKET_SEQUENCE_DURATION = 1650;
+const LONG_PRESS_CHARGE_MS = 1200;
+const LONG_PRESS_VISIBLE_MS = 360;
 const DEFORMATION_MIN_DOT = Math.cos(0.96);
 const CAMERA_STAGE_POSITIONS = [
   new THREE.Vector3(0, 0.34, 8.45),
@@ -151,27 +161,9 @@ const CAMERA_STAGE_POSITIONS = [
   new THREE.Vector3(0, 0.34, 8.35),
 ];
 
-const WAKPPU_VARIANTS: WakppuVariant[] = ["chewyCookie", "butterBar", "sun", "earth", "mars", "jupiter", "moon", "saturn", "blackHole"];
-
-export function wakppuVariantFor(fortuneId: number) {
-  return WAKPPU_VARIANTS[Math.abs(fortuneId) % WAKPPU_VARIANTS.length];
+export function wakppuBreakThresholdFor(variant: WakppuVariant) {
+  return variant === "blackHole" ? 8 : 5;
 }
-
-export function wakppuBreakThresholdFor(fortuneId: number) {
-  return wakppuVariantFor(fortuneId) === "blackHole" ? 8 : 5;
-}
-
-export const wakppuVariantLabels: Record<WakppuVariant, string> = {
-  chewyCookie: "두쫀쿠",
-  butterBar: "버터바",
-  sun: "태양",
-  earth: "지구",
-  mars: "화성",
-  jupiter: "목성",
-  moon: "달",
-  saturn: "토성",
-  blackHole: "블랙홀",
-};
 
 const variantMotionStyles: Record<WakppuVariant, FragmentMotionStyle> = {
   chewyCookie: "stretch",
@@ -195,6 +187,18 @@ const variantBreakResponses: Record<WakppuVariant, { deformation: number; squash
   moon: { deformation: 0.36, squash: 0.22, pressure: 1.45 },
   saturn: { deformation: 0.54, squash: 0.42, pressure: 1.3 },
   blackHole: { deformation: 0.3, squash: 0.18, pressure: 1.5 },
+};
+
+const variantChargeColors: Record<WakppuVariant, [number, number]> = {
+  chewyCookie: [0xffd08a, 0x8fda75],
+  butterBar: [0xffed8f, 0xe5a43e],
+  sun: [0xffffb2, 0xff6a22],
+  earth: [0x9de8ff, 0x6ed18d],
+  mars: [0xffae73, 0xe55735],
+  jupiter: [0xffe0ad, 0xcf865c],
+  moon: [0xf4f4df, 0x9da9bf],
+  saturn: [0xffe5ac, 0xc38c4b],
+  blackHole: [0xfff9dc, 0xd7af63],
 };
 
 function clamp(value: number, min = 0, max = 1) {
@@ -252,6 +256,125 @@ function drawWrappedText(
   if (line) lines.push(line.trim());
   lines.slice(0, maxLines).forEach((item, index) => context.fillText(item, x, y + index * lineHeight));
   return y + Math.min(lines.length, maxLines) * lineHeight;
+}
+
+function createHiddenCommandCardTexture(card: HiddenCard, fortune: string) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 1056;
+  const context = canvas.getContext("2d");
+  if (!context) return new THREE.CanvasTexture(canvas);
+  const isCharge = card.id === "stellar-overcharge";
+  const accent = isCharge ? "#ffe37c" : "#ffa4dc";
+  const secondary = isCharge ? "#896dff" : "#62d9ff";
+
+  roundedRectPath(context, 3, 3, 506, 1050, 22);
+  context.clip();
+  const background = context.createLinearGradient(0, 0, 512, 1056);
+  background.addColorStop(0, "#100b29");
+  background.addColorStop(0.55, "#24134e");
+  background.addColorStop(1, "#08172a");
+  context.fillStyle = background;
+  context.fillRect(0, 0, 512, 1056);
+
+  context.globalAlpha = 0.32;
+  for (let index = 0; index < 56; index += 1) {
+    const x = (index * 83) % 512;
+    const y = (index * index * 29 + 43) % 1056;
+    context.fillStyle = index % 3 === 0 ? accent : "#ffffff";
+    context.beginPath();
+    context.arc(x, y, index % 5 === 0 ? 2.2 : 1.1, 0, Math.PI * 2);
+    context.fill();
+  }
+  context.globalAlpha = 1;
+
+  context.fillStyle = accent;
+  context.fillRect(0, 0, 512, 64);
+  context.fillStyle = "#17102d";
+  context.font = "900 21px sans-serif";
+  context.textAlign = "left";
+  context.fillText("별일 비밀관측국", 24, 41);
+  roundedRectPath(context, 402, 15, 86, 34, 8);
+  context.fillStyle = "#17102d";
+  context.fill();
+  context.fillStyle = "#ffffff";
+  context.font = "900 13px sans-serif";
+  context.textAlign = "center";
+  context.fillText("HIDDEN", 445, 37);
+
+  context.textAlign = "left";
+  context.fillStyle = "#dcd5ff";
+  context.font = "800 15px sans-serif";
+  context.fillText(`${card.code} · ${card.label}`, 26, 115);
+  context.fillStyle = "#ffffff";
+  context.font = "900 38px sans-serif";
+  drawWrappedText(context, card.title, 26, 178, 460, 48, 2);
+
+  const glow = context.createRadialGradient(256, 445, 12, 256, 445, 190);
+  glow.addColorStop(0, isCharge ? "rgba(255,240,140,.95)" : "rgba(255,174,225,.92)");
+  glow.addColorStop(0.35, isCharge ? "rgba(137,109,255,.42)" : "rgba(98,217,255,.36)");
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  context.fillStyle = glow;
+  context.fillRect(50, 250, 412, 400);
+  context.strokeStyle = accent;
+  context.lineWidth = isCharge ? 8 : 5;
+  context.shadowColor = accent;
+  context.shadowBlur = 28;
+  if (isCharge) {
+    for (const radius of [72, 112, 154]) {
+      context.beginPath();
+      context.arc(256, 444, radius, 0, Math.PI * 2);
+      context.stroke();
+    }
+  } else {
+    context.beginPath();
+    context.moveTo(98, 588);
+    context.lineTo(414, 302);
+    context.stroke();
+    context.strokeStyle = secondary;
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(74, 612);
+    context.lineTo(390, 326);
+    context.stroke();
+  }
+  context.shadowBlur = 0;
+  context.fillStyle = "#ffffff";
+  context.font = `900 ${isCharge ? 112 : 138}px sans-serif`;
+  context.textAlign = "center";
+  context.fillText(card.symbol, 256, isCharge ? 482 : 505);
+
+  roundedRectPath(context, 28, 682, 456, 178, 16);
+  context.fillStyle = "rgba(255,255,255,.09)";
+  context.fill();
+  context.strokeStyle = "rgba(255,255,255,.26)";
+  context.lineWidth = 1.5;
+  context.stroke();
+  context.fillStyle = accent;
+  context.font = "900 15px sans-serif";
+  context.textAlign = "left";
+  context.fillText("숨겨진 관측 기록", 50, 722);
+  context.fillStyle = "#ffffff";
+  context.font = "800 20px sans-serif";
+  drawWrappedText(context, card.copy, 50, 765, 410, 31, 3);
+
+  context.fillStyle = "#bdb5d9";
+  context.font = "700 13px sans-serif";
+  context.fillText("원래 관측 예보", 34, 916);
+  context.fillStyle = "#ffffff";
+  context.font = "800 16px sans-serif";
+  drawWrappedText(context, fortune, 34, 948, 442, 25, 2);
+  context.strokeStyle = secondary;
+  context.lineWidth = 3;
+  roundedRectPath(context, 3, 3, 506, 1050, 22);
+  context.stroke();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function createFortuneAwardCardTexture(fortune: string, fortuneId: number) {
@@ -656,9 +779,12 @@ export function WakppuBreakScene({
   revealed,
   fortune,
   fortuneId,
+  variant,
+  specialCardId,
   launchRequested,
   onImpact,
   onSlice,
+  onChargedBreak,
   onRocketReady,
   onRocketLaunch,
   onCardReveal,
@@ -669,22 +795,23 @@ export function WakppuBreakScene({
   const revealedRef = useRef(revealed);
   const impactCallbackRef = useRef(onImpact);
   const sliceCallbackRef = useRef(onSlice);
+  const chargedBreakCallbackRef = useRef(onChargedBreak);
   const rocketReadyCallbackRef = useRef(onRocketReady);
   const rocketLaunchCallbackRef = useRef(onRocketLaunch);
   const cardRevealCallbackRef = useRef(onCardReveal);
   const [ready, setReady] = useState(false);
-  const variant = wakppuVariantFor(fortuneId);
-  const breakThreshold = wakppuBreakThresholdFor(fortuneId);
+  const breakThreshold = wakppuBreakThresholdFor(variant);
 
   useEffect(() => {
     stageRef.current = stage;
     revealedRef.current = revealed;
     impactCallbackRef.current = onImpact;
     sliceCallbackRef.current = onSlice;
+    chargedBreakCallbackRef.current = onChargedBreak;
     rocketReadyCallbackRef.current = onRocketReady;
     rocketLaunchCallbackRef.current = onRocketLaunch;
     cardRevealCallbackRef.current = onCardReveal;
-  }, [stage, revealed, onImpact, onSlice, onRocketReady, onRocketLaunch, onCardReveal]);
+  }, [stage, revealed, onImpact, onSlice, onChargedBreak, onRocketReady, onRocketLaunch, onCardReveal]);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -1027,6 +1154,42 @@ export function WakppuBreakScene({
       scene.add(blackHoleGroup);
     }
 
+    const [chargePrimary, chargeSecondary] = variantChargeColors[variant];
+    const chargeMaterialOuter = new THREE.MeshBasicMaterial({
+      color: chargePrimary,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const chargeMaterialInner = new THREE.MeshBasicMaterial({
+      color: chargeSecondary,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const chargeRoot = new THREE.Group();
+    chargeRoot.visible = false;
+    chargeRoot.position.z = 2.04;
+    const chargeOuterRing = new THREE.Mesh(
+      new THREE.TorusGeometry(BALL_RADIUS * 1.22, 0.035, 10, 96),
+      chargeMaterialOuter,
+    );
+    chargeOuterRing.renderOrder = 18;
+    chargeRoot.add(chargeOuterRing);
+    const chargeInnerRing = new THREE.Mesh(
+      new THREE.TorusGeometry(BALL_RADIUS * 1.05, 0.022, 8, 80),
+      chargeMaterialInner,
+    );
+    chargeInnerRing.rotation.x = 1.05;
+    chargeInnerRing.rotation.z = -0.2;
+    chargeInnerRing.renderOrder = 18;
+    chargeRoot.add(chargeInnerRing);
+    scene.add(chargeRoot);
+
     const bladeRoot = new THREE.Group();
     bladeRoot.visible = false;
     bladeRoot.position.z = 2.35;
@@ -1295,6 +1458,7 @@ export function WakppuBreakScene({
       rocketHome: new THREE.Vector3(ROCKET_HOME_X, ROCKET_HOME_Y, ROCKET_HOME_Z),
       rocketLaunchedAt: null,
       cardDropRoot,
+      cardMaterial,
       cardRevealDispatched: false,
       mascotRoot,
       mascotSprite,
@@ -1305,6 +1469,10 @@ export function WakppuBreakScene({
       sliceLine,
       sliceLineMaterial,
       sliceEffect: null,
+      chargeRoot,
+      chargeMaterials: [chargeMaterialOuter, chargeMaterialInner],
+      chargeReady: false,
+      chargedBreak: false,
       fragmentPhase: "idle",
       fragmentFallStartedAt: 0,
       fragmentMotions: [],
@@ -1402,6 +1570,9 @@ export function WakppuBreakScene({
       if (!hit) return;
       const localImpact = runtime.intactBall.worldToLocal(hit.point.clone());
       runtime.impactPoint.copy(localImpact).normalize();
+      runtime.chargeReady = false;
+      runtime.chargedBreak = false;
+      runtime.chargeRoot.visible = false;
       runtime.activePress = {
         pointerId: event.pointerId,
         startedAt: performance.now(),
@@ -1433,6 +1604,8 @@ export function WakppuBreakScene({
         if (duration <= 520 && distance >= swipeThreshold && speed >= 0.5) {
           const direction = new THREE.Vector2(dx / distance, -dy / distance);
           runtime.activePress = null;
+          runtime.chargeRoot.visible = false;
+          runtime.chargeReady = false;
           runtime.lastPressStrength = 1;
           runtime.sliceEffect = {
             startedAt: performance.now(),
@@ -1464,6 +1637,7 @@ export function WakppuBreakScene({
       const activePress = runtime.activePress;
       if (!activePress || activePress.pointerId !== event.pointerId) return;
       runtime.activePress = null;
+      runtime.chargeRoot.visible = false;
       renderer.domElement.releasePointerCapture?.(event.pointerId);
       const duration = performance.now() - activePress.startedAt;
       const holdStrength = clamp((duration - 70) / 1050);
@@ -1480,6 +1654,13 @@ export function WakppuBreakScene({
         * variantBreakResponses[runtime.variant].deformation;
       runtime.deformations.push(activePress.deformation);
       runtime.lastPressStrength = holdStrength;
+      if (runtime.chargeReady || duration >= LONG_PRESS_CHARGE_MS) {
+        runtime.chargeReady = false;
+        runtime.chargedBreak = true;
+        runtime.lastPressStrength = 1;
+        chargedBreakCallbackRef.current();
+        return;
+      }
       impactCallbackRef.current();
     }
 
@@ -1488,7 +1669,11 @@ export function WakppuBreakScene({
         runtime.mascotDrag = null;
         runtime.mascotElasticTarget.set(0, 0);
       }
-      if (runtime.activePress?.pointerId === event.pointerId) runtime.activePress = null;
+      if (runtime.activePress?.pointerId === event.pointerId) {
+        runtime.activePress = null;
+        runtime.chargeReady = false;
+        runtime.chargeRoot.visible = false;
+      }
       renderer.domElement.releasePointerCapture?.(event.pointerId);
     }
 
@@ -1540,6 +1725,32 @@ export function WakppuBreakScene({
           runtime.sliceLine.visible = false;
           runtime.sliceEffect = null;
         }
+      }
+
+      if (runtime.activePress && !runtime.exploded) {
+        const heldFor = time - runtime.activePress.startedAt;
+        const chargeProgress = clamp(
+          (heldFor - LONG_PRESS_VISIBLE_MS) / (LONG_PRESS_CHARGE_MS - LONG_PRESS_VISIBLE_MS),
+        );
+        runtime.chargeRoot.visible = chargeProgress > 0;
+        if (chargeProgress > 0) {
+          const chargedPulse = chargeProgress >= 1 && !runtime.reduceMotion
+            ? 1 + Math.sin(time * 0.018) * 0.055
+            : 1;
+          runtime.chargeRoot.scale.setScalar((0.72 + chargeProgress * 0.3) * chargedPulse);
+          if (!runtime.reduceMotion) {
+            runtime.chargeRoot.rotation.z += 0.006 + chargeProgress * 0.012;
+            runtime.chargeRoot.children[1].rotation.z -= 0.012 + chargeProgress * 0.018;
+          }
+          runtime.chargeMaterials[0].opacity = 0.12 + chargeProgress * 0.72;
+          runtime.chargeMaterials[1].opacity = 0.08 + chargeProgress * 0.64;
+        }
+        if (chargeProgress >= 1 && !runtime.chargeReady) {
+          runtime.chargeReady = true;
+          navigator.vibrate?.([18, 28, 34]);
+        }
+      } else if (runtime.chargeRoot.visible) {
+        runtime.chargeRoot.visible = false;
       }
 
       if (!runtime.exploded) {
@@ -1622,6 +1833,13 @@ export function WakppuBreakScene({
               motion.fragment.tangent,
               Math.sin(elapsed * 2.4 + motion.orbitPhase) * (0.08 + collapse * 0.18),
             );
+            if (runtime.chargedBreak) {
+              const rebound = smoothstep(clamp((spreadTime - 0.72) / 0.63));
+              motion.fragment.mesh.position.addScaledVector(
+                motion.fragment.radial,
+                rebound * (1.2 + motion.fragment.liftSeed * 0.55),
+              );
+            }
           } else {
             motion.fragment.mesh.position.copy(motion.startPosition)
               .addScaledVector(motion.velocity, spreadTime + Math.min(driftTime, 8) * 0.055)
@@ -1656,7 +1874,13 @@ export function WakppuBreakScene({
           } else if (motion.motionStyle === "flare") {
             motion.fragment.mesh.scale.multiplyScalar(1 - clamp(elapsed / 4) * 0.36);
           } else if (motion.motionStyle === "collapse") {
-            motion.fragment.mesh.scale.multiplyScalar(1 - smoothstep(spreadTime / 1.2) * 0.74);
+            if (runtime.chargedBreak) {
+              const implosion = smoothstep(clamp(spreadTime / 0.72));
+              const rebound = smoothstep(clamp((spreadTime - 0.72) / 0.63));
+              motion.fragment.mesh.scale.multiplyScalar(1 - implosion * 0.78 + rebound * 0.62);
+            } else {
+              motion.fragment.mesh.scale.multiplyScalar(1 - smoothstep(spreadTime / 1.2) * 0.74);
+            }
           }
         });
 
@@ -1825,6 +2049,16 @@ export function WakppuBreakScene({
   }, [breakThreshold, fortune, fortuneId, variant]);
 
   useEffect(() => {
+    if (!specialCardId) return;
+    const runtime = runtimeRef.current;
+    if (!runtime) return;
+    const previousTexture = runtime.cardMaterial.map;
+    runtime.cardMaterial.map = createHiddenCommandCardTexture(hiddenCardFor(specialCardId), fortune);
+    runtime.cardMaterial.needsUpdate = true;
+    previousTexture?.dispose();
+  }, [fortune, specialCardId]);
+
+  useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime || stage <= 0) return;
     if (stage < breakThreshold) {
@@ -1894,6 +2128,8 @@ export function WakppuBreakScene({
     runtime.rocketPresented = false;
     runtime.rocketReady = false;
     runtime.rocketRoot.visible = false;
+    runtime.chargeRoot.visible = false;
+    runtime.chargeReady = false;
     runtime.cardDropRoot.visible = false;
     runtime.mascotRoot.visible = false;
     if (runtime.variant === "blackHole" && runtime.variantDecoration) {
@@ -1926,6 +2162,8 @@ export function WakppuBreakScene({
       variantMotionStyles[runtime.variant],
     ).map((target) => ({
       ...target,
+      velocity: target.velocity.clone().multiplyScalar(runtime.chargedBreak ? 1.35 : 1),
+      spin: target.spin * (runtime.chargedBreak ? 1.45 : 1),
       startPosition: target.fragment.mesh.position.clone(),
       startQuaternion: target.fragment.mesh.quaternion.clone(),
       startScale: target.fragment.mesh.scale.clone().multiplyScalar(target.fragmentScale),

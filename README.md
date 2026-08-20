@@ -10,7 +10,11 @@
 - [vinext](https://github.com/cloudflare/vinext) (Next.js 호환, Cloudflare Workers) — 웹 빌드
 - Vite + `@apps-in-toss/web-framework` — 토스 미니앱 빌드
 - three.js / @react-three/fiber — 포춘볼·왁뿌 3D 씬
-- 기록 저장은 localStorage 기반 (서버 DB 없음)
+- 기록 저장은 localStorage(`byeolil-records-v2`) 기반 (서버 DB 없음)
+
+기록과 도감 해금 상태는 같은 기록 데이터를 기준으로 계산합니다. 토스 계정 동기화가
+아니므로 다른 기기·브라우저와 공유되지 않으며, 앱 데이터나 웹뷰 캐시를 지우면 함께
+삭제됩니다. 첨부 사진은 1280px 이하 JPEG로 줄여 기록 안에 저장합니다.
 
 ## 시작하기
 

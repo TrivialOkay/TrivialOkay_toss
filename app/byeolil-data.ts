@@ -1,7 +1,16 @@
 export type Tab = "today" | "collection" | "records" | "about";
-export type View = "main" | "capture" | "card" | "report" | "examples" | "guide";
+export type View = "main" | "capture" | "card" | "report" | "examples" | "guide" | "wakppu";
 export type Outcome = "happened" | "close" | "missed";
 export type Category = "교통" | "음식" | "사람" | "일상" | "기타";
+export type HiddenCardId = "swift-slice" | "stellar-overcharge";
+export type HiddenCard = {
+  id: HiddenCardId;
+  code: string;
+  title: string;
+  label: string;
+  copy: string;
+  symbol: string;
+};
 export type CharacterArt =
   | "umbrella"
   | "coffee"
@@ -112,6 +121,29 @@ export type RecordItem = {
   photoDataUrl?: string;
   sample?: boolean;
 };
+
+export const hiddenCards: HiddenCard[] = [
+  {
+    id: "swift-slice",
+    code: "SP.01",
+    title: "슥— 한방컷",
+    label: "초고속 절단 신호",
+    copy: "빠른 궤적 하나로 왁뿌볼을 단번에 절단했습니다.",
+    symbol: "╱",
+  },
+  {
+    id: "stellar-overcharge",
+    code: "SP.02",
+    title: "별빛 과충전",
+    label: "장시간 응축 신호",
+    copy: "숨겨진 별빛을 끝까지 응축해 특수 파괴를 일으켰습니다.",
+    symbol: "✦",
+  },
+];
+
+export function hiddenCardFor(id: HiddenCardId) {
+  return hiddenCards.find((card) => card.id === id) ?? hiddenCards[0];
+}
 
 export const fortunes: Fortune[] = [
   {
@@ -962,11 +994,31 @@ export const gradeGuide = [
 export const categories: Category[] = ["교통", "음식", "사람", "일상", "기타"];
 export const collectionFilters = ["전체", "혼함", "꽤 괜찮음", "이왜진", "오늘 좀 됨", "우주 개입"] as const;
 
+const serviceTimeZone = "Asia/Seoul";
+const datePartsFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: serviceTimeZone,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function serviceDateParts(date: Date) {
+  const parts = Object.fromEntries(datePartsFormatter.formatToParts(date).map((part) => [part.type, part.value]));
+  return { year: parts.year, month: parts.month, day: parts.day };
+}
+
 export function localDateKey(date = new Date()) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const { year, month, day } = serviceDateParts(date);
   return `${year}-${month}-${day}`;
+}
+
+export function localTimeLabel(date = new Date()) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: serviceTimeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
 }
 
 export function monthKey(date = new Date()) {
@@ -979,8 +1031,9 @@ export function monthLabel(key: string) {
 }
 
 export function dateLabel(date = new Date()) {
-  const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
-  return `${date.getMonth() + 1}월 ${date.getDate()}일 (${weekdays[date.getDay()]})`;
+  const { month, day } = serviceDateParts(date);
+  const weekday = new Intl.DateTimeFormat("ko-KR", { timeZone: serviceTimeZone, weekday: "short" }).format(date);
+  return `${Number(month)}월 ${Number(day)}일 (${weekday})`;
 }
 
 export function shiftMonth(key: string, amount: number) {
@@ -995,7 +1048,8 @@ function monthDate(key: string, day: number) {
 
 export function makeSampleRecords(now = new Date()): RecordItem[] {
   const key = monthKey(now);
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const [year, month] = key.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const safeDay = (value: number) => Math.max(1, Math.min(lastDay, value));
   return [
     { id: "sample-94", date: monthDate(key, safeDay(13)), time: "23:19", fortuneId: 94, title: "휴대폰이 이불 위로 안전 착지함", outcome: "happened", category: "일상", note: "놓쳤는데 바닥 말고 이불 위로 폭 떨어짐", sample: true },

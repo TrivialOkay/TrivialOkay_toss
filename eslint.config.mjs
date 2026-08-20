@@ -36,6 +36,10 @@ const eslintConfig = defineConfig([
         version: "detect",
       },
     },
+    // 같은 컴포넌트를 Vite 기반 앱인토스 빌드에서도 사용하므로 next/image를 쓸 수 없다.
+    rules: {
+      "@next/next/no-img-element": "off",
+    },
   },
 ]);
 
