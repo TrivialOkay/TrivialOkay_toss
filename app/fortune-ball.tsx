@@ -2,14 +2,13 @@
 
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { gradeFor, hiddenCardFor, type AssetKind, type CharacterArt, type HiddenCardId, type Outcome } from "./byeolil-data";
-import { FortuneObject, SpeechBubble, Stars } from "./byeolil-ui";
+import { hiddenCardFor, type AssetKind, type CharacterArt, type HiddenCardId, type Outcome } from "./byeolil-data";
+import { FortuneObject } from "./byeolil-ui";
 import { WakppuBreakScene, wakppuBreakThresholdFor } from "./wakppu-break-scene";
 import { wakppuVariantLabels, type WakppuVariant } from "./wakppu-data";
 
 type FortuneBallProps = {
   fortune: string;
-  aside: string;
   fortuneId: number;
   wakppuVariant: WakppuVariant;
   asset: AssetKind;
@@ -168,7 +167,7 @@ function playRocketFeedback() {
   }
 }
 
-export function FortuneBall({ fortune, aside, fortuneId, wakppuVariant, asset, characterArt, outcome, onOutcome, onHiddenCardDiscover, onReveal }: FortuneBallProps) {
+export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characterArt, outcome, onOutcome, onHiddenCardDiscover, onReveal }: FortuneBallProps) {
   const [stage, setStage] = useState(0);
   const [cardRevealed, setCardRevealed] = useState(false);
   const [rocketReady, setRocketReady] = useState(false);
@@ -192,7 +191,6 @@ export function FortuneBall({ fortune, aside, fortuneId, wakppuVariant, asset, c
   const broken = stage >= breakThreshold;
   const variantLabel = wakppuVariantLabels[wakppuVariant];
   const specialCard = specialCardId ? hiddenCardFor(specialCardId) : null;
-  const grade = gradeFor({ fortuneId, outcome: outcome ?? "happened" });
   const hint = useMemo(() => {
     if (rocketLaunching && !cardRevealed) return "로켓 발사! 관측 카드가 내려오는 중...";
     if (broken && !rocketReady && !cardRevealed) {
@@ -218,6 +216,7 @@ export function FortuneBall({ fortune, aside, fortuneId, wakppuVariant, asset, c
     announced.current = true;
     onReveal();
   }, [cardRevealed, onReveal]);
+
   const handleImpact = useCallback(() => {
     setStage((currentStage) => {
       if (currentStage >= breakThreshold) return currentStage;
@@ -316,7 +315,7 @@ export function FortuneBall({ fortune, aside, fortuneId, wakppuVariant, asset, c
       role="button"
       tabIndex={0}
       aria-label={cardRevealed
-        ? specialCard ? `발견한 특수카드: ${specialCard.title}` : `오늘의 운세 카드: ${fortune}, ${grade.grade}, 별점 5점 중 ${grade.stars}점`
+        ? specialCard ? `발견한 특수카드: ${specialCard.title}` : `관측된 별일 카드: ${fortune}`
         : broken
           ? rocketLaunching
             ? "로켓이 발사되어 관측된 별일 카드를 내려보내고 있습니다."
@@ -387,17 +386,12 @@ export function FortuneBall({ fortune, aside, fortuneId, wakppuVariant, asset, c
                 ? { duration: 0.15 }
                 : { duration: 1.05, ease: [0.22, 0.72, 0.2, 1] }}
             >
-              <div className="observed-card-kicker"><span>{specialCard ? "별일 비밀관측국" : "별일 시상위원회"}</span><b>{specialCard ? "HIDDEN" : "AWARD"}</b></div>
-              <div className="observed-card-label"><i /><span>{specialCard ? "비밀 관측 수상작" : "오늘의 하찮은 수상작"}</span><i /></div>
-              <div className="observed-card-meta"><strong>{specialCard ? specialCard.code : `NO.${String(fortuneId).padStart(3, "0")}`}</strong><span className={specialCard ? undefined : `grade-badge tone-${grade.tone}`}>{specialCard ? "특수 신호" : grade.grade}</span></div>
+              <div className="observed-card-kicker"><span>{specialCard ? "별일 비밀관측국" : "별일 관측국"}</span><b>{specialCard ? "HIDDEN" : "관측 완료"}</b></div>
+              <div className="observed-card-meta"><strong>{specialCard ? specialCard.code : `NO.${String(fortuneId).padStart(3, "0")}`}</strong><span>{specialCard ? "특수 신호" : "오늘 좀 됨"}</span></div>
               <h3>{specialCard?.title ?? fortune}</h3>
-              {specialCard
-                ? <div className="observed-card-stars" aria-hidden="true">✦✦✦✦✦</div>
-                : <Stars count={grade.stars} />}
-              <div className={`observed-card-art ${specialCard ? "special-card-art" : "observed-award-scene"}`}>
-                {specialCard
-                  ? <span aria-hidden="true">{specialCard.symbol}</span>
-                  : <><FortuneObject kind={asset} characterArt={characterArt} /><SpeechBubble className="observed-award-speech">{aside.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</SpeechBubble></>}
+              <div className="observed-card-stars" aria-hidden="true">{specialCard ? "✦✦✦✦✦" : "★★★★☆"}</div>
+              <div className={`observed-card-art ${specialCard ? "special-card-art" : ""}`}>
+                {specialCard ? <span aria-hidden="true">{specialCard.symbol}</span> : <FortuneObject kind={asset} characterArt={characterArt} />}
               </div>
               <p>{specialCard ? `${specialCard.copy} · 원래 예보: ${fortune}` : "우주가 오늘의 작은 별일을 공식적으로 관측했습니다."}</p>
             </motion.div>
