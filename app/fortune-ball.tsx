@@ -2,18 +2,39 @@
 
 import { AnimatePresence, animate, motion, useMotionValue, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { gradeFor, type Fortune, type Outcome } from "./byeolil-data";
+import { gradeFor, hiddenCardFor, type AssetKind, type CharacterArt, type HiddenCardId, type Outcome } from "./byeolil-data";
 import { FortuneObject, SpeechBubble, Stars } from "./byeolil-ui";
-import { WakppuBreakScene } from "./wakppu-break-scene";
+import { WakppuBreakScene, wakppuBreakThresholdFor } from "./wakppu-break-scene";
+import { wakppuVariantLabels, type WakppuVariant } from "./wakppu-data";
 
 type FortuneBallProps = {
-  fortune: Fortune;
-  outcome: Outcome;
+  fortune: string;
+  aside: string;
+  fortuneId: number;
+  wakppuVariant: WakppuVariant;
+  asset: AssetKind;
+  characterArt?: CharacterArt;
+  outcome: Outcome | null;
+  onOutcome: (value: Outcome) => boolean;
+  onHiddenCardDiscover: (id: HiddenCardId) => void;
   onReveal: () => void;
 };
 
 function clamp(value: number, min = -1, max = 1) {
   return Math.min(max, Math.max(min, value));
+}
+
+function outcomeSlotAtPoint(point: { x: number; y: number }) {
+  const slots = document.querySelectorAll<HTMLElement>("[data-outcome-slot]");
+  for (const slot of slots) {
+    const rect = slot.getBoundingClientRect();
+    const left = rect.left + window.scrollX;
+    const top = rect.top + window.scrollY;
+    if (point.x < left || point.x > left + rect.width || point.y < top || point.y > top + rect.height) continue;
+    const value = slot.dataset.outcomeSlot;
+    if (value === "happened" || value === "close" || value === "missed") return value;
+  }
+  return null;
 }
 
 function playBreakFeedback() {
@@ -124,89 +145,161 @@ function playCrunchFeedback(intensity = 0.5) {
   }
 }
 
-export function FortuneBall({ fortune, outcome, onReveal }: FortuneBallProps) {
+function playRocketFeedback() {
+  navigator.vibrate?.([10, 24, 18]);
+  try {
+    const AudioContextClass = window.AudioContext
+      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sawtooth";
+    oscillator.frequency.setValueAtTime(120, context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(520, context.currentTime + 0.42);
+    gain.gain.setValueAtTime(0.035, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.46);
+    oscillator.connect(gain).connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.46);
+    oscillator.addEventListener("ended", () => { void context.close(); }, { once: true });
+  } catch {
+    // Web Audio를 지원하지 않아도 로켓 발사는 그대로 진행한다.
+  }
+}
+
+export function FortuneBall({ fortune, aside, fortuneId, wakppuVariant, asset, characterArt, outcome, onOutcome, onHiddenCardDiscover, onReveal }: FortuneBallProps) {
   const [stage, setStage] = useState(0);
-  const [pulled, setPulled] = useState(false);
-  const [launching, setLaunching] = useState(false);
-  const [noteReady, setNoteReady] = useState(false);
+  const [cardRevealed, setCardRevealed] = useState(false);
+  const [rocketReady, setRocketReady] = useState(false);
+  const [rocketLaunching, setRocketLaunching] = useState(false);
+  const [launchRequested, setLaunchRequested] = useState(false);
   const [sliced, setSliced] = useState(false);
+  const [overcharged, setOvercharged] = useState(false);
+  const [specialCardId, setSpecialCardId] = useState<HiddenCardId | null>(null);
+  const [filingOutcome, setFilingOutcome] = useState<Outcome | null>(null);
+  const [cardFiled, setCardFiled] = useState(false);
   const announced = useRef(false);
   const feedbackPlayed = useRef(false);
-  const launchTimer = useRef<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const boundsRef = useRef<HTMLElement>(null);
+  const highlightedSlotRef = useRef<HTMLElement>(null);
   const reduceMotion = useReducedMotion();
   const slipX = useMotionValue(0);
   const slipY = useMotionValue(0);
-  const broken = stage >= 5;
-  const grade = gradeFor({ fortuneId: fortune.id, outcome });
+  const breakThreshold = wakppuBreakThresholdFor(wakppuVariant);
+  const broken = stage >= breakThreshold;
+  const variantLabel = wakppuVariantLabels[wakppuVariant];
+  const specialCard = specialCardId ? hiddenCardFor(specialCardId) : null;
+  const grade = gradeFor({ fortuneId, outcome: outcome ?? "happened" });
   const hint = useMemo(() => {
-    if (launching) return "로켓 발사 중...";
-    if (broken && !noteReady && !pulled) return sliced ? "슥— 한방컷! 파편 떨어지는 중..." : "파편들이 후두둑 떨어지는 중...";
-    if (broken && noteReady && !pulled) return "캐릭터가 든 로켓을 잡아당기기";
-    if (pulled) return "오늘의 운세 발견";
-    if (broken) return "파편을 밀거나 로켓을 잡아당기기";
-    if (stage >= 4) return "거의 다 깨졌음!";
-    if (stage >= 2) return "금이 가는 중...";
-    return "톡톡 누르거나 빠르게 베어서 한방컷";
-  }, [broken, launching, noteReady, pulled, sliced, stage]);
+    if (rocketLaunching && !cardRevealed) return "로켓 발사! 관측 카드가 내려오는 중...";
+    if (broken && !rocketReady && !cardRevealed) {
+      if (overcharged) return "히든 과충전! 특수 파괴 발동 중...";
+      return sliced ? "슥— 한방컷! 파편 떨어지는 중..." : "파편들이 후두둑 떨어지는 중...";
+    }
+    if (broken && rocketReady && !cardRevealed) return "젤리가 든 로켓을 눌러 발사하기";
+    if (cardFiled) return "관측 결과 분류 완료";
+    if (cardRevealed) return "카드를 아래 관측 결과 분류함에 넣어주세요";
+    if (broken) return "파편을 밀거나 로켓을 눌러 발사하기";
+    if (stage >= breakThreshold - 1) return "거의 다 깨졌음!";
+    if (stage >= Math.ceil(breakThreshold * 0.4)) return "금이 가는 중...";
+    return `${variantLabel} 왁뿌볼을 톡톡 누르거나 빠르게 베기`;
+  }, [breakThreshold, broken, cardFiled, cardRevealed, overcharged, rocketLaunching, rocketReady, sliced, stage, variantLabel]);
 
   useEffect(() => {
     boundsRef.current = rootRef.current?.closest<HTMLElement>(".phone-surface") ?? null;
-    return () => {
-      if (launchTimer.current !== null) window.clearTimeout(launchTimer.current);
-    };
+    return () => highlightedSlotRef.current?.classList.remove("drop-hover");
   }, []);
 
+  useEffect(() => {
+    if (!cardRevealed || announced.current) return;
+    announced.current = true;
+    onReveal();
+  }, [cardRevealed, onReveal]);
   const handleImpact = useCallback(() => {
     setStage((currentStage) => {
-      if (currentStage >= 5) return currentStage;
-      const nextStage = Math.min(currentStage + 1, 5);
-      if (nextStage === 5) {
+      if (currentStage >= breakThreshold) return currentStage;
+      const nextStage = Math.min(currentStage + 1, breakThreshold);
+      if (nextStage === breakThreshold) {
         if (!feedbackPlayed.current) {
           feedbackPlayed.current = true;
           playBreakFeedback();
         }
       } else {
-        playCrunchFeedback(0.35 + nextStage * 0.12);
+        playCrunchFeedback(0.35 + nextStage / breakThreshold * 0.6);
       }
       return nextStage;
     });
-  }, []);
+  }, [breakThreshold]);
 
   const handleSlice = useCallback(() => {
     setSliced(true);
+    setSpecialCardId("swift-slice");
+    onHiddenCardDiscover("swift-slice");
     setStage((currentStage) => {
-      if (currentStage >= 5) return currentStage;
+      if (currentStage >= breakThreshold) return currentStage;
       if (!feedbackPlayed.current) {
         feedbackPlayed.current = true;
         playSliceFeedback();
       }
-      return 5;
+      return breakThreshold;
     });
+  }, [breakThreshold, onHiddenCardDiscover]);
+
+  const handleChargedBreak = useCallback(() => {
+    setOvercharged(true);
+    setSliced(false);
+    setSpecialCardId("stellar-overcharge");
+    onHiddenCardDiscover("stellar-overcharge");
+    if (!feedbackPlayed.current) {
+      feedbackPlayed.current = true;
+      playBreakFeedback();
+    }
+    setStage(breakThreshold);
+  }, [breakThreshold, onHiddenCardDiscover]);
+
+  const handleRocketLaunch = useCallback(() => {
+    setRocketReady(false);
+    setRocketLaunching(true);
+    playRocketFeedback();
   }, []);
 
-  const revealPulledSlip = useCallback(() => {
-    if (!announced.current) {
-      announced.current = true;
-      onReveal();
-    }
-    setPulled(true);
-  }, [onReveal]);
+  const revealObservedCard = useCallback(() => {
+    setRocketLaunching(false);
+    setCardRevealed(true);
+  }, []);
 
-  const startRocketLaunch = useCallback(() => {
-    if (launchTimer.current !== null || announced.current) return;
-    setLaunching(true);
-    navigator.vibrate?.(reduceMotion ? 12 : [16, 28, 42]);
-    launchTimer.current = window.setTimeout(() => {
-      launchTimer.current = null;
-      revealPulledSlip();
-    }, reduceMotion ? 180 : 950);
-  }, [reduceMotion, revealPulledSlip]);
+  const highlightOutcomeSlot = useCallback((value: Outcome | null) => {
+    const next = value ? document.querySelector<HTMLElement>(`[data-outcome-slot="${value}"]`) : null;
+    if (highlightedSlotRef.current === next) return;
+    highlightedSlotRef.current?.classList.remove("drop-hover");
+    next?.classList.add("drop-hover");
+    highlightedSlotRef.current = next;
+  }, []);
 
-  function pullSlipWithKeyboard() {
-    startRocketLaunch();
-  }
+  const fileCard = useCallback((value: Outcome) => {
+    if (cardFiled || filingOutcome) return;
+    const slot = document.querySelector<HTMLElement>(`[data-outcome-slot="${value}"]`);
+    const card = cardRef.current;
+    setFilingOutcome(value);
+    highlightOutcomeSlot(null);
+    navigator.vibrate?.(18);
+    if (!slot || !card) return;
+    const slotRect = slot.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const targetX = slotRect.left + slotRect.width / 2;
+    const targetY = slotRect.top + slotRect.height * 0.58;
+    animate(slipX, slipX.get() + targetX - (cardRect.left + cardRect.width / 2), { duration: 0.34, ease: [0.3, 0.75, 0.2, 1] });
+    animate(slipY, slipY.get() + targetY - (cardRect.top + cardRect.height / 2), { duration: 0.34, ease: [0.3, 0.75, 0.2, 1] });
+  }, [cardFiled, filingOutcome, highlightOutcomeSlot, slipX, slipY]);
+
+  useEffect(() => {
+    if (!outcome || !cardRevealed || cardFiled || filingOutcome) return;
+    const frame = window.requestAnimationFrame(() => fileCard(outcome));
+    return () => window.cancelAnimationFrame(frame);
+  }, [cardFiled, cardRevealed, fileCard, filingOutcome, outcome]);
 
   function returnSlip() {
     const options = reduceMotion
@@ -222,94 +315,101 @@ export function FortuneBall({ fortune, outcome, onReveal }: FortuneBallProps) {
       className={`fortune-ball ${broken ? "is-broken" : ""}`}
       role="button"
       tabIndex={0}
-      aria-label={pulled
-        ? `오늘의 운세 카드: ${fortune.cardTitle}, ${grade.grade}, 별점 5점 중 ${grade.stars}점`
+      aria-label={cardRevealed
+        ? specialCard ? `발견한 특수카드: ${specialCard.title}` : `오늘의 운세 카드: ${fortune}, ${grade.grade}, 별점 5점 중 ${grade.stars}점`
         : broken
-          ? "부서진 왁뿌볼 안에 로켓이 있습니다. 끌어당기거나 엔터 키로 꺼내세요."
+          ? rocketLaunching
+            ? "로켓이 발사되어 관측된 별일 카드를 내려보내고 있습니다."
+            : "부서진 왁뿌볼 안에서 젤리가 로켓을 들고 있습니다. 로켓을 누르거나 엔터 키로 발사하세요."
           : `${hint}. 엔터 또는 스페이스 키로도 깰 수 있습니다.`}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        if (pulled || launching) return;
-        if (broken && noteReady) pullSlipWithKeyboard();
+        if (cardRevealed || rocketLaunching) return;
+        if (broken && rocketReady) setLaunchRequested(true);
         else if (!broken) handleImpact();
       }}
     >
       <div className="fortune-ball-canvas">
         <WakppuBreakScene
           stage={stage}
-          revealed={pulled || launching}
-          fortune={fortune.title}
-          fortuneId={fortune.id}
+          revealed={cardRevealed}
+          fortune={fortune}
+          fortuneId={fortuneId}
+          variant={wakppuVariant}
+          specialCardId={specialCardId}
+          launchRequested={launchRequested}
           onImpact={handleImpact}
           onSlice={handleSlice}
-          onNoteReady={() => setNoteReady(true)}
-          onNotePull={startRocketLaunch}
+          onChargedBreak={handleChargedBreak}
+          onRocketReady={() => setRocketReady(true)}
+          onRocketLaunch={handleRocketLaunch}
+          onCardReveal={revealObservedCard}
         />
       </div>
 
       <AnimatePresence>
-        {launching && !pulled && (
+        {cardRevealed && !cardFiled && (
           <motion.div
-            className="rocket-launch"
-            initial={{ opacity: 0, scale: 0.94, x: 0, y: 0, rotate: 0 }}
-            animate={reduceMotion
-              ? { opacity: [0, 1, 0] }
-              : { opacity: [0, 1, 1, 0], scale: [0.94, 1, 1.03, 1.06], x: [0, -2, 3, 8], y: [0, 0, -20, -330], rotate: [0, -1, 1, 2] }}
-            transition={reduceMotion
-              ? { duration: 0.18, times: [0, 0.35, 1] }
-              : { duration: 0.95, times: [0, 0.08, 0.26, 1], ease: [0.22, 0.72, 0.2, 1] }}
-            aria-hidden="true"
-          >
-            <span className="rocket-launch-body" />
-            {!reduceMotion && <span className="rocket-launch-flame"><i/><b/></span>}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {pulled && (
-          <motion.div
-            className="fortune-slip-drag"
+            ref={cardRef}
+            className="observed-card-drag"
             style={{ x: slipX, y: slipY }}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: filingOutcome ? 0 : 1, scale: filingOutcome ? 0.18 : 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0.15 : 0.22 }}
+            transition={{ duration: reduceMotion ? 0.15 : filingOutcome ? 0.34 : 0.22, ease: "easeInOut" }}
             drag
             dragConstraints={boundsRef}
-            dragElastic={reduceMotion ? 0 : 0.16}
-            dragMomentum={!reduceMotion}
-            dragTransition={{ bounceStiffness: 260, bounceDamping: 26, power: 0.32, timeConstant: 220 }}
-            whileDrag={reduceMotion ? { scale: 1.02 } : { scale: 1.035, rotate: -1.2 }}
+            dragElastic={reduceMotion ? 0 : 0.08}
+            dragMomentum={false}
+            whileDrag={{ scale: 0.46, rotate: reduceMotion ? 0 : -1.2 }}
+            onDrag={(_, info) => highlightOutcomeSlot(outcomeSlotAtPoint(info.point))}
+            onDragEnd={(_, info) => {
+              const selectedOutcome = outcomeSlotAtPoint(info.point);
+              highlightOutcomeSlot(null);
+              if (selectedOutcome) {
+                if (!onOutcome(selectedOutcome)) returnSlip();
+              }
+              else returnSlip();
+            }}
+            onAnimationComplete={() => {
+              if (!filingOutcome) return;
+              setCardFiled(true);
+              setFilingOutcome(null);
+            }}
             onDoubleClick={returnSlip}
           >
-            <motion.article
-              className="fortune-slip"
-              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.18, scaleY: 0.26, rotate: -7 }}
+            <motion.div
+              className={`observed-fortune-card ${specialCard ? `is-special special-${specialCard.id}` : ""}`}
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.12, scaleY: 0.08, rotate: -9 }}
               animate={{ opacity: 1, scaleX: 1, scaleY: 1, rotate: 0 }}
               transition={reduceMotion
                 ? { duration: 0.15 }
                 : { duration: 1.05, ease: [0.22, 0.72, 0.2, 1] }}
             >
-              <div className="fortune-award-masthead"><strong>별일 시상위원회</strong><span>AWARD</span></div>
-              <div className="fortune-award-label"><i/><span>오늘의 하찮은 수상작</span><i/></div>
-              <div className="fortune-award-meta"><strong>NO.{String(fortune.id).padStart(3, "0")}</strong><span className={`grade-badge tone-${grade.tone}`}>{grade.grade}</span></div>
-              <h3>{fortune.cardTitle}</h3>
-              <Stars count={grade.stars} />
-              <div className="fortune-award-scene">
-                <FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} />
-                <SpeechBubble className="fortune-award-speech">{fortune.aside.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</SpeechBubble>
+              <div className="observed-card-kicker"><span>{specialCard ? "별일 비밀관측국" : "별일 시상위원회"}</span><b>{specialCard ? "HIDDEN" : "AWARD"}</b></div>
+              <div className="observed-card-label"><i /><span>{specialCard ? "비밀 관측 수상작" : "오늘의 하찮은 수상작"}</span><i /></div>
+              <div className="observed-card-meta"><strong>{specialCard ? specialCard.code : `NO.${String(fortuneId).padStart(3, "0")}`}</strong><span className={specialCard ? undefined : `grade-badge tone-${grade.tone}`}>{specialCard ? "특수 신호" : grade.grade}</span></div>
+              <h3>{specialCard?.title ?? fortune}</h3>
+              {specialCard
+                ? <div className="observed-card-stars" aria-hidden="true">✦✦✦✦✦</div>
+                : <Stars count={grade.stars} />}
+              <div className={`observed-card-art ${specialCard ? "special-card-art" : "observed-award-scene"}`}>
+                {specialCard
+                  ? <span aria-hidden="true">{specialCard.symbol}</span>
+                  : <><FortuneObject kind={asset} characterArt={characterArt} /><SpeechBubble className="observed-award-speech">{aside.split("\n").map((line, index) => <span key={`${line}-${index}`}>{line}</span>)}</SpeechBubble></>}
               </div>
-            </motion.article>
+              <p>{specialCard ? `${specialCard.copy} · 원래 예보: ${fortune}` : "우주가 오늘의 작은 별일을 공식적으로 관측했습니다."}</p>
+            </motion.div>
+            <div className="card-sort-guide" aria-live="polite"><span>분류함에 넣어주세요</span><i aria-hidden="true">↓</i></div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="fortune-ball-guide" aria-live="polite">
-        <span>{hint}</span>
-        {!pulled && <i aria-hidden="true"><b style={{ width: `${clamp(stage / 5, 0, 1) * 100}%` }} /></i>}
-      </div>
+      {(!cardRevealed || cardFiled) && <div className="fortune-ball-guide" aria-live="polite">
+          <span>{hint}</span>
+          {!cardRevealed && !rocketLaunching && <i aria-hidden="true"><b style={{ width: `${clamp(stage / breakThreshold, 0, 1) * 100}%` }} /></i>}
+        </div>}
     </div>
   );
 }
