@@ -140,6 +140,10 @@ const MASCOT_IMAGE = "/byeolil-jelly-mascot.webp";
 const MASCOT_FALLBACK_IMAGE = "/outcome-mascot-happened.png";
 const MASCOT_HEIGHT = 2.02 * 1.2;
 const MASCOT_HOME_Y = -0.4;
+const ROCKET_IMAGE = "/byeolil-rocket-soft-3d.webp";
+// 로켓은 카메라에 더 가까운 z축에 있어 실제 기하 크기는 줄여야 캐릭터보다 살짝 크게 보인다.
+const ROCKET_HEIGHT = MASCOT_HEIGHT * 0.75;
+const ROCKET_WIDTH = ROCKET_HEIGHT * (2 / 3);
 const AWARD_CARD_WIDTH = 0.92;
 const AWARD_CARD_HEIGHT = 1.9;
 const ROCKET_HOME_X = -0.72;
@@ -1275,6 +1279,8 @@ export function WakppuBreakScene({
     rocketRoot.position.set(ROCKET_HOME_X, ROCKET_HOME_Y, ROCKET_HOME_Z);
     rocketRoot.rotation.z = -0.2;
     rocketRoot.scale.setScalar(ROCKET_SCALE);
+    const rocketModelRoot = new THREE.Group();
+    rocketRoot.add(rocketModelRoot);
     const rocketBodyMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xfff8e8,
       roughness: 0.24,
@@ -1300,11 +1306,11 @@ export function WakppuBreakScene({
       rocketBodyMaterial,
     );
     rocketBody.renderOrder = 18;
-    rocketRoot.add(rocketBody);
+    rocketModelRoot.add(rocketBody);
     const rocketNose = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.42, 24), rocketAccentMaterial);
     rocketNose.position.y = 0.61;
     rocketNose.renderOrder = 18;
-    rocketRoot.add(rocketNose);
+    rocketModelRoot.add(rocketNose);
     const windowRing = new THREE.Mesh(
       new THREE.CircleGeometry(0.105, 24),
       new THREE.MeshBasicMaterial({
@@ -1317,7 +1323,7 @@ export function WakppuBreakScene({
     );
     windowRing.position.set(0, 0.14, 0.255);
     windowRing.renderOrder = 19;
-    rocketRoot.add(windowRing);
+    rocketModelRoot.add(windowRing);
     const windowGlass = new THREE.Mesh(
       new THREE.CircleGeometry(0.067, 24),
       new THREE.MeshBasicMaterial({
@@ -1330,7 +1336,22 @@ export function WakppuBreakScene({
     );
     windowGlass.position.set(0, 0.14, 0.265);
     windowGlass.renderOrder = 20;
-    rocketRoot.add(windowGlass);
+    rocketModelRoot.add(windowGlass);
+    const rocketArtworkMaterial = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    });
+    const rocketArtwork = new THREE.Mesh(
+      new THREE.PlaneGeometry(ROCKET_WIDTH, ROCKET_HEIGHT),
+      rocketArtworkMaterial,
+    );
+    rocketArtwork.position.z = 0.31;
+    rocketArtwork.renderOrder = 22;
+    rocketRoot.add(rocketArtwork);
     const rocketHaloMaterial = new THREE.MeshBasicMaterial({
       color: 0xffd75d,
       transparent: true,
@@ -1341,7 +1362,7 @@ export function WakppuBreakScene({
       toneMapped: false,
     });
     const rocketHalo = new THREE.Mesh(
-      new THREE.RingGeometry(0.4, 0.49, 48),
+      new THREE.RingGeometry(0.72, 0.84, 48),
       rocketHaloMaterial,
     );
     rocketHalo.position.z = -0.02;
@@ -1361,7 +1382,7 @@ export function WakppuBreakScene({
       new THREE.CircleGeometry(0.055, 20),
       rocketBeaconMaterial,
     );
-    rocketBeacon.position.set(0.2, 0.4, 0.28);
+    rocketBeacon.position.set(0.39, 0.72, 0.34);
     rocketBeacon.visible = false;
     rocketBeacon.renderOrder = 21;
     rocketRoot.add(rocketBeacon);
@@ -1374,7 +1395,7 @@ export function WakppuBreakScene({
       const fin = new THREE.Mesh(new THREE.ShapeGeometry(finShape), rocketAccentMaterial);
       fin.position.set(direction * 0.16, -0.32, 0.01);
       fin.renderOrder = 18;
-      rocketRoot.add(fin);
+      rocketModelRoot.add(fin);
     });
     const rocketFlame = new THREE.Mesh(
       new THREE.ConeGeometry(0.13, 0.42, 18),
@@ -1387,13 +1408,13 @@ export function WakppuBreakScene({
         blending: THREE.AdditiveBlending,
       }),
     );
-    rocketFlame.position.y = -0.62;
+    rocketFlame.position.y = -ROCKET_HEIGHT / 2 - 0.14;
     rocketFlame.rotation.z = Math.PI;
     rocketFlame.visible = false;
     rocketFlame.renderOrder = 18;
     rocketRoot.add(rocketFlame);
     const rocketHitbox = new THREE.Mesh(
-      new THREE.BoxGeometry(0.72, 1.55, 0.24),
+      new THREE.BoxGeometry(ROCKET_WIDTH, ROCKET_HEIGHT, 0.24),
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
     );
     rocketHitbox.userData.isFortuneRocket = true;
@@ -1484,6 +1505,20 @@ export function WakppuBreakScene({
     runtimeRef.current = runtime;
 
     const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(ROCKET_IMAGE, (texture) => {
+      if (runtime.disposed) {
+        texture.dispose();
+        return;
+      }
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      rocketArtworkMaterial.map?.dispose();
+      rocketArtworkMaterial.map = texture;
+      rocketArtworkMaterial.opacity = 1;
+      rocketArtworkMaterial.needsUpdate = true;
+      rocketModelRoot.visible = false;
+    });
     const applyMascotTexture = (texture: THREE.Texture) => {
       if (runtime.disposed) {
         texture.dispose();

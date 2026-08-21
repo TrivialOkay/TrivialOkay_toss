@@ -78,8 +78,15 @@ img { display: block; }
   border-color: #81779f;
   box-shadow: inset 0 0 70px rgba(3,5,18,.48), 0 2px 0 rgba(80,72,61,.04);
 }
-.fortune-card.is-card-revealed { z-index: 20; overflow: visible; }
+.fortune-card.is-card-revealed { z-index: 20; padding: 0; overflow: visible; border-color: #c99c36; background: linear-gradient(165deg, #fffef8, #f8f0dc); color: #211d18; box-shadow: 0 8px 24px rgba(45,31,11,.15); }
 .fortune-card.is-card-revealed::after { display: none; }
+.fortune-card.is-card-revealed > .fortune-kicker,
+.fortune-card.is-card-revealed > h2,
+.fortune-card.is-card-revealed > p { display: none; }
+.fortune-card.is-card-revealed > .fortune-ball { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; overflow: visible; border-radius: inherit; }
+.fortune-card.is-card-revealed .fortune-ball-canvas,
+.fortune-card.is-card-revealed .fortune-ball::before,
+.fortune-card.is-card-revealed .fortune-ball::after { display: none; }
 .fortune-card::after { content: "관측국 01"; position: absolute; right: -29px; bottom: 88px; width: 91px; padding: 4px 0; border-top: 1px solid rgba(203,191,239,.32); border-bottom: 1px solid rgba(203,191,239,.32); color: rgba(221,214,244,.56); text-align: center; font-size: 8px; font-weight: 850; letter-spacing: .12em; transform: rotate(-90deg); pointer-events: none; }
 .fortune-kicker { height: 49px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(235,231,255,.18); font-size: 16px; font-weight: 840; letter-spacing: -.035em; }
 .observation-live { margin-left: auto; padding: 4px 7px; border: 1px solid rgba(200,189,235,.62); border-radius: 999px; background: rgba(34,29,61,.76); color: #eeeaff; font-size: 8px; line-height: 1; letter-spacing: .03em; white-space: nowrap; }
@@ -108,7 +115,7 @@ img { display: block; }
 .wakppu-break-scene { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
 .wakppu-break-canvas { display: block; width: 100%; height: 100%; outline: none; cursor: grab; touch-action: none; }
 .wakppu-break-canvas:active { cursor: grabbing; }
-.wakppu-break-loading { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; color: #867e72; font-size: 11px; font-weight: 760; pointer-events: none; }
+.wakppu-break-loading { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; color: #cfc8e8; font-size: 11px; font-weight: 760; pointer-events: none; }
 .fortune-ball-guide { position: absolute; z-index: 5; left: 50%; bottom: 7px; width: 172px; display: grid; gap: 7px; transform: translateX(-50%); text-align: center; pointer-events: none; }
 .fortune-ball-guide > span { font-size: 11px; font-weight: 820; letter-spacing: -.025em; text-shadow: 0 1px 0 #fffdf8; }
 .fortune-card .fortune-ball-guide > span { color: #f8f6ff; text-shadow: 0 1px 4px rgba(3,5,18,.9); }
@@ -119,23 +126,36 @@ img { display: block; }
 .fortune-ball.is-broken .fortune-ball-guide { bottom: 4px; }
 .fortune-ball.is-broken .fortune-ball-guide > span { color: #f8f6ff; }
 .observed-card-drag { position: absolute; z-index: 30; left: 0; right: 0; top: -128px; width: min(94%, 330px); margin: 0 auto; display: grid; place-items: center; touch-action: none; pointer-events: none; will-change: transform; }
+.fortune-card.is-card-revealed .observed-card-drag { inset: 0; width: 100%; height: 100%; margin: 0; place-items: stretch; }
 .observed-card-drag > * { pointer-events: auto; cursor: grab; touch-action: none; }
 .observed-card-drag img { pointer-events: none; user-select: none; -webkit-user-drag: none; }
 .observed-card-drag > *:active { cursor: grabbing; }
 .observed-fortune-card { position: relative; width: 100%; min-height: 366px; padding: 14px 17px 15px; overflow: hidden; border: 1.5px solid #c99c36; border-radius: 12px; background: linear-gradient(155deg, #fffdf4, #f9edcc); box-shadow: 0 13px 30px rgba(2,4,16,.42), inset 0 0 24px rgba(214,163,50,.1); color: #29251e; transform-origin: 50% 18%; text-align: left; }
+.fortune-card.is-card-revealed .observed-fortune-card { height: 100%; min-height: 100%; padding: 0 18px 43px; border-radius: inherit; box-shadow: inset 0 0 24px rgba(214,163,50,.1); }
 .observed-fortune-card::before { content: ""; position: absolute; left: 0; top: 0; width: 48%; height: 31px; background: #efc650; clip-path: polygon(0 0, 100% 0, 88% 100%, 0 100%); }
 .observed-card-kicker { position: relative; z-index: 1; height: 30px; display: flex; align-items: flex-start; justify-content: space-between; font-size: 9px; font-weight: 900; letter-spacing: -.02em; }
 .observed-card-kicker b { padding: 3px 6px; border-radius: 5px; background: #7763a5; color: #fff; font-size: 8px; letter-spacing: .02em; }
+.fortune-card.is-card-revealed .observed-fortune-card::before { width: 44%; height: 44px; }
+.fortune-card.is-card-revealed .observed-card-kicker { height: 44px; margin: 0 -18px; padding: 10px 13px 0 18px; align-items: flex-start; border-bottom: 1px solid #b9aa8c; font-size: 13px; }
+.fortune-card.is-card-revealed .observed-card-kicker b { padding: 6px 9px; background: #a87918; font-size: 9px; }
+.observed-card-label { height: 35px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 9px; color: #7b7469; font-size: 8px; font-weight: 760; }
+.observed-card-label i { height: 1px; background: #c9c1b5; }
 .observed-card-meta { margin-top: 8px; display: flex; align-items: center; justify-content: space-between; }
 .observed-card-meta strong { font-size: 12px; letter-spacing: .02em; }
 .observed-card-meta span { padding: 3px 7px; border-radius: 6px; background: #dda71b; color: #fff; font-size: 8px; font-weight: 900; }
 .observed-fortune-card h3 { margin: 12px 0 3px; font-size: 17px; line-height: 1.38; letter-spacing: -.045em; overflow-wrap: anywhere; }
 .observed-card-stars { color: #c89518; font-size: 14px; letter-spacing: .04em; }
 .observed-card-art { height: 145px; display: grid; place-items: center; overflow: hidden; }
+.observed-fortune-card > .stars { position: relative; z-index: 2; font-size: 18px; }
+.observed-card-art.observed-award-scene { position: relative; height: 224px; overflow: visible; }
+.observed-award-scene .object-art { position: absolute; left: 42%; bottom: 0; width: 226px; height: 205px; transform: translateX(-50%); }
+.observed-award-scene .observed-award-speech { position: absolute; right: -2px; top: 25px; width: 116px; height: 82px; color: #282522; font-size: 10px; line-height: 1.25; font-weight: 780; }
+.observed-award-speech .speech-bubble-copy { inset: 4px 10px 21px; }
 .observed-fortune-card.is-special { border-color: #d9b950; background: radial-gradient(circle at 50% 35%, rgba(222,191,88,.25), transparent 40%), linear-gradient(155deg, #1c1530, #302348); color: #fff8db; box-shadow: 0 13px 34px rgba(2,4,16,.55), inset 0 0 32px rgba(222,191,88,.16); }.observed-fortune-card.is-special .observed-card-kicker, .observed-fortune-card.is-special .observed-card-meta { border-color: rgba(242,218,137,.34); }.observed-fortune-card.is-special .observed-card-meta span, .observed-fortune-card.is-special > p { color: #d5c9e5; }.special-card-art > span { width: 112px; height: 112px; display: grid; place-items: center; border: 1px solid rgba(244,218,121,.65); border-radius: 50%; color: #f0d065; font-size: 58px; font-weight: 900; box-shadow: 0 0 0 12px rgba(240,208,101,.06), 0 0 36px rgba(240,208,101,.25); }
-.observed-card-art .object-art { position: relative; left: auto; bottom: auto; width: 190px; height: 145px; margin: 0; transform: none; }
+.observed-card-art:not(.observed-award-scene) .object-art { position: relative; left: auto; bottom: auto; width: 190px; height: 145px; margin: 0; transform: none; }
 .observed-fortune-card p { margin: 2px 0 0; padding: 9px 11px; border: 1px solid #dcc47c; border-radius: 8px; background: rgba(255,255,255,.62); color: #5a5143; font-size: 10px; line-height: 1.4; font-weight: 760; }
 .card-sort-guide { margin-top: 9px; display: flex; flex-direction: column; align-items: center; gap: 3px; color: #fff8dd; text-align: center; text-shadow: 0 2px 5px rgba(2,4,16,.9); font-size: 13px; font-weight: 850; letter-spacing: -.02em; }
+.fortune-card.is-card-revealed .card-sort-guide { position: absolute; z-index: 3; left: 50%; bottom: 7px; margin: 0; color: #745816; text-shadow: none; transform: translateX(-50%); }
 .card-sort-guide i { font-size: 23px; line-height: .75; font-style: normal; animation: sort-arrow-down 1.15s ease-in-out infinite; }
 @keyframes sort-arrow-down { 50% { transform: translateY(4px); } }
 
@@ -601,7 +621,7 @@ img { display: block; }
   .screen-content { padding-left: 15px; padding-right: 15px; }
   .fortune-card { padding-left: 15px; padding-right: 15px; }
   .fortune-card h2 { font-size: 21px; }
-  .observed-card-drag { width: 91%; }
+  .fortune-card:not(.is-card-revealed) .observed-card-drag { width: 91%; }
   .outcome-grid { gap: 6px; }
   .evidence-target-body { grid-template-columns: 93px 1fr; gap: 7px; }
   .evidence-target-art, .evidence-target-art .object-art { width: 91px; }
