@@ -27,6 +27,10 @@ type WakppuBreakSceneProps = {
   onImpact: () => void;
   onSlice: () => void;
   onChargedBreak: () => void;
+  onEntangledBreak: () => void;
+  onSpellBreak: () => void;
+  onPortalBreak: () => void;
+  onGravityBreak: () => void;
   onRocketReady: () => void;
   onRocketLaunch: () => void;
   onCardReveal: () => void;
@@ -43,6 +47,13 @@ type ActivePress = {
   startedAt: number;
   startX: number;
   startY: number;
+  lastX: number;
+  lastY: number;
+  lastDirection: THREE.Vector2 | null;
+  pathLength: number;
+  directionChanges: number;
+  lastPointerAngle: number;
+  totalPointerAngle: number;
   deformation: SurfaceDeformation;
 };
 
@@ -785,6 +796,10 @@ export function WakppuBreakScene({
   onImpact,
   onSlice,
   onChargedBreak,
+  onEntangledBreak,
+  onSpellBreak,
+  onPortalBreak,
+  onGravityBreak,
   onRocketReady,
   onRocketLaunch,
   onCardReveal,
@@ -796,6 +811,10 @@ export function WakppuBreakScene({
   const impactCallbackRef = useRef(onImpact);
   const sliceCallbackRef = useRef(onSlice);
   const chargedBreakCallbackRef = useRef(onChargedBreak);
+  const entangledBreakCallbackRef = useRef(onEntangledBreak);
+  const spellBreakCallbackRef = useRef(onSpellBreak);
+  const portalBreakCallbackRef = useRef(onPortalBreak);
+  const gravityBreakCallbackRef = useRef(onGravityBreak);
   const rocketReadyCallbackRef = useRef(onRocketReady);
   const rocketLaunchCallbackRef = useRef(onRocketLaunch);
   const cardRevealCallbackRef = useRef(onCardReveal);
@@ -808,10 +827,14 @@ export function WakppuBreakScene({
     impactCallbackRef.current = onImpact;
     sliceCallbackRef.current = onSlice;
     chargedBreakCallbackRef.current = onChargedBreak;
+    entangledBreakCallbackRef.current = onEntangledBreak;
+    spellBreakCallbackRef.current = onSpellBreak;
+    portalBreakCallbackRef.current = onPortalBreak;
+    gravityBreakCallbackRef.current = onGravityBreak;
     rocketReadyCallbackRef.current = onRocketReady;
     rocketLaunchCallbackRef.current = onRocketLaunch;
     cardRevealCallbackRef.current = onCardReveal;
-  }, [stage, revealed, onImpact, onSlice, onChargedBreak, onRocketReady, onRocketLaunch, onCardReveal]);
+  }, [stage, revealed, onImpact, onSlice, onChargedBreak, onEntangledBreak, onSpellBreak, onPortalBreak, onGravityBreak, onRocketReady, onRocketLaunch, onCardReveal]);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -1552,7 +1575,21 @@ export function WakppuBreakScene({
     }
 
     function handlePointerDown(event: PointerEvent) {
-      if (runtime.mascotDrag || runtime.activePress) return;
+      if (runtime.mascotDrag) return;
+      if (runtime.activePress && stageRef.current < breakThreshold && runtime.activePress.pointerId !== event.pointerId) {
+        setPointerRay(runtime, event);
+        if (!runtime.raycaster.intersectObject(runtime.intactBall, false)[0]) return;
+        const firstPointerId = runtime.activePress.pointerId;
+        runtime.activePress = null;
+        runtime.chargeRoot.visible = false;
+        runtime.chargeReady = false;
+        runtime.chargedBreak = true;
+        runtime.lastPressStrength = 1;
+        renderer.domElement.releasePointerCapture?.(firstPointerId);
+        entangledBreakCallbackRef.current();
+        return;
+      }
+      if (runtime.activePress) return;
       if (stageRef.current >= breakThreshold) {
         if (pickRocket(event)) {
           beginRocketLaunch(runtime, rocketLaunchCallbackRef.current);
@@ -1573,11 +1610,20 @@ export function WakppuBreakScene({
       runtime.chargeReady = false;
       runtime.chargedBreak = false;
       runtime.chargeRoot.visible = false;
+      const bounds = renderer.domElement.getBoundingClientRect();
+      const pointerAngle = Math.atan2(event.clientY - (bounds.top + bounds.height / 2), event.clientX - (bounds.left + bounds.width / 2));
       runtime.activePress = {
         pointerId: event.pointerId,
         startedAt: performance.now(),
         startX: event.clientX,
         startY: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        lastDirection: null,
+        pathLength: 0,
+        directionChanges: 0,
+        lastPointerAngle: pointerAngle,
+        totalPointerAngle: 0,
         deformation: { direction: runtime.impactPoint.clone(), currentDepth: 0, targetDepth: 0.055 },
       };
       renderer.domElement.setPointerCapture?.(event.pointerId);
@@ -1595,27 +1641,23 @@ export function WakppuBreakScene({
       }
       const activePress = runtime.activePress;
       if (activePress?.pointerId === event.pointerId) {
-        const dx = event.clientX - activePress.startX;
-        const dy = event.clientY - activePress.startY;
-        const distance = Math.hypot(dx, dy);
-        const duration = performance.now() - activePress.startedAt;
-        const swipeThreshold = Math.max(82, Math.min(112, renderer.domElement.clientWidth * 0.34));
-        const speed = distance / Math.max(duration, 1);
-        if (duration <= 520 && distance >= swipeThreshold && speed >= 0.5) {
-          const direction = new THREE.Vector2(dx / distance, -dy / distance);
-          runtime.activePress = null;
-          runtime.chargeRoot.visible = false;
-          runtime.chargeReady = false;
-          runtime.lastPressStrength = 1;
-          runtime.sliceEffect = {
-            startedAt: performance.now(),
-            direction,
-            angle: Math.atan2(direction.y, direction.x),
-          };
-          runtime.bladeRoot.visible = true;
-          runtime.sliceLine.visible = true;
-          renderer.domElement.releasePointerCapture?.(event.pointerId);
-          sliceCallbackRef.current();
+        const segmentX = event.clientX - activePress.lastX;
+        const segmentY = event.clientY - activePress.lastY;
+        const segmentLength = Math.hypot(segmentX, segmentY);
+        if (segmentLength >= 5) {
+          const direction = new THREE.Vector2(segmentX / segmentLength, segmentY / segmentLength);
+          if (activePress.lastDirection && activePress.lastDirection.dot(direction) < 0.42) activePress.directionChanges += 1;
+          activePress.lastDirection = direction;
+          activePress.pathLength += segmentLength;
+          activePress.lastX = event.clientX;
+          activePress.lastY = event.clientY;
+          const bounds = renderer.domElement.getBoundingClientRect();
+          const pointerAngle = Math.atan2(event.clientY - (bounds.top + bounds.height / 2), event.clientX - (bounds.left + bounds.width / 2));
+          let angleDelta = pointerAngle - activePress.lastPointerAngle;
+          if (angleDelta > Math.PI) angleDelta -= Math.PI * 2;
+          if (angleDelta < -Math.PI) angleDelta += Math.PI * 2;
+          if (Math.abs(angleDelta) < 1.15) activePress.totalPointerAngle += angleDelta;
+          activePress.lastPointerAngle = pointerAngle;
         }
       }
     }
@@ -1640,6 +1682,42 @@ export function WakppuBreakScene({
       runtime.chargeRoot.visible = false;
       renderer.domElement.releasePointerCapture?.(event.pointerId);
       const duration = performance.now() - activePress.startedAt;
+      const dx = event.clientX - activePress.startX;
+      const dy = event.clientY - activePress.startY;
+      const distance = Math.hypot(dx, dy);
+      const swipeThreshold = Math.max(82, Math.min(112, renderer.domElement.clientWidth * 0.34));
+      const speed = activePress.pathLength / Math.max(duration, 1);
+      const circularGesture = Math.abs(activePress.totalPointerAngle) >= Math.PI * 1.45 && activePress.pathLength >= 170;
+      const spellGesture = activePress.directionChanges >= 2 && activePress.pathLength >= 145 && duration <= 1500;
+      if (circularGesture || spellGesture) {
+        runtime.chargeReady = false;
+        runtime.chargedBreak = true;
+        runtime.lastPressStrength = 1;
+        if (circularGesture) portalBreakCallbackRef.current();
+        else spellBreakCallbackRef.current();
+        return;
+      }
+      if (duration <= 620 && dy <= -swipeThreshold && Math.abs(dy) >= Math.abs(dx) * 1.35 && speed >= 0.5) {
+        runtime.chargeReady = false;
+        runtime.chargedBreak = true;
+        runtime.lastPressStrength = 1;
+        gravityBreakCallbackRef.current();
+        return;
+      }
+      if (duration <= 620 && distance >= swipeThreshold && speed >= 0.5) {
+        const direction = new THREE.Vector2(dx / Math.max(distance, 1), -dy / Math.max(distance, 1));
+        runtime.chargeReady = false;
+        runtime.lastPressStrength = 1;
+        runtime.sliceEffect = {
+          startedAt: performance.now(),
+          direction,
+          angle: Math.atan2(direction.y, direction.x),
+        };
+        runtime.bladeRoot.visible = true;
+        runtime.sliceLine.visible = true;
+        sliceCallbackRef.current();
+        return;
+      }
       const holdStrength = clamp((duration - 70) / 1050);
       if (!runtime.fracturePatternAligned) {
         alignOuterShellPattern(

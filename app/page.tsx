@@ -468,8 +468,7 @@ function WakppuCatalogScreen({ observed, onBack }: { observed: WakppuVariant[]; 
 function CollectionScreen({ observedFortuneIds, observedWakppu, discoveredHiddenCardIds, records, searchOpen, search, onSearchOpen, onSearch, onOpen, onWakppu }: { observedFortuneIds: number[]; observedWakppu: WakppuVariant[]; discoveredHiddenCardIds: HiddenCardId[]; records: RecordItem[]; searchOpen: boolean; search: string; onSearchOpen: () => void; onSearch: (value: string) => void; onOpen: (fortuneId: number) => void; onWakppu: () => void }) {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<CollectionStatus>("all");
-  const [hiddenArchiveOpen, setHiddenArchiveOpen] = useState(false);
-  const fortuneCatalogRef = useRef<HTMLDivElement>(null);
+  const [archiveView, setArchiveView] = useState<"hub" | "fortune" | "hidden" | "evidence">("hub");
   const observedIds = new Set(observedFortuneIds);
   const catalog = [...fortunes].sort((left, right) => left.id - right.id);
   const filtered = catalog
@@ -492,13 +491,30 @@ function CollectionScreen({ observedFortuneIds, observedWakppu, discoveredHidden
   const evidenceIds = new Set(evidenceRecords.map((record) => record.fortuneId));
   const evidenceReward = evidenceRewardFor(evidenceRecords.length);
   const evidenceProgress = evidenceReward.next ? Math.round(((evidenceRecords.length - evidenceReward.count) / (evidenceReward.next.count - evidenceReward.count)) * 100) : 100;
-  return (
+
+  function openArchive(view: "fortune" | "hidden" | "evidence") {
+    setArchiveView(view);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function closeArchive() {
+    if (searchOpen) {
+      setPage(1);
+      onSearch("");
+      onSearchOpen();
+    }
+    setArchiveView("hub");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  if (archiveView === "hub") return (
     <>
-      <Header title="별일 보관소" right={<button className="icon-button" onClick={() => { if (searchOpen) { setPage(1); onSearch(""); } onSearchOpen(); }} aria-label={searchOpen ? "도감 검색 닫기" : "도감 검색"}><Icon name="search" /></button>} />
-      <section className="screen-content collection-screen">
+      <Header title="별일 보관소" />
+      <section className="screen-content collection-screen collection-hub-screen">
         <BureauCode status="4개 도감 운영 중">관측 자료 보관 구역 · ARCHIVE 01</BureauCode>
+        <p className="collection-hub-intro">확인할 도감을 선택하세요. 각 보관록은 별도 열람실에서 볼 수 있어요.</p>
         <div className="collection-archive-grid" aria-label="도감 바로가기">
-          <button className="archive-hub-card archive-hub-fortune" onClick={() => fortuneCatalogRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+          <button className="archive-hub-card archive-hub-fortune" onClick={() => openArchive("fortune")}>
             <span className="archive-hub-meta"><small>관측 카드</small><b>{observedFortuneIds.length} / {catalog.length}</b></span>
             <strong>별일 운세 도감</strong>
             <span className="archive-hub-symbol" aria-hidden="true">✦</span>
@@ -510,30 +526,71 @@ function CollectionScreen({ observedFortuneIds, observedWakppu, discoveredHidden
             <span className="archive-hub-orbs" aria-hidden="true"><WakppuOrb variant="moon" locked={!observedWakppu.includes("moon")}/><WakppuOrb variant="saturn" locked={!observedWakppu.includes("saturn")}/></span>
             <i><em style={{ width: `${Math.round((observedWakppu.length / wakppuCatalog.length) * 100)}%` }} /></i>
           </button>
-          <button className={`archive-hub-card archive-hub-hidden ${hiddenArchiveOpen ? "is-open" : ""}`} onClick={() => setHiddenArchiveOpen((open) => !open)} aria-expanded={hiddenArchiveOpen} aria-controls="hidden-card-archive-detail">
+          <button className="archive-hub-card archive-hub-hidden" onClick={() => openArchive("hidden")}>
             <span className="archive-hub-meta"><small>비정규 신호</small><b>{discoveredHiddenCardIds.length} / {hiddenCards.length}</b></span>
-            <strong>히든 관측 카드</strong>
+            <strong>히든 상호작용 카드</strong>
             <span className="archive-hub-symbol" aria-hidden="true">?</span>
             <i><em style={{ width: `${Math.round((discoveredHiddenCardIds.length / hiddenCards.length) * 100)}%` }} /></i>
           </button>
-          <div className={`archive-hub-card archive-hub-evidence evidence-tier-${evidenceReward.tier}`}>
+          <button className={`archive-hub-card archive-hub-evidence evidence-tier-${evidenceReward.tier}`} onClick={() => openArchive("evidence")}>
             <span className="archive-hub-meta"><small>현장 증거</small><b>{evidenceRecords.length}장</b></span>
             <strong>별가루 증거 도감</strong>
             <span className="archive-hub-symbol" aria-hidden="true">✦</span>
             <span className="archive-hub-caption">{evidenceReward.title}</span>
             <i><em style={{ width: `${evidenceProgress}%` }} /></i>
-          </div>
+          </button>
         </div>
-        {hiddenArchiveOpen && <section id="hidden-card-archive-detail" className="hidden-card-archive" aria-labelledby="hidden-card-title">
-          <div className="hidden-card-head"><span><small>비정규 신호 보관함</small><strong id="hidden-card-title">히든 관측 카드</strong></span><b>{discoveredHiddenCardIds.length} / {hiddenCards.length}</b></div>
+      </section>
+    </>
+  );
+
+  if (archiveView === "hidden") return (
+    <>
+      <Header title="히든 상호작용 카드" onBack={closeArchive} />
+      <section className="screen-content hidden-archive-screen">
+        <BureauCode status={`${discoveredHiddenCardIds.length} / ${hiddenCards.length} 발견`}>비정규 상호작용 보관록 · SECRET COMMAND</BureauCode>
+        <p className="hidden-archive-intro">평범하게 두드리는 대신 특별한 손동작으로 왁뿌볼을 깨면 발견돼요.</p>
+        <section className="hidden-card-archive" aria-labelledby="hidden-card-title">
+          <div className="hidden-card-head"><span><small>비정규 신호 보관함</small><strong id="hidden-card-title">히든 상호작용 카드</strong></span><b>{discoveredHiddenCardIds.length} / {hiddenCards.length}</b></div>
           <div className="hidden-card-grid">
             {hiddenCards.map((card) => {
               const discovered = discoveredHiddenCardIds.includes(card.id);
-              return <article key={card.id} className={discovered ? "is-discovered" : "is-locked"} aria-label={discovered ? `${card.title}, 발견 완료` : `${card.code}, 미발견`}><span aria-hidden="true">{discovered ? card.symbol : "?"}</span><small>{card.code} · {discovered ? card.label : "SIGNAL UNKNOWN"}</small><strong>{discovered ? card.title : "미확인 카드"}</strong><p>{discovered ? card.copy : "특별한 방식으로 왁뿌볼을 깨면 발견됩니다."}</p></article>;
+              return <article key={card.id} className={discovered ? "is-discovered" : "is-locked"} aria-label={`${card.title}, ${discovered ? "발견 완료" : "미발견"}`}><span aria-hidden="true">{discovered ? card.symbol : "?"}</span><small>{card.code} · {discovered ? card.label : "SIGNAL UNKNOWN"}</small><strong>{card.title}</strong><p>{discovered ? card.copy : card.hint}</p></article>;
             })}
           </div>
-        </section>}
-        <div ref={fortuneCatalogRef} className="collection-section-title"><span><small>관측 카드 보관록</small><strong>별일 운세 도감</strong></span><b>{observedFortuneIds.length} / {catalog.length}</b></div>
+        </section>
+      </section>
+    </>
+  );
+
+  if (archiveView === "evidence") return (
+    <>
+      <Header title="별가루 증거 도감" onBack={closeArchive} />
+      <section className="screen-content evidence-archive-screen">
+        <BureauCode status={`${evidenceRecords.length}장 확보`}>현장 증거 보관록 · FIELD EVIDENCE</BureauCode>
+        <div className={`evidence-progress-card evidence-tier-${evidenceReward.tier}`}>
+          <span className="evidence-progress-icon">✦</span>
+          <span><small>현장 증거 보상</small><strong>{evidenceReward.title}</strong><em>별가루 {evidenceRecords.length}개</em></span>
+          <b>{evidenceReward.next ? `${evidenceReward.next.title}까지 ${evidenceReward.next.count - evidenceRecords.length}장` : "최고 칭호 달성"}</b>
+          <i><em style={{ width: `${evidenceProgress}%` }} /></i>
+        </div>
+        <div className="evidence-catalog-grid">
+          {evidenceRecords.map((record) => {
+            const fortune = fortuneFor(record.fortuneId);
+            return <button key={record.id} onClick={() => onOpen(record.fortuneId)}><span className="evidence-catalog-photo"><img src={record.photoDataUrl} alt={`${record.title} 현장 증거`} /></span><small>{record.date} · {record.time}</small><strong>{record.title}</strong><span>✦ 현장 증거 확보</span><i><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} compact /></i></button>;
+          })}
+          {!evidenceRecords.length && <div className="empty-state compact"><Mascot/><strong>아직 확보한 현장 증거가 없어요.</strong><small>분류 결정 후 카드에 사진을 붙여보세요.</small></div>}
+        </div>
+      </section>
+    </>
+  );
+
+  return (
+    <>
+      <Header title="별일 운세 도감" onBack={closeArchive} right={<button className="icon-button" onClick={() => { if (searchOpen) { setPage(1); onSearch(""); } onSearchOpen(); }} aria-label={searchOpen ? "도감 검색 닫기" : "도감 검색"}><Icon name="search" /></button>} />
+      <section className="screen-content collection-screen">
+        <BureauCode status={`${completion}% 복원`}>관측 카드 보관록 · FORTUNE ARCHIVE</BureauCode>
+        <div className="collection-section-title"><span><small>관측 카드 보관록</small><strong>별일 운세 도감</strong></span><b>{observedFortuneIds.length} / {catalog.length}</b></div>
         {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => { setPage(1); onSearch(event.target.value); }} placeholder="별일을 검색해보세요"/></label>}
         <div className="collection-status-row" role="group" aria-label="도감 수집 상태 필터">
           {([ ["all", "전체"], ["observed", "관측 완료"], ["locked", "미관측"] ] as const).map(([key, label]) => <button key={key} className={status === key ? "active" : ""} onClick={() => { setPage(1); setStatus(key); }}>{label}</button>)}

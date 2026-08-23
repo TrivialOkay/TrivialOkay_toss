@@ -2,13 +2,14 @@ export type Tab = "today" | "collection" | "records" | "about";
 export type View = "main" | "capture" | "card" | "report" | "examples" | "guide" | "wakppu";
 export type Outcome = "happened" | "close" | "missed";
 export type Category = "교통" | "음식" | "사람" | "일상" | "기타";
-export type HiddenCardId = "swift-slice" | "stellar-overcharge";
+export type HiddenCardId = "swift-slice" | "stellar-overcharge" | "quantum-entanglement" | "abracada-crack" | "mirror-dimension" | "gravity-reversal";
 export type HiddenCard = {
   id: HiddenCardId;
   code: string;
   title: string;
   label: string;
   copy: string;
+  hint: string;
   symbol: string;
 };
 export type CharacterArt =
@@ -129,6 +130,7 @@ export const hiddenCards: HiddenCard[] = [
     title: "슥— 한방컷",
     label: "초고속 절단 신호",
     copy: "빠른 궤적 하나로 왁뿌볼을 단번에 절단했습니다.",
+    hint: "왁뿌볼을 빠르게 한 획으로 베어보세요.",
     symbol: "╱",
   },
   {
@@ -137,7 +139,44 @@ export const hiddenCards: HiddenCard[] = [
     title: "별빛 과충전",
     label: "장시간 응축 신호",
     copy: "숨겨진 별빛을 끝까지 응축해 특수 파괴를 일으켰습니다.",
+    hint: "왁뿌볼을 길게 눌러 별빛을 모아보세요.",
     symbol: "✦",
+  },
+  {
+    id: "quantum-entanglement",
+    code: "SP.03",
+    title: "양자 얽힘",
+    label: "이중 접촉 동기화",
+    copy: "멀리 떨어진 두 손가락이 동시에 반응해 왁뿌볼의 상태를 하나로 묶었습니다.",
+    hint: "두 손가락으로 왁뿌볼을 동시에 눌러보세요.",
+    symbol: "∞",
+  },
+  {
+    id: "abracada-crack",
+    code: "SP.04",
+    title: "아브라다-깨다브라",
+    label: "번개 궤적 주문",
+    copy: "어딘가 익숙하지만 법적으로는 다른 주문이 왁뿌볼에 금을 냈습니다.",
+    hint: "왁뿌볼 위에 번개처럼 꺾인 선을 그려보세요.",
+    symbol: "ϟ",
+  },
+  {
+    id: "mirror-dimension",
+    code: "SP.05",
+    title: "미러 디멘션 개방",
+    label: "원형 시공간 신호",
+    copy: "손끝의 원이 접힌 공간을 열어 왁뿌볼을 다른 차원에서 깨뜨렸습니다.",
+    hint: "왁뿌볼 둘레를 크게 한 바퀴 그려보세요.",
+    symbol: "◎",
+  },
+  {
+    id: "gravity-reversal",
+    code: "SP.06",
+    title: "중력 역전",
+    label: "상향 가속 신호",
+    copy: "아래로 떨어질 운명이던 왁뿌볼을 위로 날려 우주의 방향 감각을 잠깐 망가뜨렸습니다.",
+    hint: "왁뿌볼을 아래에서 위로 빠르게 밀어올려 보세요.",
+    symbol: "↑",
   },
 ];
 

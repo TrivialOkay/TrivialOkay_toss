@@ -48,9 +48,13 @@ test("keeps the legacy record migration in the client bundle", async () => {
   assert.match(source, /byeolil-records-v1/);
   assert.match(source, /byeolil-records-v2/);
   assert.match(source, /byeolil-hidden-cards-v1/);
-  assert.match(source, /히든 관측 카드/);
+  assert.match(source, /히든 상호작용 카드/);
   assert.match(source, /슥— 한방컷/);
   assert.match(source, /별빛 과충전/);
+  assert.match(source, /양자 얽힘/);
+  assert.match(source, /아브라다-깨다브라/);
+  assert.match(source, /미러 디멘션 개방/);
+  assert.match(source, /중력 역전/);
   assert.match(source, /분류 결정 · 도감과 관측일지에 등록했어요/);
   assert.match(source, /이 버튼을 눌러야 운세가 도감에 저장돼요/);
   assert.match(source, /새 운세 뽑기/);

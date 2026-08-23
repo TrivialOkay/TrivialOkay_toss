@@ -200,6 +200,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
   const hint = useMemo(() => {
     if (rocketLaunching && !cardRevealed) return "로켓 발사! 관측 카드가 내려오는 중...";
     if (broken && !rocketReady && !cardRevealed) {
+      if (specialCardId === "quantum-entanglement") return "양자 얽힘! 두 신호가 동시에 붕괴 중...";
+      if (specialCardId === "abracada-crack") return "아브라다-깨다브라! 주문 균열 확산 중...";
+      if (specialCardId === "mirror-dimension") return "미러 디멘션 개방! 공간이 접히는 중...";
+      if (specialCardId === "gravity-reversal") return "중력 역전! 파편이 위로 낙하하는 중...";
       if (overcharged) return "히든 과충전! 특수 파괴 발동 중...";
       return sliced ? "슥— 한방컷! 파편 떨어지는 중..." : "파편들이 후두둑 떨어지는 중...";
     }
@@ -210,7 +214,7 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     if (stage >= breakThreshold - 1) return "거의 다 깨졌음!";
     if (stage >= Math.ceil(breakThreshold * 0.4)) return "금이 가는 중...";
     return `${variantLabel} 왁뿌볼을 톡톡 누르거나 빠르게 베기`;
-  }, [breakThreshold, broken, cardFiled, cardRevealed, overcharged, rocketLaunching, rocketReady, sliced, stage, variantLabel]);
+  }, [breakThreshold, broken, cardFiled, cardRevealed, overcharged, rocketLaunching, rocketReady, sliced, specialCardId, stage, variantLabel]);
 
   useEffect(() => {
     return () => highlightedSlotRef.current?.classList.remove("drop-hover");
@@ -260,6 +264,54 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
       playBreakFeedback();
+    }
+    setStage(breakThreshold);
+  }, [breakThreshold, onHiddenCardDiscover]);
+
+  const handleEntangledBreak = useCallback(() => {
+    setSliced(false);
+    setOvercharged(false);
+    setSpecialCardId("quantum-entanglement");
+    onHiddenCardDiscover("quantum-entanglement");
+    if (!feedbackPlayed.current) {
+      feedbackPlayed.current = true;
+      playBreakFeedback();
+    }
+    setStage(breakThreshold);
+  }, [breakThreshold, onHiddenCardDiscover]);
+
+  const handleSpellBreak = useCallback(() => {
+    setSliced(false);
+    setOvercharged(false);
+    setSpecialCardId("abracada-crack");
+    onHiddenCardDiscover("abracada-crack");
+    if (!feedbackPlayed.current) {
+      feedbackPlayed.current = true;
+      playSliceFeedback();
+    }
+    setStage(breakThreshold);
+  }, [breakThreshold, onHiddenCardDiscover]);
+
+  const handlePortalBreak = useCallback(() => {
+    setSliced(false);
+    setOvercharged(false);
+    setSpecialCardId("mirror-dimension");
+    onHiddenCardDiscover("mirror-dimension");
+    if (!feedbackPlayed.current) {
+      feedbackPlayed.current = true;
+      playRocketFeedback();
+    }
+    setStage(breakThreshold);
+  }, [breakThreshold, onHiddenCardDiscover]);
+
+  const handleGravityBreak = useCallback(() => {
+    setSliced(false);
+    setOvercharged(false);
+    setSpecialCardId("gravity-reversal");
+    onHiddenCardDiscover("gravity-reversal");
+    if (!feedbackPlayed.current) {
+      feedbackPlayed.current = true;
+      playRocketFeedback();
     }
     setStage(breakThreshold);
   }, [breakThreshold, onHiddenCardDiscover]);
@@ -362,6 +414,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
           onImpact={handleImpact}
           onSlice={handleSlice}
           onChargedBreak={handleChargedBreak}
+          onEntangledBreak={handleEntangledBreak}
+          onSpellBreak={handleSpellBreak}
+          onPortalBreak={handlePortalBreak}
+          onGravityBreak={handleGravityBreak}
           onRocketReady={() => setRocketReady(true)}
           onRocketLaunch={handleRocketLaunch}
           onCardReveal={revealObservedCard}
