@@ -49,6 +49,7 @@ test("keeps the legacy record migration in the client bundle", async () => {
   assert.match(source, /byeolil-records-v2/);
   assert.match(source, /byeolil-hidden-cards-v1/);
   assert.match(source, /히든 상호작용 카드/);
+  assert.match(source, /히든 카드만 비밀 보관함에 등록/);
   assert.match(source, /슥— 한방컷/);
   assert.match(source, /별빛 과충전/);
   assert.match(source, /양자 얽힘/);

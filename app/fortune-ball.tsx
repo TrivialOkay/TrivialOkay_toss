@@ -41,32 +41,113 @@ function outcomeSlotAtPoint(point: { x: number; y: number }, magnetRadius = 68) 
   return nearest?.value ?? null;
 }
 
+function createAudioContext() {
+  const AudioContextClass = window.AudioContext
+    ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  return AudioContextClass ? new AudioContextClass() : null;
+}
+
+function createNoiseBuffer(context: AudioContext, duration: number, sample: (time: number) => number) {
+  const buffer = context.createBuffer(1, Math.floor(context.sampleRate * duration), context.sampleRate);
+  const samples = buffer.getChannelData(0);
+  for (let index = 0; index < samples.length; index += 1) samples[index] = sample(index / context.sampleRate);
+  return buffer;
+}
+
+function playBlackHoleFeedback(pulse = false) {
+  navigator.vibrate?.(pulse ? 8 : [18, 28, 38]);
+  try {
+    const context = createAudioContext();
+    if (!context) return;
+    const now = context.currentTime;
+    const duration = pulse ? 0.32 : 1.35;
+    const master = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(pulse ? 0.075 : 0.12, now + (pulse ? 0.018 : 0.09));
+    master.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    master.connect(compressor).connect(context.destination);
+
+    const rumble = context.createOscillator();
+    const rumbleGain = context.createGain();
+    rumble.type = "sine";
+    rumble.frequency.setValueAtTime(pulse ? 68 : 54, now);
+    rumble.frequency.exponentialRampToValueAtTime(pulse ? 31 : 19, now + duration * 0.72);
+    if (!pulse) rumble.frequency.exponentialRampToValueAtTime(42, now + duration);
+    rumbleGain.gain.value = pulse ? 0.62 : 0.82;
+    rumble.connect(rumbleGain).connect(master);
+
+    const warp = context.createOscillator();
+    const warpFilter = context.createBiquadFilter();
+    const warpGain = context.createGain();
+    warp.type = "sawtooth";
+    warp.frequency.setValueAtTime(pulse ? 118 : 96, now);
+    warp.frequency.exponentialRampToValueAtTime(pulse ? 46 : 28, now + duration);
+    warp.detune.setValueAtTime(-17, now);
+    warpFilter.type = "lowpass";
+    warpFilter.frequency.setValueAtTime(pulse ? 390 : 620, now);
+    warpFilter.frequency.exponentialRampToValueAtTime(92, now + duration);
+    warpGain.gain.value = pulse ? 0.13 : 0.2;
+    warp.connect(warpFilter).connect(warpGain).connect(master);
+
+    const noise = context.createBufferSource();
+    const noiseFilter = context.createBiquadFilter();
+    const noiseGain = context.createGain();
+    noise.buffer = createNoiseBuffer(context, duration, (time) => {
+      const pull = Math.sin(Math.min(1, time / duration) * Math.PI);
+      return (Math.random() * 2 - 1) * pull;
+    });
+    noiseFilter.type = "bandpass";
+    noiseFilter.Q.value = pulse ? 1.2 : 2.4;
+    noiseFilter.frequency.setValueAtTime(pulse ? 620 : 1800, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(pulse ? 160 : 115, now + duration);
+    noiseGain.gain.value = pulse ? 0.16 : 0.28;
+    noise.connect(noiseFilter).connect(noiseGain).connect(master);
+
+    rumble.start(now); warp.start(now); noise.start(now);
+    rumble.stop(now + duration); warp.stop(now + duration); noise.stop(now + duration);
+    noise.addEventListener("ended", () => { void context.close(); }, { once: true });
+  } catch {
+    // Web Audio를 지원하지 않아도 블랙홀 관측은 그대로 진행한다.
+  }
+}
+
 function playBreakFeedback() {
   navigator.vibrate?.([12, 20, 8]);
   try {
-    const context = new AudioContext();
-    const duration = 0.26;
-    const buffer = context.createBuffer(1, Math.floor(context.sampleRate * duration), context.sampleRate);
-    const samples = buffer.getChannelData(0);
-    for (let index = 0; index < samples.length; index += 1) {
-      const time = index / context.sampleRate;
+    const context = createAudioContext();
+    if (!context) return;
+    const duration = 0.48;
+    const buffer = createNoiseBuffer(context, duration, (time) => {
       const crackA = Math.exp(-time * 80);
       const crackB = time > 0.075 ? Math.exp(-(time - 0.075) * 95) * 0.64 : 0;
       const crackC = time > 0.15 ? Math.exp(-(time - 0.15) * 110) * 0.42 : 0;
-      samples[index] = (Math.random() * 2 - 1) * (crackA + crackB + crackC);
-    }
+      const shards = time > 0.18 ? Math.exp(-(time - 0.18) * 9) * (0.24 + Math.sin(time * 7100) * 0.1) : 0;
+      return (Math.random() * 2 - 1) * (crackA + crackB + crackC + shards);
+    });
     const source = context.createBufferSource();
-    const filter = context.createBiquadFilter();
-    const gain = context.createGain();
+    const highpass = context.createBiquadFilter();
+    const crackGain = context.createGain();
     source.buffer = buffer;
-    filter.type = "highpass";
-    filter.frequency.value = 1250;
-    filter.Q.value = 0.45;
-    gain.gain.setValueAtTime(0.07, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
-    source.connect(filter).connect(gain).connect(context.destination);
+    highpass.type = "highpass";
+    highpass.frequency.value = 820;
+    highpass.Q.value = 0.65;
+    crackGain.gain.setValueAtTime(0.105, context.currentTime);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
+    source.connect(highpass).connect(crackGain).connect(context.destination);
+
+    const impact = context.createOscillator();
+    const impactGain = context.createGain();
+    impact.type = "sine";
+    impact.frequency.setValueAtTime(128, context.currentTime);
+    impact.frequency.exponentialRampToValueAtTime(47, context.currentTime + 0.32);
+    impactGain.gain.setValueAtTime(0.12, context.currentTime);
+    impactGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.36);
+    impact.connect(impactGain).connect(context.destination);
     source.start();
+    impact.start();
     source.stop(context.currentTime + duration);
+    impact.stop(context.currentTime + 0.38);
     source.addEventListener("ended", () => { void context.close(); }, { once: true });
   } catch {
     // 브라우저가 Web Audio를 막아도 파괴 동작은 그대로 진행한다.
@@ -152,21 +233,33 @@ function playCrunchFeedback(intensity = 0.5) {
 function playRocketFeedback() {
   navigator.vibrate?.([10, 24, 18]);
   try {
-    const AudioContextClass = window.AudioContext
-      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const context = new AudioContextClass();
+    const context = createAudioContext();
+    if (!context) return;
     const oscillator = context.createOscillator();
-    const gain = context.createGain();
+    const toneGain = context.createGain();
     oscillator.type = "sawtooth";
-    oscillator.frequency.setValueAtTime(120, context.currentTime);
-    oscillator.frequency.exponentialRampToValueAtTime(520, context.currentTime + 0.42);
-    gain.gain.setValueAtTime(0.035, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.46);
-    oscillator.connect(gain).connect(context.destination);
+    oscillator.frequency.setValueAtTime(92, context.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(610, context.currentTime + 0.56);
+    toneGain.gain.setValueAtTime(0.032, context.currentTime);
+    toneGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.64);
+    oscillator.connect(toneGain).connect(context.destination);
+
+    const exhaust = context.createBufferSource();
+    const exhaustFilter = context.createBiquadFilter();
+    const exhaustGain = context.createGain();
+    exhaust.buffer = createNoiseBuffer(context, 0.68, (time) => (Math.random() * 2 - 1) * Math.sin(Math.min(1, time / 0.5) * Math.PI));
+    exhaustFilter.type = "bandpass";
+    exhaustFilter.frequency.setValueAtTime(260, context.currentTime);
+    exhaustFilter.frequency.exponentialRampToValueAtTime(2400, context.currentTime + 0.58);
+    exhaustFilter.Q.value = 0.7;
+    exhaustGain.gain.setValueAtTime(0.035, context.currentTime);
+    exhaustGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.68);
+    exhaust.connect(exhaustFilter).connect(exhaustGain).connect(context.destination);
     oscillator.start();
-    oscillator.stop(context.currentTime + 0.46);
-    oscillator.addEventListener("ended", () => { void context.close(); }, { once: true });
+    exhaust.start();
+    oscillator.stop(context.currentTime + 0.65);
+    exhaust.stop(context.currentTime + 0.68);
+    exhaust.addEventListener("ended", () => { void context.close(); }, { once: true });
   } catch {
     // Web Audio를 지원하지 않아도 로켓 발사는 그대로 진행한다.
   }
@@ -234,14 +327,21 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
       if (nextStage === breakThreshold) {
         if (!feedbackPlayed.current) {
           feedbackPlayed.current = true;
-          playBreakFeedback();
+          if (wakppuVariant === "blackHole") playBlackHoleFeedback();
+          else playBreakFeedback();
         }
       } else {
-        playCrunchFeedback(0.35 + nextStage / breakThreshold * 0.6);
+        if (wakppuVariant === "blackHole") playBlackHoleFeedback(true);
+        else playCrunchFeedback(0.35 + nextStage / breakThreshold * 0.6);
       }
       return nextStage;
     });
-  }, [breakThreshold]);
+  }, [breakThreshold, wakppuVariant]);
+
+  const playVariantEffect = useCallback((fallback: () => void) => {
+    if (wakppuVariant === "blackHole") playBlackHoleFeedback();
+    else fallback();
+  }, [wakppuVariant]);
 
   const handleSlice = useCallback(() => {
     setSliced(true);
@@ -251,11 +351,11 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
       if (currentStage >= breakThreshold) return currentStage;
       if (!feedbackPlayed.current) {
         feedbackPlayed.current = true;
-        playSliceFeedback();
+        playVariantEffect(playSliceFeedback);
       }
       return breakThreshold;
     });
-  }, [breakThreshold, onHiddenCardDiscover]);
+  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
 
   const handleChargedBreak = useCallback(() => {
     setOvercharged(true);
@@ -264,10 +364,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("stellar-overcharge");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playBreakFeedback();
+      playVariantEffect(playBreakFeedback);
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover]);
+  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
 
   const handleEntangledBreak = useCallback(() => {
     setSliced(false);
@@ -276,10 +376,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("quantum-entanglement");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playBreakFeedback();
+      playVariantEffect(playBreakFeedback);
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover]);
+  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
 
   const handleSpellBreak = useCallback(() => {
     setSliced(false);
@@ -288,10 +388,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("abracada-crack");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playSliceFeedback();
+      playVariantEffect(playSliceFeedback);
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover]);
+  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
 
   const handlePortalBreak = useCallback(() => {
     setSliced(false);
@@ -300,10 +400,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("mirror-dimension");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playRocketFeedback();
+      playVariantEffect(playRocketFeedback);
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover]);
+  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
 
   const handleGravityBreak = useCallback(() => {
     setSliced(false);
@@ -312,16 +412,16 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("gravity-reversal");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playRocketFeedback();
+      playVariantEffect(playRocketFeedback);
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover]);
+  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
 
   const handleRocketLaunch = useCallback(() => {
     setRocketReady(false);
     setRocketLaunching(true);
-    playRocketFeedback();
-  }, []);
+    playVariantEffect(playRocketFeedback);
+  }, [playVariantEffect]);
 
   const revealObservedCard = useCallback(() => {
     setRocketLaunching(false);

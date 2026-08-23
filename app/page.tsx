@@ -9,6 +9,7 @@ import {
   fortunes,
   gradeFor,
   gradeGuide,
+  hiddenCardFor,
   hiddenCards,
   localDateKey,
   localTimeLabel,
@@ -167,6 +168,7 @@ function TodayScreen({
   wakppuVariant,
   revealed,
   outcome,
+  hiddenCardId,
   onOutcome,
   onRecall,
   onCycleWakppu,
@@ -182,6 +184,7 @@ function TodayScreen({
   wakppuVariant: WakppuVariant;
   revealed: boolean;
   outcome: Outcome | null;
+  hiddenCardId: HiddenCardId | null;
   onOutcome: (value: Outcome) => boolean;
   onRecall: () => void;
   onCycleWakppu: () => void;
@@ -252,8 +255,8 @@ function TodayScreen({
         </div>
         <article className={`fortune-card ${revealed ? "is-card-revealed" : ""}`}>
           <div className="fortune-kicker"><span className="crystal-ball" />오늘의 별일 예보<span className={`observation-live ${revealed ? "is-complete" : ""}`}>{revealed ? "관측 완료" : "신호 수신 중"}</span></div>
-          <h2>{revealed ? fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
-          <p>{revealed ? "우주 기여도 3% · 큰 기대는 금물!" : "돌리고, 누르고, 문지르면 예보가 나옵니다."}</p>
+          <h2>{revealed ? hiddenCardId ? hiddenCardFor(hiddenCardId).title : fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
+          <p>{revealed ? hiddenCardId ? "비정규 상호작용 포착 · 분류 결정 전까지 미등록" : "우주 기여도 3% · 큰 기대는 금물!" : "돌리고, 누르고, 문지르면 예보가 나옵니다."}</p>
           <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
             <FortuneBall key={`${fortune.id}-${wakppuVariant}`} fortune={fortune.cardTitle} fortuneId={fortune.id} wakppuVariant={wakppuVariant} asset={fortune.asset} characterArt={fortune.characterArt} outcome={outcome} onOutcome={onOutcome} onHiddenCardDiscover={onHiddenCardDiscover} onReveal={onReveal} recallVersion={recallVersion} />
           </Suspense>
@@ -420,6 +423,29 @@ function CardScreen({ record, evidenceCount, occurrenceCount, onBack, onShare, o
         </article>
         <button className={`evidence-edit-button ${record.photoDataUrl ? "has-evidence" : ""}`} onClick={onEvidence}><span><Icon name="camera" /></span><strong>{record.photoDataUrl ? "이 카드의 증거 교체하기" : "이 카드에 현장 증거 붙이기"}<small>{record.photoDataUrl ? "별가루는 그대로 유지돼요" : "사진 증거를 붙이면 별가루 +1"}</small></strong><Icon name="chevron-right" /></button>
         <div className="card-actions"><button className="outline-button" onClick={onReplay}><Icon name="refresh" />새 운세 뽑기</button><button className="black-button" onClick={onShare}><Icon name="share" />공유하기</button><button className="outline-button" onClick={onCollection}><span className="tiny-picture"/>도감으로</button></div>
+      </section>
+    </>
+  );
+}
+
+function HiddenCardResultScreen({ cardId, onBack, onCollection, onReplay }: { cardId: HiddenCardId; onBack: () => void; onCollection: () => void; onReplay: () => void }) {
+  const card = hiddenCardFor(cardId);
+  return (
+    <>
+      <Header title="히든 상호작용 카드" onBack={onBack} />
+      <section className="screen-content hidden-result-screen">
+        <BureauCode status="도감 등록 완료">비정규 신호 확정본 · SECRET COMMAND</BureauCode>
+        <article className={`hidden-result-card hidden-result-${card.id}`}>
+          <div className="hidden-result-head"><span>별일 비밀관측국</span><b>HIDDEN</b></div>
+          <div className="hidden-result-code"><strong>{card.code}</strong><span>특수 상호작용</span></div>
+          <div className="hidden-result-symbol" aria-hidden="true">{card.symbol}</div>
+          <small>{card.label}</small>
+          <h2>{card.title}</h2>
+          <p>{card.copy}</p>
+          <div className="hidden-result-stamp">비정규 관측 승인<br/><b>ARCHIVED</b></div>
+        </article>
+        <p className="hidden-result-notice">일반 운세 카드는 등록하지 않고, 이 히든 카드만 비밀 보관함에 넣었어요.</p>
+        <div className="hidden-result-actions"><button className="black-button" onClick={onCollection}>히든 도감에서 보기</button><button className="outline-button" onClick={onReplay}><Icon name="refresh" />새 운세 뽑기</button></div>
       </section>
     </>
   );
@@ -904,6 +930,7 @@ export default function Home() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [discoveredHiddenCardIds, setDiscoveredHiddenCardIds] = useState<HiddenCardId[]>([]);
+  const [currentHiddenCardId, setCurrentHiddenCardId] = useState<HiddenCardId | null>(null);
   const [observedWakppu, setObservedWakppu] = useState<WakppuVariant[]>([]);
   const [activeRecord, setActiveRecord] = useState<RecordItem | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -1053,6 +1080,7 @@ export default function Home() {
   function moveTab(next: Tab) {
     setFortuneRevealed(false);
     setOutcome(null);
+    setCurrentHiddenCardId(null);
     setNote("");
     setPhoto(null);
     if (next === "today") {
@@ -1076,6 +1104,20 @@ export default function Home() {
   function confirmClassification() {
     if (!outcome) {
       setToast("먼저 카드를 분류해주세요");
+      return;
+    }
+    if (currentHiddenCardId) {
+      const nextHiddenCards = discoveredHiddenCardIds.includes(currentHiddenCardId)
+        ? discoveredHiddenCardIds
+        : [...discoveredHiddenCardIds, currentHiddenCardId];
+      if (!saveHiddenCards(nextHiddenCards)) {
+        setToast("히든 카드 발견 상태를 저장하지 못했어요");
+        return;
+      }
+      setDiscoveredHiddenCardIds(nextHiddenCards);
+      setCurrentRecordId(null);
+      navigate({ tab: "collection", view: "hidden-card", archiveView: "hub", activeRecordId: null });
+      setToast("분류 결정 · 히든 카드만 비밀 보관함에 등록했어요");
       return;
     }
     const existing = currentRecordId ? records.find((record) => record.id === currentRecordId) : undefined;
@@ -1113,17 +1155,9 @@ export default function Home() {
     navigate({ view: "capture", activeRecordId: record.id });
   }
 
-  function discoverHiddenCard(id: HiddenCardId) {
-    setDiscoveredHiddenCardIds((current) => {
-      if (current.includes(id)) return current;
-      const next = [...current, id];
-      if (!saveHiddenCards(next)) {
-        setToast("히든 카드 발견 상태를 저장하지 못했어요");
-        return current;
-      }
-      setToast(`${hiddenCards.find((card) => card.id === id)?.title ?? "히든 카드"} 발견 · 비밀 보관함 등록`);
-      return next;
-    });
+  function encounterHiddenCard(id: HiddenCardId) {
+    setCurrentHiddenCardId(id);
+    setToast(`${hiddenCardFor(id).title} 출현 · 분류 결정을 눌러 등록하세요`);
   }
 
   function observeWakppu(variant: WakppuVariant) {
@@ -1151,6 +1185,7 @@ export default function Home() {
     setWakppuCycle((cycle) => cycle + 1);
     setFortuneRevealed(false);
     setOutcome(null);
+    setCurrentHiddenCardId(null);
     setNote("");
     setPhoto(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1160,7 +1195,7 @@ export default function Home() {
     const nextIndex = (fortuneIndex + 1) % fortunes.length;
     const nextFortune = fortunes[nextIndex];
     const todayRecord = records.find((record) => record.date === localDateKey() && record.fortuneId === nextFortune.id);
-    setCurrentRecordId(todayRecord?.id ?? null); setFortuneIndex(nextIndex); setWakppuCycle(0); setFortuneRevealed(false); setOutcome(null); setCategory(nextFortune.category); setNote(""); setPhoto(null); navigate({ tab: "today", view: "main", archiveView: "hub", activeRecordId: null }, "root");
+    setCurrentRecordId(todayRecord?.id ?? null); setFortuneIndex(nextIndex); setWakppuCycle(0); setFortuneRevealed(false); setOutcome(null); setCurrentHiddenCardId(null); setCategory(nextFortune.category); setNote(""); setPhoto(null); navigate({ tab: "today", view: "main", archiveView: "hub", activeRecordId: null }, "root");
   }
 
   async function selectPhoto(file: File) {
@@ -1214,7 +1249,7 @@ export default function Home() {
   function resetRecords() {
     if (!confirmReset) { setConfirmReset(true); return; }
     if (!clearRecords()) { setToast("기록을 초기화하지 못했어요"); return; }
-    setRecords([]); setDiscoveredHiddenCardIds([]); setObservedWakppu([]); setCurrentRecordId(null); setActiveRecord(null); setFortuneRevealed(false); setOutcome(null); setNote(""); setPhoto(null); setConfirmReset(false); setToast("내 기록과 도감을 모두 지웠어요");
+    setRecords([]); setDiscoveredHiddenCardIds([]); setCurrentHiddenCardId(null); setObservedWakppu([]); setCurrentRecordId(null); setActiveRecord(null); setFortuneRevealed(false); setOutcome(null); setNote(""); setPhoto(null); setConfirmReset(false); setToast("내 기록과 도감을 모두 지웠어요");
   }
 
   return (
@@ -1222,12 +1257,13 @@ export default function Home() {
       <div className="phone-surface">
         {view === "capture" && currentRecord && <CaptureScreen record={currentRecord} evidenceCount={evidenceCount} category={category} note={note} photo={photo} onBack={goBack} onCategory={setCategory} onNote={setNote} onPhoto={selectPhoto} onSave={saveRecord} onSkip={() => navigate({ view: "card", activeRecordId: currentRecord.id }, "replace")} />}
         {view === "card" && activeRecord && <CardScreen record={activeRecord} evidenceCount={evidenceCount} occurrenceCount={records.filter((record) => record.fortuneId === activeRecord.fortuneId).length} onBack={goBack} onShare={shareRecord} onCollection={() => moveTab("collection")} onReplay={() => moveTab("today")} onDelete={deleteRecord} onEvidence={() => openEvidence(activeRecord)} />}
+        {view === "hidden-card" && currentHiddenCardId && <HiddenCardResultScreen cardId={currentHiddenCardId} onBack={goBack} onCollection={() => navigate({ tab: "collection", view: "main", archiveView: "hidden", activeRecordId: null }, "replace")} onReplay={drawNewFortune} />}
         {view === "report" && <ReportScreen records={records} month={selectedMonth} onBack={goBack} onMonth={setSelectedMonth} />}
         {view === "examples" && <ExamplesScreen onBack={goBack} />}
         {view === "guide" && <GuideScreen onBack={goBack} />}
         {view === "settings" && <SettingsScreen records={records} onBack={goBack} onGuide={() => navigate({ view: "guide", activeRecordId: null })} onReset={resetRecords} confirming={confirmReset} />}
         {view === "wakppu" && <WakppuCatalogScreen observed={observedWakppu} onBack={goBack} />}
-        {mainVisible && tab === "today" && <TodayScreen key={`${fortuneIndex}-${currentWakppuVariant}`} fortuneIndex={fortuneIndex} wakppuVariant={currentWakppuVariant} revealed={fortuneRevealed} outcome={outcome} onOutcome={selectFortuneOutcome} onRecall={() => setOutcome(null)} onCycleWakppu={cycleWakppu} onNewFortune={drawNewFortune} onHiddenCardDiscover={discoverHiddenCard} onReveal={() => { setFortuneRevealed(true); observeWakppu(currentWakppuVariant); }} onConfirm={confirmClassification} classificationConfirmed={Boolean(currentRecord && outcome === currentRecord.outcome)} onCapture={() => currentRecord ? openEvidence(currentRecord) : setToast("먼저 분류를 결정해주세요")} onAbout={() => moveTab("about")} />}
+        {mainVisible && tab === "today" && <TodayScreen key={`${fortuneIndex}-${currentWakppuVariant}`} fortuneIndex={fortuneIndex} wakppuVariant={currentWakppuVariant} revealed={fortuneRevealed} outcome={outcome} hiddenCardId={currentHiddenCardId} onOutcome={selectFortuneOutcome} onRecall={() => setOutcome(null)} onCycleWakppu={cycleWakppu} onNewFortune={drawNewFortune} onHiddenCardDiscover={encounterHiddenCard} onReveal={() => { setFortuneRevealed(true); observeWakppu(currentWakppuVariant); }} onConfirm={confirmClassification} classificationConfirmed={!currentHiddenCardId && Boolean(currentRecord && outcome === currentRecord.outcome)} onCapture={() => currentHiddenCardId ? setToast("히든 카드는 분류 결정 후 비밀 보관함에서 확인해주세요") : currentRecord ? openEvidence(currentRecord) : setToast("먼저 분류를 결정해주세요")} onAbout={() => moveTab("about")} />}
         {mainVisible && tab === "collection" && <CollectionScreen observedFortuneIds={observedFortuneIds} observedWakppu={observedWakppu} discoveredHiddenCardIds={discoveredHiddenCardIds} records={records} searchOpen={searchOpen} search={search} archiveView={archiveView} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCollectedFortune} onWakppu={() => navigate({ view: "wakppu", activeRecordId: null })} onArchive={(nextArchive) => navigate({ tab: "collection", view: "main", archiveView: nextArchive, activeRecordId: null })} onBack={goBack} />}
         {mainVisible && tab === "records" && <RecordsScreen records={records} selectedMonth={selectedMonth} onMonth={setSelectedMonth} onReport={() => navigate({ view: "report", activeRecordId: null })} onOpen={openCard} />}
         {mainVisible && tab === "about" && <AboutScreen records={records} onRecords={() => moveTab("records")} onOpenRecord={openCard} onExamples={() => navigate({ view: "examples", activeRecordId: null })} onSettings={() => navigate({ view: "settings", activeRecordId: null })} />}
