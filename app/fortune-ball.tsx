@@ -24,7 +24,7 @@ function clamp(value: number, min = -1, max = 1) {
   return Math.min(max, Math.max(min, value));
 }
 
-function outcomeSlotAtPoint(point: { x: number; y: number }, magnetRadius = 52) {
+function outcomeSlotAtPoint(point: { x: number; y: number }, magnetRadius = 68) {
   const slots = document.querySelectorAll<HTMLElement>("[data-outcome-slot]");
   let nearest: { value: Outcome; distance: number } | null = null;
   for (const slot of slots) {
@@ -187,7 +187,6 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
   const feedbackPlayed = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const boundsRef = useRef<HTMLElement>(null);
   const highlightedSlotRef = useRef<HTMLElement>(null);
   const handledRecallRef = useRef(0);
   const recalledOutcomeRef = useRef<Outcome | null>(null);
@@ -214,7 +213,6 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
   }, [breakThreshold, broken, cardFiled, cardRevealed, overcharged, rocketLaunching, rocketReady, sliced, stage, variantLabel]);
 
   useEffect(() => {
-    boundsRef.current = rootRef.current?.closest<HTMLElement>(".phone-surface") ?? null;
     return () => highlightedSlotRef.current?.classList.remove("drop-hover");
   }, []);
 
@@ -381,8 +379,8 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0.15 : filingOutcome ? 0.34 : 0.22, ease: "easeInOut" }}
             drag
-            dragConstraints={boundsRef}
-            dragElastic={reduceMotion ? 0 : 0.08}
+            dragConstraints={{ left: -168, right: 168, top: -92, bottom: 560 }}
+            dragElastic={reduceMotion ? 0 : 0.12}
             dragMomentum={false}
             whileDrag={{ scale: 0.46, rotate: reduceMotion ? 0 : -1.2 }}
             onDrag={(_, info) => highlightOutcomeSlot(outcomeSlotAtPoint(info.point))}

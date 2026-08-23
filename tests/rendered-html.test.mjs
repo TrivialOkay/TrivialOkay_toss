@@ -24,6 +24,10 @@ test("server-renders the Byeolil Today screen", async () => {
   assert.match(html, new RegExp(serviceDate.replace(" ", "\\s*")));
   assert.match(html, /관측 결과 분류함/);
   assert.match(html, /카드를 실제 결과와 맞는 투입구에 넣어주세요/);
+  assert.match(html, /다른 왁뿌볼 불러오기/);
+  assert.match(html, /운세 다시 뽑기/);
+  assert.match(html, /분류 결정/);
+  assert.match(html, /운세 관측 방법 보기/);
   assert.match(html, /현장 증거 더하기/);
   assert.match(html, /예보를 꺼내면 관측할 수 있어요/);
   assert.match(html, />보관소</);
@@ -47,7 +51,9 @@ test("keeps the legacy record migration in the client bundle", async () => {
   assert.match(source, /히든 관측 카드/);
   assert.match(source, /슥— 한방컷/);
   assert.match(source, /별빛 과충전/);
-  assert.match(source, /분류 완료 · 도감과 관측일지에 등록했어요/);
+  assert.match(source, /분류 결정 · 도감과 관측일지에 등록했어요/);
+  assert.match(source, /이 버튼을 눌러야 운세가 도감에 저장돼요/);
+  assert.match(source, /새 운세 뽑기/);
   assert.match(source, /카드를 분류하면 기록할 수 있어요/);
   assert.match(source, /현장 증거 확보 · 별가루 \+1/);
   assert.match(source, /관측 증거 부착실/);
@@ -55,6 +61,8 @@ test("keeps the legacy record migration in the client bundle", async () => {
   assert.match(source, /이 카드에 현장 증거 붙이기/);
   assert.match(source, /byeolil-observed-wakppu-v1/);
   assert.match(source, /왁뿌볼 천체도감/);
+  assert.match(source, /별일 보관소/);
+  assert.match(source, /4개 도감 운영 중/);
   assert.match(source, /미확인 천체 보관록/);
   assert.match(source, /천체 5종을 관측하면 신호가 열려요/);
   assert.match(source, /중력 특이점 출현 조건 해제/);

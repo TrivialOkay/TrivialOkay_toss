@@ -110,15 +110,6 @@ const monthlyThemeNames = [
   "보름달 간식", "단풍 놀이", "군고구마 온기", "연말 선물",
 ] as const;
 
-const constellationPoints = [
-  { x: 6, y: 31, threshold: 1 },
-  { x: 24, y: 17, threshold: 20 },
-  { x: 43, y: 27, threshold: 40 },
-  { x: 64, y: 10, threshold: 60 },
-  { x: 78, y: 28, threshold: 80 },
-  { x: 95, y: 15, threshold: 100 },
-] as const;
-
 const maxPhotoFileSize = 12 * 1024 * 1024;
 const maxPhotoDimension = 1280;
 
@@ -177,10 +168,13 @@ function TodayScreen({
   revealed,
   outcome,
   onOutcome,
-  onCycle,
+  onCycleWakppu,
+  onNewFortune,
   onHiddenCardDiscover,
   onReveal,
+  onConfirm,
   onCapture,
+  classificationConfirmed,
   onAbout,
 }: {
   fortuneIndex: number;
@@ -188,17 +182,22 @@ function TodayScreen({
   revealed: boolean;
   outcome: Outcome | null;
   onOutcome: (value: Outcome) => boolean;
-  onCycle: () => void;
+  onCycleWakppu: () => void;
+  onNewFortune: () => void;
   onHiddenCardDiscover: (id: HiddenCardId) => void;
   onReveal: () => void;
+  onConfirm: () => void;
   onCapture: () => void;
+  classificationConfirmed: boolean;
   onAbout: () => void;
 }) {
   const fortune = fortunes[fortuneIndex];
   const outcomeSectionRef = useRef<HTMLElement>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const recallGestureRef = useRef<{ pointerId: number; startY: number; triggered: boolean } | null>(null);
   const suppressRecallClickRef = useRef(false);
   const [recallVersion, setRecallVersion] = useState(0);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   function recallFiledCard() {
     setRecallVersion((version) => version + 1);
@@ -220,16 +219,32 @@ function TodayScreen({
     return () => window.clearTimeout(timer);
   }, [revealed]);
 
+  useEffect(() => {
+    if (!outcome) return;
+    const timer = window.setTimeout(() => {
+      const button = confirmButtonRef.current;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const visibleBottom = window.innerHeight - 105;
+      if (rect.top >= 76 && rect.bottom <= visibleBottom) return;
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.bottom - visibleBottom),
+        behavior: "smooth",
+      });
+    }, 430);
+    return () => window.clearTimeout(timer);
+  }, [outcome]);
+
   return (
     <>
       <header className="today-header"><div><h1>별일 관측국</h1><small>오늘의 미세한 우주 개입 예보</small><span className="today-signal"><i />관측소 01 · KST · SIGNAL 03%</span></div><button className="icon-button" onClick={onAbout} aria-label="내 정보 열기"><Icon name="settings" /></button></header>
       <section className="screen-content today-screen" aria-labelledby="today-date">
         <div className="today-date-row">
           <time className="date-button" id="today-date" dateTime={localDateKey()}>{dateLabel()}</time>
-          <button className="outline-button fortune-refresh" onClick={onCycle}><Icon name="refresh" />다른 운세 보기</button>
+          <button className="outline-button fortune-refresh" onClick={onCycleWakppu}><Icon name="refresh" />다른 왁뿌볼 불러오기</button>
         </div>
         <article className={`fortune-card ${revealed ? "is-card-revealed" : ""}`}>
-          <div className="fortune-kicker"><span className="crystal-ball" />오늘의 별일 예보<span className={`observation-live ${revealed ? "is-complete" : ""}`}>{revealed ? "관측 완료" : "신호 수신 중"}</span><span className="help-circle">?</span></div>
+          <div className="fortune-kicker"><span className="crystal-ball" />오늘의 별일 예보<span className={`observation-live ${revealed ? "is-complete" : ""}`}>{revealed ? "관측 완료" : "신호 수신 중"}</span><button className="help-circle" onClick={() => setHelpOpen(true)} aria-label="운세 관측 방법 보기">?</button></div>
           <h2>{revealed ? fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
           <p>{revealed ? "우주 기여도 3% · 큰 기대는 금물!" : "돌리고, 누르고, 문지르면 예보가 나옵니다."}</p>
           <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
@@ -237,7 +252,7 @@ function TodayScreen({
           </Suspense>
         </article>
         <section ref={outcomeSectionRef} className={`outcome-section ${revealed ? "" : "is-locked"}`} aria-hidden={!revealed}>
-          <div className="outcome-sorter-head"><span>OBS SORTER · 03</span><b><i />{outcome ? "도감 등록 완료" : "분류 대기"}</b></div>
+          <div className="outcome-sorter-head"><span>OBS SORTER · 03</span><b><i />{outcome ? "결정 대기" : "분류 대기"}</b></div>
           <h2>관측 결과 분류함</h2>
           <p>카드를 실제 결과와 맞는 투입구에 넣어주세요</p>
           <div className="outcome-grid" role="group" aria-label="오늘의 운세 결과">
@@ -283,8 +298,28 @@ function TodayScreen({
             ))}
           </div>
         </section>
-        <button className="photo-record-button" aria-label="현장 증거 더하기" disabled={!revealed || !outcome} onClick={onCapture}><span className="camera-symbol"><Icon name="camera" /></span><strong>{!revealed ? "예보를 꺼내면 관측할 수 있어요" : outcome ? <>현장 증거 더하기 <small>(사진 선택)</small></> : "카드를 분류하면 기록할 수 있어요"}</strong><Icon name="chevron-right" /></button>
+        <div className="classification-action-row">
+          <button ref={confirmButtonRef} className="black-button classification-confirm-button" disabled={!outcome} onClick={onConfirm}>
+            <span><small>{outcome ? outcomeLabels[outcome] : "분류 필요"}</small><strong>분류 결정</strong></span><Icon name="chevron-right" />
+          </button>
+          <button className="outline-button fortune-redraw-button" onClick={onNewFortune}>
+            <Icon name="refresh" /><span><small>현재 선택은 저장 안 됨</small><strong>운세 다시 뽑기</strong></span>
+          </button>
+        </div>
+        <button className="photo-record-button" aria-label="현장 증거 더하기" disabled={!classificationConfirmed} onClick={onCapture}><span className="camera-symbol"><Icon name="camera" /></span><strong>{classificationConfirmed ? <>현장 증거 더하기 <small>(사진 선택)</small></> : outcome ? "분류 결정 후 추가할 수 있어요" : revealed ? "카드를 분류하면 기록할 수 있어요" : "예보를 꺼내면 관측할 수 있어요"}</strong><Icon name="chevron-right" /></button>
       </section>
+      {helpOpen && <div className="flow-help-backdrop">
+        <section className="flow-help-dialog" role="dialog" aria-modal="true" aria-labelledby="flow-help-title">
+          <div className="flow-help-head"><span><small>별일 관측국 초간단 안내</small><h2 id="flow-help-title">운세는 이렇게 모아요</h2></span><button onClick={() => setHelpOpen(false)} aria-label="도움말 닫기">×</button></div>
+          <ol>
+            <li><b>1</b><span><strong>왁뿌볼을 깨요</strong><small>톡톡 누르거나 빠르게 문질러도 돼요.</small></span></li>
+            <li><b>2</b><span><strong>나온 카드를 분류함에 넣어요</strong><small>실제로 일어났는지에 맞는 칸을 고르면 돼요.</small></span></li>
+            <li><b>3</b><span><strong>분류 결정을 눌러요</strong><small>이 버튼을 눌러야 운세가 도감에 저장돼요.</small></span></li>
+            <li><b>4</b><span><strong>획득한 카드를 확인해요</strong><small>뒤로 가면 도감에서 다시 볼 수 있어요.</small></span></li>
+          </ol>
+          <button className="black-button flow-help-close" onClick={() => setHelpOpen(false)}>알겠어요</button>
+        </section>
+      </div>}
     </>
   );
 }
@@ -377,7 +412,7 @@ function CardScreen({ record, evidenceCount, occurrenceCount, onBack, onShare, o
           <dl className="card-stats"><div><dt>발견 날짜</dt><dd>{record.date.replaceAll("-", ".")}</dd></div><div><dt>발견 시간</dt><dd>{record.time}</dd></div><div><dt>별일 횟수</dt><dd>{occurrenceCount}회</dd></div></dl>
         </article>
         <button className={`evidence-edit-button ${record.photoDataUrl ? "has-evidence" : ""}`} onClick={onEvidence}><span><Icon name="camera" /></span><strong>{record.photoDataUrl ? "이 카드의 증거 교체하기" : "이 카드에 현장 증거 붙이기"}<small>{record.photoDataUrl ? "별가루는 그대로 유지돼요" : "사진 증거를 붙이면 별가루 +1"}</small></strong><Icon name="chevron-right" /></button>
-        <div className="card-actions"><button className="outline-button" onClick={onReplay}><Icon name="refresh" />다시 보기</button><button className="black-button" onClick={onShare}><Icon name="share" />공유하기</button><button className="outline-button" onClick={onCollection}><span className="tiny-picture"/>도감으로</button></div>
+        <div className="card-actions"><button className="outline-button" onClick={onReplay}><Icon name="refresh" />새 운세 뽑기</button><button className="black-button" onClick={onShare}><Icon name="share" />공유하기</button><button className="outline-button" onClick={onCollection}><span className="tiny-picture"/>도감으로</button></div>
       </section>
     </>
   );
@@ -433,6 +468,8 @@ function WakppuCatalogScreen({ observed, onBack }: { observed: WakppuVariant[]; 
 function CollectionScreen({ observedFortuneIds, observedWakppu, discoveredHiddenCardIds, records, searchOpen, search, onSearchOpen, onSearch, onOpen, onWakppu }: { observedFortuneIds: number[]; observedWakppu: WakppuVariant[]; discoveredHiddenCardIds: HiddenCardId[]; records: RecordItem[]; searchOpen: boolean; search: string; onSearchOpen: () => void; onSearch: (value: string) => void; onOpen: (fortuneId: number) => void; onWakppu: () => void }) {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<CollectionStatus>("all");
+  const [hiddenArchiveOpen, setHiddenArchiveOpen] = useState(false);
+  const fortuneCatalogRef = useRef<HTMLDivElement>(null);
   const observedIds = new Set(observedFortuneIds);
   const catalog = [...fortunes].sort((left, right) => left.id - right.id);
   const filtered = catalog
@@ -457,31 +494,37 @@ function CollectionScreen({ observedFortuneIds, observedWakppu, discoveredHidden
   const evidenceProgress = evidenceReward.next ? Math.round(((evidenceRecords.length - evidenceReward.count) / (evidenceReward.next.count - evidenceReward.count)) * 100) : 100;
   return (
     <>
-      <Header title="별일 운세 도감" right={<button className="icon-button" onClick={() => { if (searchOpen) { setPage(1); onSearch(""); } onSearchOpen(); }} aria-label={searchOpen ? "도감 검색 닫기" : "도감 검색"}><Icon name="search" /></button>} />
+      <Header title="별일 보관소" right={<button className="icon-button" onClick={() => { if (searchOpen) { setPage(1); onSearch(""); } onSearchOpen(); }} aria-label={searchOpen ? "도감 검색 닫기" : "도감 검색"}><Icon name="search" /></button>} />
       <section className="screen-content collection-screen">
-        <BureauCode status={`${completion}% 복원`}>관측 자료 보관 구역 · ARCHIVE 01</BureauCode>
-        <button className="wakppu-archive-entry" onClick={onWakppu}>
-          <span className="wakppu-entry-orbs" aria-hidden="true"><WakppuOrb variant="moon" locked={!observedWakppu.includes("moon")}/><WakppuOrb variant="saturn" locked={!observedWakppu.includes("saturn")}/></span>
-          <span><small>미확인 천체 보관록</small><strong>왁뿌볼 천체도감</strong><em>{observedWakppu.length} / {wakppuCatalog.length} 관측</em></span>
-          <Icon name="chevron-right" />
-        </button>
-        <div className="collection-progress-card">
-          <span><small>별일 관측국 · 수집 기록</small><strong>관측한 운세는 본래의 빛을 되찾아요.</strong></span>
-          <b>{observedFortuneIds.length} / {catalog.length}</b>
-          <svg className="collection-constellation" viewBox="0 0 100 40" aria-hidden="true">
-            <polyline className="constellation-track" points={constellationPoints.map((point) => `${point.x},${point.y}`).join(" ")} pathLength="100" />
-            <polyline className="constellation-signal" points={constellationPoints.map((point) => `${point.x},${point.y}`).join(" ")} pathLength="100" style={{ strokeDashoffset: 100 - completion }} />
-            {constellationPoints.map((point) => <circle key={point.threshold} className={completion >= point.threshold ? "is-lit" : ""} cx={point.x} cy={point.y} r="1.7" />)}
-          </svg>
-          <i role="progressbar" aria-label="운세 도감 수집률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion}><em style={{ width: `${completion}%` }} /></i>
+        <BureauCode status="4개 도감 운영 중">관측 자료 보관 구역 · ARCHIVE 01</BureauCode>
+        <div className="collection-archive-grid" aria-label="도감 바로가기">
+          <button className="archive-hub-card archive-hub-fortune" onClick={() => fortuneCatalogRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            <span className="archive-hub-meta"><small>관측 카드</small><b>{observedFortuneIds.length} / {catalog.length}</b></span>
+            <strong>별일 운세 도감</strong>
+            <span className="archive-hub-symbol" aria-hidden="true">✦</span>
+            <i role="progressbar" aria-label="운세 도감 수집률" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion}><em style={{ width: `${completion}%` }} /></i>
+          </button>
+          <button className="archive-hub-card archive-hub-wakppu" onClick={onWakppu}>
+            <span className="archive-hub-meta"><small>미확인 천체</small><b>{observedWakppu.length} / {wakppuCatalog.length}</b></span>
+            <strong>왁뿌볼 천체도감</strong>
+            <span className="archive-hub-orbs" aria-hidden="true"><WakppuOrb variant="moon" locked={!observedWakppu.includes("moon")}/><WakppuOrb variant="saturn" locked={!observedWakppu.includes("saturn")}/></span>
+            <i><em style={{ width: `${Math.round((observedWakppu.length / wakppuCatalog.length) * 100)}%` }} /></i>
+          </button>
+          <button className={`archive-hub-card archive-hub-hidden ${hiddenArchiveOpen ? "is-open" : ""}`} onClick={() => setHiddenArchiveOpen((open) => !open)} aria-expanded={hiddenArchiveOpen} aria-controls="hidden-card-archive-detail">
+            <span className="archive-hub-meta"><small>비정규 신호</small><b>{discoveredHiddenCardIds.length} / {hiddenCards.length}</b></span>
+            <strong>히든 관측 카드</strong>
+            <span className="archive-hub-symbol" aria-hidden="true">?</span>
+            <i><em style={{ width: `${Math.round((discoveredHiddenCardIds.length / hiddenCards.length) * 100)}%` }} /></i>
+          </button>
+          <div className={`archive-hub-card archive-hub-evidence evidence-tier-${evidenceReward.tier}`}>
+            <span className="archive-hub-meta"><small>현장 증거</small><b>{evidenceRecords.length}장</b></span>
+            <strong>별가루 증거 도감</strong>
+            <span className="archive-hub-symbol" aria-hidden="true">✦</span>
+            <span className="archive-hub-caption">{evidenceReward.title}</span>
+            <i><em style={{ width: `${evidenceProgress}%` }} /></i>
+          </div>
         </div>
-        <div className={`evidence-progress-card evidence-tier-${evidenceReward.tier}`}>
-          <span className="evidence-progress-icon">✦</span>
-          <span><small>현장 증거 보상</small><strong>{evidenceReward.title}</strong><em>별가루 {evidenceRecords.length}개</em></span>
-          <b>{evidenceReward.next ? `${evidenceReward.next.title}까지 ${evidenceReward.next.count - evidenceRecords.length}장` : "최고 칭호 달성"}</b>
-          <i><em style={{ width: `${evidenceProgress}%` }} /></i>
-        </div>
-        <section className="hidden-card-archive" aria-labelledby="hidden-card-title">
+        {hiddenArchiveOpen && <section id="hidden-card-archive-detail" className="hidden-card-archive" aria-labelledby="hidden-card-title">
           <div className="hidden-card-head"><span><small>비정규 신호 보관함</small><strong id="hidden-card-title">히든 관측 카드</strong></span><b>{discoveredHiddenCardIds.length} / {hiddenCards.length}</b></div>
           <div className="hidden-card-grid">
             {hiddenCards.map((card) => {
@@ -489,7 +532,8 @@ function CollectionScreen({ observedFortuneIds, observedWakppu, discoveredHidden
               return <article key={card.id} className={discovered ? "is-discovered" : "is-locked"} aria-label={discovered ? `${card.title}, 발견 완료` : `${card.code}, 미발견`}><span aria-hidden="true">{discovered ? card.symbol : "?"}</span><small>{card.code} · {discovered ? card.label : "SIGNAL UNKNOWN"}</small><strong>{discovered ? card.title : "미확인 카드"}</strong><p>{discovered ? card.copy : "특별한 방식으로 왁뿌볼을 깨면 발견됩니다."}</p></article>;
             })}
           </div>
-        </section>
+        </section>}
+        <div ref={fortuneCatalogRef} className="collection-section-title"><span><small>관측 카드 보관록</small><strong>별일 운세 도감</strong></span><b>{observedFortuneIds.length} / {catalog.length}</b></div>
         {searchOpen && <label className="search-field"><Icon name="search"/><input value={search} onChange={(event) => { setPage(1); onSearch(event.target.value); }} placeholder="별일을 검색해보세요"/></label>}
         <div className="collection-status-row" role="group" aria-label="도감 수집 상태 필터">
           {([ ["all", "전체"], ["observed", "관측 완료"], ["locked", "미관측"] ] as const).map(([key, label]) => <button key={key} className={status === key ? "active" : ""} onClick={() => { setPage(1); setStatus(key); }}>{label}</button>)}
@@ -601,7 +645,7 @@ function GuideScreen({ onBack }: { onBack: () => void }) {
 
 function AboutScreen({ onGuide, onExamples, onReset, confirming }: { onGuide: () => void; onExamples: () => void; onReset: () => void; confirming: boolean }) {
   return (
-    <><Header title="별일 관측국은?"/><section className="screen-content about-screen"><BureauCode status="근무 중">관측요원 안내 · CREW FILE</BureauCode><div className="brand-lockup"><strong>별일</strong><i>✦</i><span>관측국</span></div><p className="about-lead">아무 일도 아닌 일을<br/>쓸데없이 관측하고, 보도하고, 시상합니다.</p><h2>이 앱은?</h2><p>오늘의 하찮은 예보를 분류하면 카드가 바로 보관소에 등록돼요. 사진 증거까지 남기면 별가루와 전용 칭호도 받습니다.</p><h2>관측 절차</h2><ol><li><b>1</b>미세한 우주 개입 예보 확인</li><li><b>2</b>실제로 일어났는지 관측</li><li><b>3</b>분류기에 넣어 도감 등록</li><li><b>4</b>사진과 메모로 증거 보강</li></ol><div className="about-actions"><button onClick={onGuide}>우주 개입 농도 안내<Icon name="chevron-right"/></button><button onClick={onExamples}>하찮은 수상작 보기<Icon name="chevron-right"/></button><button className={confirming ? "danger" : ""} onClick={onReset}>{confirming ? "한 번 더 누르면 기록이 삭제돼요" : "내 기록 초기화"}</button></div><div className="about-character"><SpeechBubble className="about-speech" tail="right">우주가 도운 건 3%.<br/>기록한 건 우리.</SpeechBubble><div className="crew-mascot"><Mascot/></div></div></section></>
+    <><Header title="별일 관측국은?"/><section className="screen-content about-screen"><BureauCode status="근무 중">관측요원 안내 · CREW FILE</BureauCode><div className="brand-lockup"><strong>별일</strong><i>✦</i><span>관측국</span></div><p className="about-lead">아무 일도 아닌 일을<br/>쓸데없이 관측하고, 보도하고, 시상합니다.</p><h2>이 앱은?</h2><p>오늘의 하찮은 예보를 분류하고 결정을 누르면 카드가 보관소에 등록돼요. 사진 증거까지 남기면 별가루와 전용 칭호도 받습니다.</p><h2>관측 절차</h2><ol><li><b>1</b>미세한 우주 개입 예보 확인</li><li><b>2</b>실제로 일어났는지 관측</li><li><b>3</b>분류 결정 후 도감 등록</li><li><b>4</b>사진과 메모로 증거 보강</li></ol><div className="about-actions"><button onClick={onGuide}>우주 개입 농도 안내<Icon name="chevron-right"/></button><button onClick={onExamples}>하찮은 수상작 보기<Icon name="chevron-right"/></button><button className={confirming ? "danger" : ""} onClick={onReset}>{confirming ? "한 번 더 누르면 기록이 삭제돼요" : "내 기록 초기화"}</button></div><div className="about-character"><SpeechBubble className="about-speech" tail="right">우주가 도운 건 3%.<br/>기록한 건 우리.</SpeechBubble><div className="crew-mascot"><Mascot/></div></div></section></>
   );
 }
 
@@ -626,6 +670,7 @@ export default function Home() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [currentRecordId, setCurrentRecordId] = useState<string | null>(null);
+  const [wakppuCycle, setWakppuCycle] = useState(0);
   const fortune = fortunes[fortuneIndex];
 
   useEffect(() => {
@@ -665,7 +710,10 @@ export default function Home() {
   const currentRecord = currentRecordId ? records.find((record) => record.id === currentRecordId) : undefined;
   const observedVisibleWakppuCount = observedWakppu.filter((variant) => variant !== "blackHole").length;
   const blackHoleUnlocked = observedVisibleWakppuCount >= blackHoleUnlockCount;
-  const currentWakppuVariant = wakppuVariantFor(fortune.id, blackHoleUnlocked);
+  const baseWakppuVariant = wakppuVariantFor(fortune.id, blackHoleUnlocked);
+  const availableWakppuVariants = wakppuCatalog.map((item) => item.id).filter((variant) => variant !== "blackHole" || blackHoleUnlocked);
+  const baseWakppuIndex = Math.max(0, availableWakppuVariants.indexOf(baseWakppuVariant));
+  const currentWakppuVariant = availableWakppuVariants[(baseWakppuIndex + wakppuCycle) % availableWakppuVariants.length];
 
   function persist(next: RecordItem[], photoFallback?: RecordItem[]) {
     const result = saveRecords(next, photoFallback);
@@ -695,6 +743,40 @@ export default function Home() {
     const record = records.find((item) => item.fortuneId === fortuneId);
     if (record) { openCard(record); return; }
     setToast("도감 등록 완료 · 관측 기록은 아직 없어요");
+  }
+
+  function confirmClassification() {
+    if (!outcome) {
+      setToast("먼저 카드를 분류해주세요");
+      return;
+    }
+    const existing = currentRecordId ? records.find((record) => record.id === currentRecordId) : undefined;
+    const created = new Date();
+    const record: RecordItem = existing
+      ? { ...existing, outcome }
+      : {
+          id: `${created.getTime()}-${fortune.id}`,
+          date: localDateKey(created),
+          time: localTimeLabel(created),
+          fortuneId: fortune.id,
+          title: fortune.cardTitle,
+          outcome,
+          category: fortune.category,
+          note: "",
+        };
+    const next = existing
+      ? records.map((item) => item.id === existing.id ? record : item)
+      : [record, ...records];
+    const persisted = persist(next);
+    if (!persisted.saved) return;
+    const savedRecord = persisted.records.find((item) => item.id === record.id) ?? record;
+    setCurrentRecordId(savedRecord.id);
+    setTab("collection");
+    setActiveRecord(savedRecord);
+    setView("card");
+    setConfirmDelete(false);
+    setToast(existing ? "재분류 완료 · 도감에 반영했어요" : "분류 결정 · 도감과 관측일지에 등록했어요");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function openEvidence(record: RecordItem) {
@@ -736,42 +818,26 @@ export default function Home() {
     });
   }
 
-  function classifyFortune(nextOutcome: Outcome) {
-    const existingId = currentRecordId;
-    const existing = existingId ? records.find((record) => record.id === existingId) : undefined;
-
-    if (existing) {
-      const persisted = persist(records.map((record) => record.id === existing.id ? { ...record, outcome: nextOutcome } : record));
-      if (!persisted.saved) return false;
-      setOutcome(nextOutcome);
-      setToast("관측 결과를 다시 분류했어요");
-      return true;
-    }
-
-    const created = new Date();
-    const record: RecordItem = {
-      id: `${created.getTime()}-${fortune.id}`,
-      date: localDateKey(created),
-      time: localTimeLabel(created),
-      fortuneId: fortune.id,
-      title: fortune.cardTitle,
-      outcome: nextOutcome,
-      category: fortune.category,
-      note: "",
-    };
-    const persisted = persist([record, ...records]);
-    if (!persisted.saved) return false;
+  function selectFortuneOutcome(nextOutcome: Outcome) {
     setOutcome(nextOutcome);
-    setCurrentRecordId(record.id);
-    setToast("분류 완료 · 도감과 관측일지에 등록했어요");
+    setToast("분류함 선택 완료 · 결정 버튼을 눌러주세요");
     return true;
   }
 
-  function cycleFortune() {
+  function cycleWakppu() {
+    setWakppuCycle((cycle) => cycle + 1);
+    setFortuneRevealed(false);
+    setOutcome(null);
+    setNote("");
+    setPhoto(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function drawNewFortune() {
     const nextIndex = (fortuneIndex + 1) % fortunes.length;
     const nextFortune = fortunes[nextIndex];
     const todayRecord = records.find((record) => record.date === localDateKey() && record.fortuneId === nextFortune.id);
-    setCurrentRecordId(todayRecord?.id ?? null); setFortuneIndex(nextIndex); setFortuneRevealed(false); setOutcome(null); setCategory(nextFortune.category); setNote(""); setPhoto(null);
+    setCurrentRecordId(todayRecord?.id ?? null); setFortuneIndex(nextIndex); setWakppuCycle(0); setFortuneRevealed(false); setOutcome(null); setCategory(nextFortune.category); setNote(""); setPhoto(null); setTab("today"); setView("main"); setActiveRecord(null); setConfirmDelete(false); window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function selectPhoto(file: File) {
@@ -839,7 +905,7 @@ export default function Home() {
         {view === "examples" && <ExamplesScreen onBack={backToMain} />}
         {view === "guide" && <GuideScreen onBack={backToMain} />}
         {view === "wakppu" && <WakppuCatalogScreen observed={observedWakppu} onBack={backToMain} />}
-        {mainVisible && tab === "today" && <TodayScreen fortuneIndex={fortuneIndex} wakppuVariant={currentWakppuVariant} revealed={fortuneRevealed} outcome={outcome} onOutcome={classifyFortune} onCycle={cycleFortune} onHiddenCardDiscover={discoverHiddenCard} onReveal={() => { setFortuneRevealed(true); observeWakppu(currentWakppuVariant); }} onCapture={() => currentRecord ? openEvidence(currentRecord) : setToast("먼저 카드를 분류해주세요")} onAbout={() => moveTab("about")} />}
+        {mainVisible && tab === "today" && <TodayScreen fortuneIndex={fortuneIndex} wakppuVariant={currentWakppuVariant} revealed={fortuneRevealed} outcome={outcome} onOutcome={selectFortuneOutcome} onCycleWakppu={cycleWakppu} onNewFortune={drawNewFortune} onHiddenCardDiscover={discoverHiddenCard} onReveal={() => { setFortuneRevealed(true); observeWakppu(currentWakppuVariant); }} onConfirm={confirmClassification} classificationConfirmed={Boolean(currentRecord && outcome === currentRecord.outcome)} onCapture={() => currentRecord ? openEvidence(currentRecord) : setToast("먼저 분류를 결정해주세요")} onAbout={() => moveTab("about")} />}
         {mainVisible && tab === "collection" && <CollectionScreen observedFortuneIds={observedFortuneIds} observedWakppu={observedWakppu} discoveredHiddenCardIds={discoveredHiddenCardIds} records={records} searchOpen={searchOpen} search={search} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCollectedFortune} onWakppu={() => { setView("wakppu"); window.scrollTo({ top: 0, behavior: "smooth" }); }} />}
         {mainVisible && tab === "records" && <RecordsScreen records={records} selectedMonth={selectedMonth} onMonth={setSelectedMonth} onReport={() => setView("report")} onOpen={openCard} />}
         {mainVisible && tab === "about" && <AboutScreen onGuide={() => setView("guide")} onExamples={() => setView("examples")} onReset={resetRecords} confirming={confirmReset} />}
