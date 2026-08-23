@@ -27,7 +27,7 @@ test("server-renders the Byeolil Today screen", async () => {
   assert.match(html, /다른 왁뿌볼 불러오기/);
   assert.match(html, /운세 다시 뽑기/);
   assert.match(html, /분류 결정/);
-  assert.match(html, /운세 관측 방법 보기/);
+  assert.match(html, />사용법</);
   assert.match(html, /현장 증거 더하기/);
   assert.match(html, /예보를 꺼내면 관측할 수 있어요/);
   assert.match(html, />보관소</);

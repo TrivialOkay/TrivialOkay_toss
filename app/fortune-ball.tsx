@@ -183,6 +183,7 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
   const [specialCardId, setSpecialCardId] = useState<HiddenCardId | null>(null);
   const [filingOutcome, setFilingOutcome] = useState<Outcome | null>(null);
   const [cardFiled, setCardFiled] = useState(false);
+  const [cardRecalling, setCardRecalling] = useState(false);
   const announced = useRef(false);
   const feedbackPlayed = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -363,15 +364,21 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     if (!recallVersion || handledRecallRef.current === recallVersion) return;
     if (!cardFiled) return;
     handledRecallRef.current = recallVersion;
+    let timer = 0;
     const frame = window.requestAnimationFrame(() => {
       recalledOutcomeRef.current = outcome;
-      slipX.set(0);
-      slipY.set(0);
+      setCardRecalling(true);
       setCardFiled(false);
       navigator.vibrate?.(10);
+      animate(slipX, 0, reduceMotion ? { duration: 0.15 } : { duration: 0.48, ease: [0.22, 0.72, 0.2, 1] });
+      animate(slipY, 0, reduceMotion ? { duration: 0.15 } : { duration: 0.48, ease: [0.22, 0.72, 0.2, 1] });
+      timer = window.setTimeout(() => setCardRecalling(false), reduceMotion ? 180 : 520);
     });
-    return () => window.cancelAnimationFrame(frame);
-  }, [cardFiled, outcome, recallVersion, slipX, slipY]);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [cardFiled, outcome, recallVersion, reduceMotion, slipX, slipY]);
 
   function returnSlip() {
     const options = reduceMotion
@@ -428,9 +435,9 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
         {cardRevealed && !cardFiled && (
           <motion.div
             ref={cardRef}
-            className="observed-card-drag"
+            className={`observed-card-drag ${cardRecalling ? "is-recalling" : ""}`}
             style={{ x: slipX, y: slipY }}
-            initial={{ opacity: 0 }}
+            initial={cardRecalling ? { opacity: 0.25, scale: 0.18 } : { opacity: 0 }}
             animate={{ opacity: filingOutcome ? 0 : 1, scale: filingOutcome ? 0.18 : 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: reduceMotion ? 0.15 : filingOutcome ? 0.34 : 0.22, ease: "easeInOut" }}
@@ -458,7 +465,7 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
           >
             <motion.div
               className={`observed-fortune-card ${specialCard ? `is-special special-${specialCard.id}` : ""}`}
-              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.12, scaleY: 0.08, rotate: -9 }}
+              initial={cardRecalling ? { opacity: 1, scaleX: 1, scaleY: 1, rotate: 0 } : reduceMotion ? { opacity: 0 } : { opacity: 0, scaleX: 0.12, scaleY: 0.08, rotate: -9 }}
               animate={{ opacity: 1, scaleX: 1, scaleY: 1, rotate: 0 }}
               transition={reduceMotion
                 ? { duration: 0.15 }
