@@ -457,14 +457,15 @@ function WakppuOrb({ variant, locked = false }: { variant: WakppuVariant; locked
   return <span className={`wakppu-orb wakppu-orb-${variant} ${locked ? "is-locked" : ""}`} aria-hidden="true"><i/><b/><em/></span>;
 }
 
-function WakppuCatalogScreen({ observed, onBack }: { observed: WakppuVariant[]; onBack: () => void }) {
+function WakppuCatalogScreen({ observed, hiddenCommandCount, onBack }: { observed: WakppuVariant[]; hiddenCommandCount: number; onBack: () => void }) {
   const [status, setStatus] = useState<CollectionStatus>("all");
   const observedSet = new Set(observed);
   const visibleCatalog = wakppuCatalog.filter((item) => status === "all" || (status === "observed" ? observedSet.has(item.id) : !observedSet.has(item.id)));
   const completion = Math.round((observed.length / wakppuCatalog.length) * 100);
   const heroVariant: WakppuVariant = observed.includes("saturn") ? "saturn" : observed[0] ?? "moon";
-  const visibleObservedCount = observed.filter((variant) => variant !== "blackHole").length;
+  const visibleObservedCount = observed.filter((variant) => variant !== "blackHole" && variant !== "cloudMascot").length;
   const blackHoleUnlocked = visibleObservedCount >= blackHoleUnlockCount;
+  const cloudMascotUnlocked = hiddenCommandCount >= hiddenCards.length;
   return (
     <>
       <Header title="왁뿌볼 천체도감" onBack={onBack} />
@@ -477,18 +478,25 @@ function WakppuCatalogScreen({ observed, onBack }: { observed: WakppuVariant[]; 
         </div>
         <p className="wakppu-catalog-intro">왁뿌볼을 깨고 안쪽 신호까지 확인하면 천체도감에 등록돼요.</p>
         <div className={`black-hole-unlock ${blackHoleUnlocked ? "is-unlocked" : ""}`}><span>{blackHoleUnlocked ? "✦" : "?"}</span><span><small>히든 천체 신호</small><strong>{blackHoleUnlocked ? "중력 특이점 출현 조건 해제" : `천체 ${blackHoleUnlockCount}종을 관측하면 신호가 열려요`}</strong></span><b>{Math.min(visibleObservedCount, blackHoleUnlockCount)} / {blackHoleUnlockCount}</b><i><em style={{ width: `${Math.min(100, (visibleObservedCount / blackHoleUnlockCount) * 100)}%` }} /></i></div>
+        <div className={`black-hole-unlock ${cloudMascotUnlocked ? "is-unlocked" : ""}`}><span>{cloudMascotUnlocked ? "☁" : "?"}</span><span><small>최심부 히든 신호</small><strong>{cloudMascotUnlocked ? "구름이 의태 신호 출현 조건 해제" : "히든 상호작용 카드를 모두 발견하면 열려요"}</strong></span><b>{Math.min(hiddenCommandCount, hiddenCards.length)} / {hiddenCards.length}</b><i><em style={{ width: `${Math.min(100, (hiddenCommandCount / hiddenCards.length) * 100)}%` }} /></i></div>
         <div className="collection-status-row" role="group" aria-label="왁뿌볼 관측 상태 필터">
           {([ ["all", "전체"], ["observed", "관측 완료"], ["locked", "미관측"] ] as const).map(([key, label]) => <button key={key} className={status === key ? "active" : ""} onClick={() => setStatus(key)}>{label}</button>)}
         </div>
         <div className="wakppu-catalog-grid">
           {visibleCatalog.map((item) => {
             const isObserved = observedSet.has(item.id);
-            const isHidden = item.id === "blackHole" && !blackHoleUnlocked && !isObserved;
-            const isEligible = item.id === "blackHole" && blackHoleUnlocked && !isObserved;
+            const isBlackHole = item.id === "blackHole";
+            const isCloudMascot = item.id === "cloudMascot";
+            const specialUnlocked = (isBlackHole && blackHoleUnlocked) || (isCloudMascot && cloudMascotUnlocked);
+            const isHidden = (isBlackHole || isCloudMascot) && !specialUnlocked && !isObserved;
+            const isEligible = (isBlackHole || isCloudMascot) && specialUnlocked && !isObserved;
+            const hiddenRequirement = isCloudMascot
+              ? `히든 상호작용 카드 ${hiddenCards.length}종 발견 시 정체가 드러납니다. 현재 ${hiddenCommandCount}종.`
+              : `천체 ${blackHoleUnlockCount}종 관측 시 정체가 드러납니다. 현재 ${visibleObservedCount}종.`;
             return <article key={item.id} className={`${isObserved ? "is-observed" : "is-locked"} ${isHidden ? "is-hidden" : ""} ${isEligible ? "is-eligible" : ""}`} aria-label={isObserved ? `${item.name}, 관측 완료` : isHidden ? "히든 천체, 출현 조건 미달성" : `${item.code}, 미관측`}>
               <div className="wakppu-catalog-card-head"><small>{isHidden ? "WAK-??" : item.code}</small><span>{isObserved ? item.rarity : isHidden ? "HIDDEN" : isEligible ? "SIGNAL OPEN" : "SIGNAL LOST"}</span></div>
               <WakppuOrb variant={isHidden ? "moon" : item.id} locked={!isObserved}/>
-              <div className="wakppu-catalog-copy"><small>{isObserved ? item.label : isHidden ? "특수 관측 조건" : isEligible ? item.label : "미확인 천체"}</small><strong>{isObserved ? item.name : isHidden ? "???" : isEligible ? "블랙홀 신호 해제" : "신호 미수신"}</strong><p>{isObserved ? item.copy : isHidden ? `천체 ${blackHoleUnlockCount}종 관측 시 정체가 드러납니다. 현재 ${visibleObservedCount}종.` : isEligible ? "이제 블랙홀 왁뿌볼이 출현할 수 있습니다." : "이 형태의 왁뿌볼을 깨면 관측 정보가 복원됩니다."}</p></div>
+              <div className="wakppu-catalog-copy"><small>{isObserved ? item.label : isHidden ? "특수 관측 조건" : isEligible ? item.label : "미확인 천체"}</small><strong>{isObserved ? item.name : isHidden ? "???" : isEligible ? `${isCloudMascot ? "구름이" : "블랙홀"} 신호 해제` : "신호 미수신"}</strong><p>{isObserved ? item.copy : isHidden ? hiddenRequirement : isEligible ? `이제 ${isCloudMascot ? "구름이" : "블랙홀"} 왁뿌볼이 출현할 수 있습니다.` : "이 형태의 왁뿌볼을 깨면 관측 정보가 복원됩니다."}</p></div>
             </article>;
           })}
           {!visibleCatalog.length && <div className="empty-state compact"><Mascot/><strong>조건에 맞는 천체가 없어요.</strong></div>}
@@ -1005,17 +1013,21 @@ export default function Home() {
     const timer = window.setTimeout(() => {
       const loadedRecords = loadRecords();
       setRecords(loadedRecords);
-      setDiscoveredHiddenCardIds(loadHiddenCards());
+      const loadedHiddenCardIds = loadHiddenCards();
+      setDiscoveredHiddenCardIds(loadedHiddenCardIds);
       const storedWakppu = loadObservedWakppu();
       const visibleWakppu = [...new Set([
-        ...storedWakppu.filter((variant) => variant !== "blackHole"),
-        ...loadedRecords.map((record) => wakppuVariantFor(record.fortuneId, false)),
+        ...storedWakppu.filter((variant) => variant !== "blackHole" && variant !== "cloudMascot"),
+        ...loadedRecords.map((record) => wakppuVariantFor(record.fortuneId, false, false)),
       ])];
       const blackHoleUnlocked = visibleWakppu.length >= blackHoleUnlockCount;
+      const cloudMascotUnlocked = loadedHiddenCardIds.length >= hiddenCards.length;
       const migratedWakppu = [...new Set([
         ...visibleWakppu,
         ...(blackHoleUnlocked ? storedWakppu.filter((variant) => variant === "blackHole") : []),
-        ...(blackHoleUnlocked ? loadedRecords.map((record) => wakppuVariantFor(record.fortuneId, true)).filter((variant) => variant === "blackHole") : []),
+        ...(blackHoleUnlocked ? loadedRecords.map((record) => wakppuVariantFor(record.fortuneId, true, cloudMascotUnlocked)).filter((variant) => variant === "blackHole") : []),
+        ...(cloudMascotUnlocked ? storedWakppu.filter((variant) => variant === "cloudMascot") : []),
+        ...(cloudMascotUnlocked ? loadedRecords.map((record) => wakppuVariantFor(record.fortuneId, blackHoleUnlocked, true)).filter((variant) => variant === "cloudMascot") : []),
       ])];
       setObservedWakppu(migratedWakppu);
       saveObservedWakppu(migratedWakppu);
@@ -1036,10 +1048,11 @@ export default function Home() {
   const observedFortuneIds = useMemo(() => [...new Set(records.map((record) => record.fortuneId))], [records]);
   const evidenceCount = records.filter((record) => record.photoDataUrl).length;
   const currentRecord = currentRecordId ? records.find((record) => record.id === currentRecordId) : undefined;
-  const observedVisibleWakppuCount = observedWakppu.filter((variant) => variant !== "blackHole").length;
+  const observedVisibleWakppuCount = observedWakppu.filter((variant) => variant !== "blackHole" && variant !== "cloudMascot").length;
   const blackHoleUnlocked = observedVisibleWakppuCount >= blackHoleUnlockCount;
-  const baseWakppuVariant = wakppuVariantFor(fortune.id, blackHoleUnlocked);
-  const availableWakppuVariants = wakppuCatalog.map((item) => item.id).filter((variant) => variant !== "blackHole" || blackHoleUnlocked);
+  const cloudMascotUnlocked = discoveredHiddenCardIds.length >= hiddenCards.length;
+  const baseWakppuVariant = wakppuVariantFor(fortune.id, blackHoleUnlocked, cloudMascotUnlocked);
+  const availableWakppuVariants = wakppuCatalog.map((item) => item.id).filter((variant) => (variant !== "blackHole" || blackHoleUnlocked) && (variant !== "cloudMascot" || cloudMascotUnlocked));
   const baseWakppuIndex = Math.max(0, availableWakppuVariants.indexOf(baseWakppuVariant));
   const currentWakppuVariant = availableWakppuVariants[(baseWakppuIndex + wakppuCycle) % availableWakppuVariants.length];
 
@@ -1163,7 +1176,8 @@ export default function Home() {
   function observeWakppu(variant: WakppuVariant) {
     setObservedWakppu((current) => {
       if (current.includes(variant)) return current;
-      if (variant === "blackHole" && current.filter((item) => item !== "blackHole").length < blackHoleUnlockCount) return current;
+      if (variant === "blackHole" && current.filter((item) => item !== "blackHole" && item !== "cloudMascot").length < blackHoleUnlockCount) return current;
+      if (variant === "cloudMascot" && discoveredHiddenCardIds.length < hiddenCards.length) return current;
       const next = [...current, variant];
       if (!saveObservedWakppu(next)) {
         setToast("천체 관측 상태를 저장하지 못했어요");
@@ -1262,7 +1276,7 @@ export default function Home() {
         {view === "examples" && <ExamplesScreen onBack={goBack} />}
         {view === "guide" && <GuideScreen onBack={goBack} />}
         {view === "settings" && <SettingsScreen records={records} onBack={goBack} onGuide={() => navigate({ view: "guide", activeRecordId: null })} onReset={resetRecords} confirming={confirmReset} />}
-        {view === "wakppu" && <WakppuCatalogScreen observed={observedWakppu} onBack={goBack} />}
+        {view === "wakppu" && <WakppuCatalogScreen observed={observedWakppu} hiddenCommandCount={discoveredHiddenCardIds.length} onBack={goBack} />}
         {mainVisible && tab === "today" && <TodayScreen key={`${fortuneIndex}-${currentWakppuVariant}`} fortuneIndex={fortuneIndex} wakppuVariant={currentWakppuVariant} revealed={fortuneRevealed} outcome={outcome} hiddenCardId={currentHiddenCardId} onOutcome={selectFortuneOutcome} onRecall={() => setOutcome(null)} onCycleWakppu={cycleWakppu} onNewFortune={drawNewFortune} onHiddenCardDiscover={encounterHiddenCard} onReveal={() => { setFortuneRevealed(true); observeWakppu(currentWakppuVariant); }} onConfirm={confirmClassification} classificationConfirmed={!currentHiddenCardId && Boolean(currentRecord && outcome === currentRecord.outcome)} onCapture={() => currentHiddenCardId ? setToast("히든 카드는 분류 결정 후 비밀 보관함에서 확인해주세요") : currentRecord ? openEvidence(currentRecord) : setToast("먼저 분류를 결정해주세요")} onAbout={() => moveTab("about")} />}
         {mainVisible && tab === "collection" && <CollectionScreen observedFortuneIds={observedFortuneIds} observedWakppu={observedWakppu} discoveredHiddenCardIds={discoveredHiddenCardIds} records={records} searchOpen={searchOpen} search={search} archiveView={archiveView} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCollectedFortune} onWakppu={() => navigate({ view: "wakppu", activeRecordId: null })} onArchive={(nextArchive) => navigate({ tab: "collection", view: "main", archiveView: nextArchive, activeRecordId: null })} onBack={goBack} />}
         {mainVisible && tab === "records" && <RecordsScreen records={records} selectedMonth={selectedMonth} onMonth={setSelectedMonth} onReport={() => navigate({ view: "report", activeRecordId: null })} onOpen={openCard} />}

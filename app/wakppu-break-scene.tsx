@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import {
   alignOuterShellPattern,
   createOuterShell,
@@ -137,6 +138,7 @@ type SceneRuntime = {
   chargeMaterials: [THREE.MeshBasicMaterial, THREE.MeshBasicMaterial];
   chargeReady: boolean;
   chargedBreak: boolean;
+  hiddenEffectId: HiddenCardId | null;
   fragmentPhase: FragmentPhase;
   fragmentFallStartedAt: number;
   fragmentMotions: FloatingFragmentMotion[];
@@ -159,6 +161,14 @@ const ROCKET_HOME_Z = 2.55;
 const ROCKET_SCALE = 1.12;
 const FRAGMENT_SPREAD_DURATION = 1450;
 const ROCKET_REVEAL_DELAY = 520;
+const HIDDEN_REVEAL_DELAYS: Record<HiddenCardId, number> = {
+  "swift-slice": 920,
+  "stellar-overcharge": 1850,
+  "quantum-entanglement": 1320,
+  "abracada-crack": 1250,
+  "mirror-dimension": 1800,
+  "gravity-reversal": 1480,
+};
 const ROCKET_SEQUENCE_DURATION = 1650;
 const LONG_PRESS_CHARGE_MS = 1200;
 const LONG_PRESS_VISIBLE_MS = 360;
@@ -173,7 +183,7 @@ const CAMERA_STAGE_POSITIONS = [
 ];
 
 export function wakppuBreakThresholdFor(variant: WakppuVariant) {
-  return variant === "blackHole" ? 8 : 5;
+  return variant === "blackHole" ? 8 : variant === "cloudMascot" ? 6 : 5;
 }
 
 const variantMotionStyles: Record<WakppuVariant, FragmentMotionStyle> = {
@@ -185,7 +195,13 @@ const variantMotionStyles: Record<WakppuVariant, FragmentMotionStyle> = {
   jupiter: "shear",
   moon: "chunk",
   saturn: "orbit",
+  volcano: "flare",
+  tomato: "stretch",
+  ice: "chunk",
+  cheese: "crumble",
+  animal: "stretch",
   blackHole: "collapse",
+  cloudMascot: "orbit",
 };
 
 const variantBreakResponses: Record<WakppuVariant, { deformation: number; squash: number; pressure: number }> = {
@@ -197,7 +213,13 @@ const variantBreakResponses: Record<WakppuVariant, { deformation: number; squash
   jupiter: { deformation: 0.58, squash: 0.48, pressure: 1.24 },
   moon: { deformation: 0.36, squash: 0.22, pressure: 1.45 },
   saturn: { deformation: 0.54, squash: 0.42, pressure: 1.3 },
+  volcano: { deformation: 0.42, squash: 0.3, pressure: 1.42 },
+  tomato: { deformation: 1.38, squash: 1.45, pressure: 0.82 },
+  ice: { deformation: 0.27, squash: 0.16, pressure: 1.58 },
+  cheese: { deformation: 0.82, squash: 0.7, pressure: 1.1 },
+  animal: { deformation: 1.12, squash: 1.2, pressure: 0.9 },
   blackHole: { deformation: 0.3, squash: 0.18, pressure: 1.5 },
+  cloudMascot: { deformation: 1.8, squash: 1.65, pressure: 0.68 },
 };
 
 const variantChargeColors: Record<WakppuVariant, [number, number]> = {
@@ -209,7 +231,31 @@ const variantChargeColors: Record<WakppuVariant, [number, number]> = {
   jupiter: [0xffe0ad, 0xcf865c],
   moon: [0xf4f4df, 0x9da9bf],
   saturn: [0xffe5ac, 0xc38c4b],
+  volcano: [0xffc14b, 0xff421f],
+  tomato: [0xff9a76, 0x5eb64c],
+  ice: [0xe9fdff, 0x62d8ff],
+  cheese: [0xfff19a, 0xe59a26],
+  animal: [0xffd6a4, 0xb96f51],
   blackHole: [0xfff9dc, 0xd7af63],
+  cloudMascot: [0xffffff, 0xbda7e6],
+};
+
+const variantMascotStyles: Record<WakppuVariant, { tint: number; glow: number; scaleX: number; scaleY: number }> = {
+  chewyCookie: { tint: 0xffe2cb, glow: 0x8e5136, scaleX: 1.04, scaleY: 0.96 },
+  butterBar: { tint: 0xffefad, glow: 0xe6ae3f, scaleX: 1.08, scaleY: 0.9 },
+  sun: { tint: 0xffcf79, glow: 0xff6b20, scaleX: 0.96, scaleY: 1.04 },
+  earth: { tint: 0xbdebd8, glow: 0x44b9da, scaleX: 1, scaleY: 1 },
+  mars: { tint: 0xffc0a1, glow: 0xd85335, scaleX: 0.98, scaleY: 1.02 },
+  jupiter: { tint: 0xffdfbd, glow: 0xc98358, scaleX: 1.08, scaleY: 0.95 },
+  moon: { tint: 0xe4e7ef, glow: 0x929bab, scaleX: 0.95, scaleY: 1.03 },
+  saturn: { tint: 0xffe1a8, glow: 0xd1a35d, scaleX: 1.02, scaleY: 0.98 },
+  volcano: { tint: 0xffb08a, glow: 0xff4b20, scaleX: 0.94, scaleY: 1.06 },
+  tomato: { tint: 0xffb3a0, glow: 0xe64432, scaleX: 1.08, scaleY: 0.94 },
+  ice: { tint: 0xdaf9ff, glow: 0x75ddff, scaleX: 0.92, scaleY: 1.08 },
+  cheese: { tint: 0xffe88d, glow: 0xf1ad32, scaleX: 1.05, scaleY: 0.95 },
+  animal: { tint: 0xf0c29d, glow: 0xb97553, scaleX: 1.06, scaleY: 0.98 },
+  blackHole: { tint: 0xcab9e6, glow: 0x7b55a7, scaleX: 0.9, scaleY: 1.08 },
+  cloudMascot: { tint: 0xffffff, glow: 0xcab5ee, scaleX: 1.14, scaleY: 0.9 },
 };
 
 function clamp(value: number, min = 0, max = 1) {
@@ -596,7 +642,13 @@ function createWakppuTexture(variant: WakppuVariant) {
     jupiter: ["#d79a61", "#f0d1a0", "#9f6548"],
     moon: ["#777b82", "#c8c9c4", "#555a62"],
     saturn: ["#c28d4d", "#ead4a1", "#8e6638"],
+    volcano: ["#211216", "#6d2b22", "#140b10"],
+    tomato: ["#9e201c", "#ed4c35", "#6d1718"],
+    ice: ["#4f75c5", "#a5eaff", "#31569f"],
+    cheese: ["#d88921", "#ffd85d", "#b26b1d"],
+    animal: ["#754633", "#d99b6d", "#573326"],
     blackHole: ["#010204", "#11151a", "#030405"],
+    cloudMascot: ["#b6a5d4", "#f5f1fb", "#8b76b0"],
   };
   const [start, middle, end] = palette[variant];
   const base = context.createLinearGradient(0, canvas.height, canvas.width, 0);
@@ -679,6 +731,67 @@ function createWakppuTexture(variant: WakppuVariant) {
       context.beginPath();
       context.arc(x, y, radius, 0, Math.PI * 2);
       context.fill();
+    }
+  } else if (variant === "volcano") {
+    context.lineCap = "round";
+    for (let index = 0; index < 19; index += 1) {
+      const x = index * 67 - 85;
+      const y = 30 + (index % 5) * 112;
+      context.strokeStyle = index % 3 === 0 ? "#ffd14b" : "#ff4c20";
+      context.lineWidth = 5 + index % 4 * 2;
+      context.beginPath();
+      context.moveTo(x, y);
+      context.lineTo(x + 26, y + 41);
+      context.lineTo(x + 4, y + 78);
+      context.lineTo(x + 48, y + 112);
+      context.stroke();
+    }
+  } else if (variant === "tomato") {
+    context.fillStyle = "rgba(255,196,154,.26)";
+    for (let index = 0; index < 30; index += 1) {
+      context.beginPath();
+      context.ellipse((index * 89) % canvas.width, 40 + (index * 71) % 420, 15, 4, index * 0.3, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (variant === "ice") {
+    context.strokeStyle = "rgba(238,253,255,.75)";
+    context.lineWidth = 5;
+    for (let index = 0; index < 18; index += 1) {
+      const x = (index * 137) % canvas.width;
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo((x + 130) % canvas.width, 180 + index % 3 * 70);
+      context.lineTo((x + 45) % canvas.width, canvas.height);
+      context.stroke();
+    }
+  } else if (variant === "cheese") {
+    for (let index = 0; index < 32; index += 1) {
+      const x = (index * 157) % canvas.width;
+      const y = 30 + (index * 83) % 450;
+      const radius = 8 + index % 5 * 5;
+      const hole = context.createRadialGradient(x - radius * 0.2, y - radius * 0.2, 1, x, y, radius);
+      hole.addColorStop(0, "#9b5919");
+      hole.addColorStop(0.72, "#c57b20");
+      hole.addColorStop(1, "rgba(255,224,105,.18)");
+      context.fillStyle = hole;
+      context.beginPath();
+      context.arc(x, y, radius, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (variant === "animal") {
+    context.fillStyle = "rgba(91,52,39,.22)";
+    for (let index = 0; index < 46; index += 1) {
+      context.beginPath();
+      context.arc((index * 113) % canvas.width, 20 + (index * 67) % 470, 2 + index % 4, 0, Math.PI * 2);
+      context.fill();
+    }
+  } else if (variant === "cloudMascot") {
+    context.strokeStyle = "rgba(255,255,255,.46)";
+    context.lineWidth = 8;
+    for (let index = 0; index < 12; index += 1) {
+      context.beginPath();
+      context.arc((index * 173) % canvas.width, 50 + (index * 79) % 410, 28 + index % 4 * 9, 0.2, Math.PI * 1.48);
+      context.stroke();
     }
   } else {
     const glow = context.createRadialGradient(512, 256, 22, 512, 256, 480);
@@ -876,7 +989,13 @@ export function WakppuBreakScene({
       jupiter: { scale: [1.08, 0.96, 1], fragment: 0xc78c61, edge: 0xf0d4ad, roughness: 0.4 },
       moon: { scale: [0.94, 0.94, 0.94], fragment: 0x96999e, edge: 0xd6d6d0, roughness: 0.72 },
       saturn: { scale: [1.02, 0.95, 1], fragment: 0xc79558, edge: 0xf0d9a8, roughness: 0.46 },
+      volcano: { scale: [1.02, 1.02, 1.02], fragment: 0x4f1c18, edge: 0xff6528, roughness: 0.72 },
+      tomato: { scale: [1.02, 0.95, 1], fragment: 0xd93d2d, edge: 0xffb17c, roughness: 0.38 },
+      ice: { scale: [0.98, 1.04, 0.98], fragment: 0x82dbf5, edge: 0xe8fdff, roughness: 0.08 },
+      cheese: { scale: [1.04, 0.94, 1], fragment: 0xeeb440, edge: 0xffee9b, roughness: 0.55 },
+      animal: { scale: [1.02, 0.92, 1], fragment: 0xb87450, edge: 0xf4c498, roughness: 0.6 },
       blackHole: { scale: [0.9, 0.9, 0.9], fragment: 0x080b0d, edge: 0xffdf9f, roughness: 0.14 },
+      cloudMascot: { scale: [1.05, 0.9, 0.98], fragment: 0xe7def3, edge: 0xffffff, roughness: 0.44 },
     };
     const style = variantStyle[variant];
     const shellBaseScale = new THREE.Vector3(...style.scale);
@@ -886,13 +1005,13 @@ export function WakppuBreakScene({
       map: wakppuTexture,
       roughness: style.roughness,
       metalness: 0,
-      clearcoat: variant === "chewyCookie" || variant === "butterBar" ? 0.38 : 0.76,
-      clearcoatRoughness: variant === "chewyCookie" || variant === "butterBar" ? 0.32 : 0.19,
+      clearcoat: variant === "chewyCookie" || variant === "butterBar" || variant === "cheese" || variant === "animal" ? 0.38 : 0.76,
+      clearcoatRoughness: variant === "chewyCookie" || variant === "butterBar" || variant === "cheese" || variant === "animal" ? 0.32 : 0.19,
       iridescence: variant === "blackHole" ? 0.08 : 0.18,
       iridescenceIOR: 1.3,
       iridescenceThicknessRange: [180, 520],
-      emissive: variant === "blackHole" ? 0x010203 : variant === "sun" ? 0x8c2600 : 0x000000,
-      emissiveIntensity: variant === "blackHole" ? 0.42 : variant === "sun" ? 0.56 : 0,
+      emissive: variant === "blackHole" ? 0x010203 : variant === "sun" ? 0x8c2600 : variant === "volcano" ? 0x631307 : 0x000000,
+      emissiveIntensity: variant === "blackHole" ? 0.42 : variant === "sun" ? 0.56 : variant === "volcano" ? 0.38 : 0,
       side: THREE.DoubleSide,
     });
     const shellGeometry = new THREE.SphereGeometry(BALL_RADIUS, 48, 32);
@@ -911,7 +1030,7 @@ export function WakppuBreakScene({
       clearcoat: 0.92,
       clearcoatRoughness: 0.08,
       iridescence: 0.42,
-      transmission: variant === "earth" || variant === "blackHole" ? 0.24 : 0.08,
+      transmission: variant === "earth" || variant === "blackHole" ? 0.24 : variant === "ice" ? 0.42 : 0.08,
       thickness: 0.035,
       depthWrite: false,
       side: THREE.DoubleSide,
@@ -919,14 +1038,14 @@ export function WakppuBreakScene({
     const fragmentMaterial = outerShellMaterial.clone();
     fragmentMaterial.color.set(style.fragment);
     fragmentMaterial.opacity = variant === "blackHole" ? 0.82 : 0.72;
-    fragmentMaterial.transmission = variant === "earth" ? 0.12 : 0;
+    fragmentMaterial.transmission = variant === "earth" ? 0.12 : variant === "ice" ? 0.34 : 0;
     fragmentMaterial.roughness = style.roughness;
     fragmentMaterial.clearcoat = 1;
     fragmentMaterial.clearcoatRoughness = 0.05;
     fragmentMaterial.ior = 1.42;
     fragmentMaterial.thickness = 0.018;
-    fragmentMaterial.emissive.set(variant === "sun" ? 0x8f2b00 : variant === "blackHole" ? 0x17110a : 0x000000);
-    fragmentMaterial.emissiveIntensity = variant === "sun" ? 0.62 : variant === "blackHole" ? 0.48 : 0;
+    fragmentMaterial.emissive.set(variant === "sun" ? 0x8f2b00 : variant === "volcano" ? 0x8f1d08 : variant === "blackHole" ? 0x17110a : 0x000000);
+    fragmentMaterial.emissiveIntensity = variant === "sun" ? 0.62 : variant === "volcano" ? 0.48 : variant === "blackHole" ? 0.48 : 0;
     const edgeMaterial = new THREE.MeshPhysicalMaterial({
       color: style.edge,
       transparent: true,
@@ -996,6 +1115,113 @@ export function WakppuBreakScene({
       ringGroup.rotation.set(1.08, 0.08, -0.14);
       variantDecoration = ringGroup;
       scene.add(ringGroup);
+    } else if (variant === "butterBar") {
+      const barMaterial = shellMaterial.clone();
+      barMaterial.transparent = true;
+      const butterBar = new THREE.Mesh(
+        new RoundedBoxGeometry(BALL_RADIUS * 2, BALL_RADIUS * 2, BALL_RADIUS * 2, 6, 0.25),
+        barMaterial,
+      );
+      butterBar.userData.staticAttachment = true;
+      butterBar.userData.hideOnBreak = true;
+      butterBar.renderOrder = 4;
+      variantDecoration = butterBar;
+      scene.add(butterBar);
+    } else if (variant === "volcano") {
+      const volcanoGroup = new THREE.Group();
+      const cone = new THREE.Mesh(
+        new THREE.ConeGeometry(0.58, 0.64, 28, 3, true),
+        new THREE.MeshPhysicalMaterial({ color: 0x42201d, roughness: 0.78, emissive: 0x521307, emissiveIntensity: 0.32 }),
+      );
+      cone.position.y = BALL_RADIUS * 0.78;
+      const lavaRim = new THREE.Mesh(
+        new THREE.TorusGeometry(0.27, 0.075, 10, 36),
+        new THREE.MeshBasicMaterial({ color: 0xffb52f, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending }),
+      );
+      lavaRim.position.y = BALL_RADIUS * 0.98;
+      lavaRim.rotation.x = Math.PI / 2;
+      volcanoGroup.add(cone, lavaRim);
+      volcanoGroup.userData.staticAttachment = true;
+      volcanoGroup.userData.hideOnBreak = true;
+      variantDecoration = volcanoGroup;
+      scene.add(volcanoGroup);
+    } else if (variant === "tomato") {
+      const tomatoTop = new THREE.Group();
+      const leafMaterial = new THREE.MeshPhysicalMaterial({ color: 0x4f9a45, roughness: 0.6, side: THREE.DoubleSide });
+      for (let index = 0; index < 6; index += 1) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.72, 3), leafMaterial);
+        leaf.position.y = BALL_RADIUS * 0.95;
+        leaf.rotation.z = Math.PI / 2;
+        leaf.rotation.y = index / 6 * Math.PI * 2;
+        leaf.rotation.x = 0.42;
+        tomatoTop.add(leaf);
+      }
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.085, 0.46, 12), leafMaterial);
+      stem.position.y = BALL_RADIUS * 1.15;
+      stem.rotation.z = -0.14;
+      tomatoTop.add(stem);
+      tomatoTop.userData.staticAttachment = true;
+      tomatoTop.userData.hideOnBreak = true;
+      variantDecoration = tomatoTop;
+      scene.add(tomatoTop);
+    } else if (variant === "ice") {
+      const crystal = new THREE.Mesh(
+        new THREE.OctahedronGeometry(BALL_RADIUS * 1.03, 2),
+        new THREE.MeshBasicMaterial({ color: 0xc9f7ff, wireframe: true, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending }),
+      );
+      crystal.scale.set(0.98, 1.08, 0.98);
+      crystal.userData.hideOnBreak = true;
+      variantDecoration = crystal;
+      scene.add(crystal);
+    } else if (variant === "animal") {
+      const animalFeatures = new THREE.Group();
+      const furMaterial = new THREE.MeshPhysicalMaterial({ color: 0xc98c63, roughness: 0.72 });
+      [-1, 1].forEach((side) => {
+        const ear = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.78, 5), furMaterial);
+        ear.position.set(side * 0.86, 1.25, 0.02);
+        ear.rotation.z = side * -0.32;
+        animalFeatures.add(ear);
+      });
+      const faceMaterial = new THREE.MeshBasicMaterial({ color: 0x33231f, depthTest: false });
+      [-0.34, 0.34].forEach((x) => {
+        const eye = new THREE.Mesh(new THREE.CircleGeometry(0.09, 20), faceMaterial);
+        eye.position.set(x, 0.22, BALL_RADIUS * 1.01);
+        eye.renderOrder = 8;
+        animalFeatures.add(eye);
+      });
+      const muzzle = new THREE.Mesh(new THREE.CircleGeometry(0.16, 24), new THREE.MeshBasicMaterial({ color: 0x765042, depthTest: false }));
+      muzzle.scale.set(1.25, 0.78, 1);
+      muzzle.position.set(0, -0.18, BALL_RADIUS * 1.015);
+      muzzle.renderOrder = 8;
+      animalFeatures.add(muzzle);
+      animalFeatures.userData.staticAttachment = true;
+      animalFeatures.userData.hideOnBreak = true;
+      variantDecoration = animalFeatures;
+      scene.add(animalFeatures);
+    } else if (variant === "cloudMascot") {
+      const cloudGroup = new THREE.Group();
+      const cloudMaterial = new THREE.MeshPhysicalMaterial({ color: 0xf0eafa, roughness: 0.42, clearcoat: 0.38 });
+      [[-1.15, -0.2, 0.74], [1.15, -0.18, 0.76], [-0.72, 0.78, 0.72], [0.72, 0.76, 0.7]].forEach(([x, y, scale]) => {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(BALL_RADIUS * scale, 28, 20), cloudMaterial);
+        puff.position.set(x, y, -0.12);
+        cloudGroup.add(puff);
+      });
+      const cloudFaceMaterial = new THREE.MeshBasicMaterial({ color: 0x4e4067, depthTest: false });
+      [-0.33, 0.33].forEach((x) => {
+        const eye = new THREE.Mesh(new THREE.CircleGeometry(0.085, 20), cloudFaceMaterial);
+        eye.position.set(x, 0.16, BALL_RADIUS * 1.02);
+        eye.renderOrder = 9;
+        cloudGroup.add(eye);
+      });
+      const cloudMouth = new THREE.Mesh(new THREE.CircleGeometry(0.13, 20), new THREE.MeshBasicMaterial({ color: 0x806aa1, depthTest: false }));
+      cloudMouth.scale.set(1.2, 0.52, 1);
+      cloudMouth.position.set(0, -0.2, BALL_RADIUS * 1.025);
+      cloudMouth.renderOrder = 9;
+      cloudGroup.add(cloudMouth);
+      cloudGroup.userData.staticAttachment = true;
+      cloudGroup.userData.hideOnBreak = true;
+      variantDecoration = cloudGroup;
+      scene.add(cloudGroup);
     } else if (variant === "blackHole") {
       const blackHoleGroup = new THREE.Group();
       const addGlowRing = (radius: number, tube: number, color: number, opacity: number) => {
@@ -1426,7 +1652,25 @@ export function WakppuBreakScene({
     const mascotRoot = new THREE.Group();
     mascotRoot.visible = false;
     mascotRoot.position.set(0, MASCOT_HOME_Y, 0.28);
+    const mascotStyle = variantMascotStyles[variant];
+    const mascotAura = new THREE.Mesh(
+      new THREE.RingGeometry(0.63, 0.82, variant === "ice" ? 6 : variant === "animal" ? 5 : 32),
+      new THREE.MeshBasicMaterial({
+        color: mascotStyle.glow,
+        transparent: true,
+        opacity: variant === "blackHole" ? 0.42 : 0.24,
+        blending: THREE.AdditiveBlending,
+        depthTest: false,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    mascotAura.position.set(0, 0.12, -0.03);
+    mascotAura.scale.set(1.06 * mascotStyle.scaleX, 1.22 * mascotStyle.scaleY, 1);
+    mascotAura.renderOrder = 6;
+    mascotRoot.add(mascotAura);
     const mascotMaterial = new THREE.SpriteMaterial({
+      color: mascotStyle.tint,
       transparent: true,
       opacity: 1,
       depthTest: true,
@@ -1496,6 +1740,7 @@ export function WakppuBreakScene({
       chargeMaterials: [chargeMaterialOuter, chargeMaterialInner],
       chargeReady: false,
       chargedBreak: false,
+      hiddenEffectId: null,
       fragmentPhase: "idle",
       fragmentFallStartedAt: 0,
       fragmentMotions: [],
@@ -1519,7 +1764,7 @@ export function WakppuBreakScene({
       mascotMaterial.needsUpdate = true;
       const image = texture.image as { width?: number; height?: number };
       const aspect = image.width && image.height ? image.width / image.height : 0.8;
-      mascotSprite.scale.set(MASCOT_HEIGHT * aspect, MASCOT_HEIGHT, 1);
+      mascotSprite.scale.set(MASCOT_HEIGHT * aspect * mascotStyle.scaleX, MASCOT_HEIGHT * mascotStyle.scaleY, 1);
     };
     textureLoader.load(
       MASCOT_IMAGE,
@@ -1765,6 +2010,7 @@ export function WakppuBreakScene({
     const fragmentSpinQuaternion = new THREE.Quaternion();
     const mascotSpringForce = new THREE.Vector2();
     const orbitAxis = new THREE.Vector3(0, 1, 0);
+    const portalAxis = new THREE.Vector3(0, 0, 1);
     let previousFrameTime = performance.now();
     function render(time: number) {
       const frameDelta = clamp((time - previousFrameTime) / 1000, 0, 0.05);
@@ -1881,7 +2127,7 @@ export function WakppuBreakScene({
         runtime.outerShell.position.y = floatOffset;
         if (runtime.variantDecoration) {
           runtime.variantDecoration.position.y = floatOffset;
-          if (runtime.variant !== "blackHole") {
+          if (runtime.variant !== "blackHole" && !runtime.variantDecoration.userData.staticAttachment) {
             runtime.variantDecoration.rotation.z += runtime.reduceMotion ? 0 : 0.0035;
           }
           runtime.variantDecoration.scale.lerp(runtime.shellScaleTarget, 0.14);
@@ -1931,6 +2177,33 @@ export function WakppuBreakScene({
           }
           motion.fragment.mesh.position.y += Math.cos(elapsed * motion.bobSpeed * 0.78 + motion.orbitPhase)
             * motion.bobAmplitude;
+          if (runtime.hiddenEffectId === "stellar-overcharge") {
+            const blast = smoothstep(clamp(elapsed / 0.82));
+            motion.fragment.mesh.position.addScaledVector(motion.fragment.radial, blast * 1.35);
+            motion.fragment.mesh.position.y += smoothstep(clamp((elapsed - 0.34) / 1.25))
+              * (0.7 + motion.fragment.liftSeed * 1.15);
+          } else if (runtime.hiddenEffectId === "quantum-entanglement") {
+            const split = motion.fragment.liftSeed > 0.5 ? 1 : -1;
+            motion.fragment.mesh.position.x += split * smoothstep(clamp(elapsed / 0.9)) * 0.72;
+            motion.fragment.mesh.position.z += Math.sin(elapsed * 9 + motion.orbitPhase) * 0.14;
+          } else if (runtime.hiddenEffectId === "abracada-crack") {
+            const pulse = Math.sin(elapsed * 32 + motion.orbitPhase) > 0.58 ? 1 : 0;
+            motion.fragment.mesh.position.x += pulse * (motion.fragment.liftSeed - 0.5) * 0.35;
+            motion.fragment.mesh.position.y += pulse * 0.11;
+          } else if (runtime.hiddenEffectId === "mirror-dimension") {
+            const portalSpin = smoothstep(clamp(elapsed / 1.3)) * elapsed * 1.55;
+            motion.fragment.mesh.position.applyAxisAngle(portalAxis, portalSpin);
+            motion.fragment.mesh.position.multiplyScalar(1 - smoothstep(clamp((elapsed - 0.52) / 1.15)) * 0.32);
+          } else if (runtime.hiddenEffectId === "gravity-reversal") {
+            motion.fragment.mesh.position.y += smoothstep(clamp(elapsed / 1.25))
+              * (3.4 + motion.fragment.liftSeed * 1.5);
+            motion.fragment.mesh.position.x *= 1 - smoothstep(clamp(elapsed / 1.5)) * 0.24;
+          } else if (runtime.hiddenEffectId === "swift-slice") {
+            const side = motion.fragment.liftSeed > 0.5 ? 1 : -1;
+            const cutAway = smoothstep(clamp(elapsed / 0.62));
+            motion.fragment.mesh.position.x += side * cutAway * 1.45;
+            motion.fragment.mesh.position.y += side * cutAway * 0.48;
+          }
           motion.interactionOffset.addScaledVector(motion.interactionVelocity, frameDelta);
           motion.interactionVelocity.multiplyScalar(Math.pow(0.965, frameDelta * 60));
           motion.interactionOffset.multiplyScalar(Math.pow(0.999, frameDelta * 60));
@@ -1991,9 +2264,20 @@ export function WakppuBreakScene({
         syncOuterShellFragmentBatches(runtime.outerShellFragments, runtime.fragmentBatches);
         runtime.camera.position.lerp(runtime.cameraTarget, runtime.reduceMotion ? 1 : 0.055);
         runtime.cameraLookAt.lerp(runtime.cameraLookTarget, runtime.reduceMotion ? 1 : 0.07);
+        if (runtime.hiddenEffectId && !runtime.reduceMotion) {
+          const effectElapsed = Math.max(0, elapsedMilliseconds / 1000);
+          const shakeDuration = runtime.hiddenEffectId === "stellar-overcharge" ? 1.85 : 1.1;
+          const shakeStrength = runtime.hiddenEffectId === "stellar-overcharge" ? 0.11 : 0.045;
+          const shakeFade = 1 - smoothstep(clamp(effectElapsed / shakeDuration));
+          runtime.camera.position.x += Math.sin(effectElapsed * 73) * shakeStrength * shakeFade;
+          runtime.camera.position.y += Math.cos(effectElapsed * 59) * shakeStrength * 0.7 * shakeFade;
+        }
         runtime.camera.lookAt(runtime.cameraLookAt);
 
-        if (!runtime.rocketPresented && elapsedMilliseconds >= ROCKET_REVEAL_DELAY) {
+        const rocketRevealDelay = runtime.hiddenEffectId
+          ? HIDDEN_REVEAL_DELAYS[runtime.hiddenEffectId]
+          : ROCKET_REVEAL_DELAY;
+        if (!runtime.rocketPresented && elapsedMilliseconds >= rocketRevealDelay) {
           runtime.rocketPresented = true;
           runtime.mascotRoot.position.copy(runtime.mascotHome);
           runtime.mascotRoot.rotation.z = 0;
@@ -2089,11 +2373,16 @@ export function WakppuBreakScene({
       const horizontalCompression = Math.abs(pullY) * 0.08;
       const verticalCompression = Math.abs(pullX) * 0.08;
       runtime.mascotSprite.scale.set(
-        MASCOT_HEIGHT * mascotAspect * (1 + horizontalStretch - horizontalCompression),
-        MASCOT_HEIGHT * (1 + verticalStretch - verticalCompression),
+        MASCOT_HEIGHT * mascotAspect * mascotStyle.scaleX * (1 + horizontalStretch - horizontalCompression),
+        MASCOT_HEIGHT * mascotStyle.scaleY * (1 + verticalStretch - verticalCompression),
         1,
       );
       runtime.mascotSprite.position.set(pullX * 0.06, 0.16 + pullY * 0.06, 0);
+      if (!runtime.reduceMotion && mascotCanFloat) {
+        mascotAura.rotation.z += variant === "blackHole" ? -0.007 : 0.004;
+        const auraPulse = 1 + Math.sin(time * 0.0042) * 0.045;
+        mascotAura.scale.set(1.06 * mascotStyle.scaleX * auraPulse, 1.22 * mascotStyle.scaleY * auraPulse, 1);
+      }
       if (mascotCanFloat) {
         runtime.mascotRoot.position.set(
           runtime.mascotHome.x + zeroGravityX + pullX * 0.22,
@@ -2130,6 +2419,7 @@ export function WakppuBreakScene({
     if (!specialCardId) return;
     const runtime = runtimeRef.current;
     if (!runtime) return;
+    runtime.hiddenEffectId = specialCardId;
     const previousTexture = runtime.cardMaterial.map;
     runtime.cardMaterial.map = createHiddenCommandCardTexture(hiddenCardFor(specialCardId), fortune);
     runtime.cardMaterial.needsUpdate = true;
@@ -2139,6 +2429,7 @@ export function WakppuBreakScene({
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime || stage <= 0) return;
+    if (stage >= breakThreshold && specialCardId) runtime.hiddenEffectId = specialCardId;
     if (stage < breakThreshold) {
       const breakResponse = variantBreakResponses[runtime.variant];
       const equivalentStage = stage / breakThreshold * 5;
@@ -2234,27 +2525,40 @@ export function WakppuBreakScene({
 
     runtime.intactBall.visible = false;
     runtime.outerShell.visible = false;
+    if (runtime.variantDecoration?.userData.hideOnBreak) runtime.variantDecoration.visible = false;
+    const hiddenEffectId = specialCardId ?? runtime.hiddenEffectId;
     runtime.fragmentMotions = createFloatLayout(
       runtime.outerShellFragments,
       hit,
       variantMotionStyles[runtime.variant],
-    ).map((target) => ({
-      ...target,
-      velocity: target.velocity.clone().multiplyScalar(runtime.chargedBreak ? 1.35 : 1),
-      spin: target.spin * (runtime.chargedBreak ? 1.45 : 1),
-      startPosition: target.fragment.mesh.position.clone(),
-      startQuaternion: target.fragment.mesh.quaternion.clone(),
-      startScale: target.fragment.mesh.scale.clone().multiplyScalar(target.fragmentScale),
-      interactionOffset: new THREE.Vector3(),
-      interactionVelocity: new THREE.Vector3(),
-      interactionAngle: 0,
-      interactionSpin: 0,
-    }));
+    ).map((target) => {
+      const velocityBoost = hiddenEffectId === "stellar-overcharge"
+        ? 2.05
+        : hiddenEffectId === "gravity-reversal"
+          ? 1.52
+          : runtime.chargedBreak ? 1.35 : 1;
+      const spinBoost = hiddenEffectId === "swift-slice" || hiddenEffectId === "abracada-crack"
+        ? 2.1
+        : runtime.chargedBreak ? 1.45 : 1;
+      return {
+        ...target,
+        velocity: target.velocity.clone().multiplyScalar(velocityBoost),
+        spin: target.spin * spinBoost,
+        delay: hiddenEffectId === "gravity-reversal" ? target.delay * 0.35 : target.delay,
+        startPosition: target.fragment.mesh.position.clone(),
+        startQuaternion: target.fragment.mesh.quaternion.clone(),
+        startScale: target.fragment.mesh.scale.clone().multiplyScalar(target.fragmentScale),
+        interactionOffset: new THREE.Vector3(),
+        interactionVelocity: new THREE.Vector3(),
+        interactionAngle: 0,
+        interactionSpin: 0,
+      };
+    });
     runtime.fragmentFallStartedAt = performance.now();
     runtime.fragmentPhase = "spreading";
     runtime.cameraTarget.set(0, 2.05, 7.45);
     runtime.cameraLookTarget.set(0, -0.66, 0);
-  }, [breakThreshold, stage, revealed]);
+  }, [breakThreshold, stage, revealed, specialCardId]);
 
   useEffect(() => {
     const runtime = runtimeRef.current;
@@ -2275,6 +2579,40 @@ export function WakppuBreakScene({
   return (
     <div ref={containerRef} className="wakppu-break-scene" aria-hidden="true">
       {!ready && <div className="wakppu-break-loading" role="status">왁뿌볼 준비 중...</div>}
+      {specialCardId && stage >= breakThreshold && (
+        <HiddenBreakEffect id={specialCardId} />
+      )}
+    </div>
+  );
+}
+
+function HiddenBreakEffect({ id }: { id: HiddenCardId }) {
+  return (
+    <div className={`hidden-break-effect hidden-break-effect--${id}`}>
+      <i className="hidden-effect-flash" />
+      <i className="hidden-effect-shockwave" />
+      <div className="hidden-effect-nuclear">
+        <i className="nuclear-core" />
+        <i className="nuclear-stem" />
+        <i className="nuclear-cap" />
+        <i className="nuclear-ring" />
+      </div>
+      <div className="hidden-effect-quantum">
+        <i /><i /><b /><b />
+      </div>
+      <div className="hidden-effect-spell">
+        {Array.from({ length: 7 }, (_, index) => <i key={index} />)}
+      </div>
+      <div className="hidden-effect-portal">
+        <i className="portal-ring portal-ring-a" />
+        <i className="portal-ring portal-ring-b" />
+        <i className="portal-ring portal-ring-c" />
+        <span>{Array.from({ length: 16 }, (_, index) => <b key={index} />)}</span>
+      </div>
+      <div className="hidden-effect-gravity">
+        {Array.from({ length: 13 }, (_, index) => <i key={index} />)}
+      </div>
+      <div className="hidden-effect-slice"><i /><i /><b /></div>
     </div>
   );
 }

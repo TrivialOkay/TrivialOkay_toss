@@ -112,124 +112,6 @@ function playBlackHoleFeedback(pulse = false) {
   }
 }
 
-function playBreakFeedback() {
-  navigator.vibrate?.([12, 20, 8]);
-  try {
-    const context = createAudioContext();
-    if (!context) return;
-    const duration = 0.48;
-    const buffer = createNoiseBuffer(context, duration, (time) => {
-      const crackA = Math.exp(-time * 80);
-      const crackB = time > 0.075 ? Math.exp(-(time - 0.075) * 95) * 0.64 : 0;
-      const crackC = time > 0.15 ? Math.exp(-(time - 0.15) * 110) * 0.42 : 0;
-      const shards = time > 0.18 ? Math.exp(-(time - 0.18) * 9) * (0.24 + Math.sin(time * 7100) * 0.1) : 0;
-      return (Math.random() * 2 - 1) * (crackA + crackB + crackC + shards);
-    });
-    const source = context.createBufferSource();
-    const highpass = context.createBiquadFilter();
-    const crackGain = context.createGain();
-    source.buffer = buffer;
-    highpass.type = "highpass";
-    highpass.frequency.value = 820;
-    highpass.Q.value = 0.65;
-    crackGain.gain.setValueAtTime(0.105, context.currentTime);
-    crackGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
-    source.connect(highpass).connect(crackGain).connect(context.destination);
-
-    const impact = context.createOscillator();
-    const impactGain = context.createGain();
-    impact.type = "sine";
-    impact.frequency.setValueAtTime(128, context.currentTime);
-    impact.frequency.exponentialRampToValueAtTime(47, context.currentTime + 0.32);
-    impactGain.gain.setValueAtTime(0.12, context.currentTime);
-    impactGain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.36);
-    impact.connect(impactGain).connect(context.destination);
-    source.start();
-    impact.start();
-    source.stop(context.currentTime + duration);
-    impact.stop(context.currentTime + 0.38);
-    source.addEventListener("ended", () => { void context.close(); }, { once: true });
-  } catch {
-    // 브라우저가 Web Audio를 막아도 파괴 동작은 그대로 진행한다.
-  }
-}
-
-function playSliceFeedback() {
-  navigator.vibrate?.([7, 16, 13]);
-  try {
-    const AudioContextClass = window.AudioContext
-      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const context = new AudioContextClass();
-    const duration = 0.34;
-    const buffer = context.createBuffer(1, Math.floor(context.sampleRate * duration), context.sampleRate);
-    const samples = buffer.getChannelData(0);
-    for (let index = 0; index < samples.length; index += 1) {
-      const time = index / context.sampleRate;
-      const sweep = Math.sin(time * Math.PI * 2 * (460 + time * 2400));
-      const whoosh = Math.sin(Math.min(time / 0.19, 1) * Math.PI) * Math.exp(-time * 2.8);
-      const cut = time > 0.17 ? Math.exp(-(time - 0.17) * 76) : 0;
-      samples[index] = sweep * whoosh * 0.32 + (Math.random() * 2 - 1) * (whoosh * 0.5 + cut * 0.8);
-    }
-    const source = context.createBufferSource();
-    const highpass = context.createBiquadFilter();
-    const gain = context.createGain();
-    source.buffer = buffer;
-    highpass.type = "highpass";
-    highpass.frequency.value = 720;
-    gain.gain.setValueAtTime(0.045, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
-    source.connect(highpass).connect(gain).connect(context.destination);
-    source.start();
-    source.stop(context.currentTime + duration);
-    source.addEventListener("ended", () => { void context.close(); }, { once: true });
-  } catch {
-    // Web Audio를 지원하지 않아도 한방컷 동작은 그대로 진행한다.
-  }
-}
-
-function playCrunchFeedback(intensity = 0.5) {
-  navigator.vibrate?.(intensity > 0.7 ? 9 : 5);
-  try {
-    const AudioContextClass = window.AudioContext
-      ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const context = new AudioContextClass();
-    const duration = 0.085 + intensity * 0.085;
-    const buffer = context.createBuffer(1, Math.floor(context.sampleRate * duration), context.sampleRate);
-    const samples = buffer.getChannelData(0);
-    const teeth = 3 + Math.round(intensity * 3);
-    for (let index = 0; index < samples.length; index += 1) {
-      const time = index / context.sampleRate;
-      let envelope = 0;
-      for (let tooth = 0; tooth < teeth; tooth += 1) {
-        const start = tooth * duration / (teeth + 0.8);
-        if (time >= start) envelope += Math.exp(-(time - start) * (95 + tooth * 16));
-      }
-      const grain = Math.sin(time * Math.PI * 2 * (165 + intensity * 90)) * 0.22;
-      samples[index] = ((Math.random() * 2 - 1) * 0.78 + grain) * envelope;
-    }
-    const source = context.createBufferSource();
-    const lowpass = context.createBiquadFilter();
-    const bandpass = context.createBiquadFilter();
-    const gain = context.createGain();
-    source.buffer = buffer;
-    lowpass.type = "lowpass";
-    lowpass.frequency.value = 3400 + intensity * 1800;
-    bandpass.type = "bandpass";
-    bandpass.frequency.value = 820 + intensity * 720;
-    bandpass.Q.value = 0.7;
-    gain.gain.setValueAtTime(0.018 + intensity * 0.026, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + duration);
-    source.connect(lowpass).connect(bandpass).connect(gain).connect(context.destination);
-    source.start();
-    source.stop(context.currentTime + duration);
-    source.addEventListener("ended", () => { void context.close(); }, { once: true });
-  } catch {
-    // Web Audio를 지원하지 않아도 조작은 그대로 진행한다.
-  }
-}
-
 function playRocketFeedback() {
   navigator.vibrate?.([10, 24, 18]);
   try {
@@ -262,6 +144,208 @@ function playRocketFeedback() {
     exhaust.addEventListener("ended", () => { void context.close(); }, { once: true });
   } catch {
     // Web Audio를 지원하지 않아도 로켓 발사는 그대로 진행한다.
+  }
+}
+
+function playWakppuImpactFeedback(variant: WakppuVariant, final: boolean, intensity = 0.5) {
+  if (variant === "blackHole") {
+    playBlackHoleFeedback(!final);
+    return;
+  }
+  const profiles: Record<WakppuVariant, {
+    filter: BiquadFilterType;
+    noiseFrom: number;
+    noiseTo: number;
+    tone: OscillatorType;
+    toneFrom: number;
+    toneTo: number;
+    vibration: number | number[];
+  }> = {
+    chewyCookie: { filter: "lowpass", noiseFrom: 1700, noiseTo: 460, tone: "sine", toneFrom: 118, toneTo: 76, vibration: final ? [12, 18, 16] : 6 },
+    butterBar: { filter: "bandpass", noiseFrom: 3200, noiseTo: 980, tone: "triangle", toneFrom: 410, toneTo: 170, vibration: final ? [8, 12, 8, 20] : 5 },
+    sun: { filter: "bandpass", noiseFrom: 520, noiseTo: 4400, tone: "sawtooth", toneFrom: 94, toneTo: 38, vibration: final ? [18, 24, 48] : 8 },
+    earth: { filter: "highpass", noiseFrom: 760, noiseTo: 2600, tone: "sine", toneFrom: 190, toneTo: 72, vibration: final ? [11, 15, 19] : 6 },
+    mars: { filter: "bandpass", noiseFrom: 1400, noiseTo: 360, tone: "triangle", toneFrom: 164, toneTo: 58, vibration: final ? [13, 12, 25] : 7 },
+    jupiter: { filter: "lowpass", noiseFrom: 920, noiseTo: 180, tone: "sawtooth", toneFrom: 132, toneTo: 45, vibration: final ? [10, 28, 18] : 6 },
+    moon: { filter: "bandpass", noiseFrom: 880, noiseTo: 420, tone: "square", toneFrom: 142, toneTo: 68, vibration: final ? [18, 13, 30] : 9 },
+    saturn: { filter: "highpass", noiseFrom: 1800, noiseTo: 5200, tone: "sine", toneFrom: 740, toneTo: 250, vibration: final ? [7, 15, 7, 22] : 5 },
+    volcano: { filter: "lowpass", noiseFrom: 2600, noiseTo: 120, tone: "sawtooth", toneFrom: 88, toneTo: 30, vibration: final ? [22, 25, 62] : 9 },
+    tomato: { filter: "lowpass", noiseFrom: 760, noiseTo: 150, tone: "sine", toneFrom: 126, toneTo: 48, vibration: final ? [7, 18, 12] : 4 },
+    ice: { filter: "highpass", noiseFrom: 2200, noiseTo: 7200, tone: "sine", toneFrom: 1380, toneTo: 430, vibration: final ? [5, 10, 5, 18] : 4 },
+    cheese: { filter: "bandpass", noiseFrom: 640, noiseTo: 1900, tone: "triangle", toneFrom: 188, toneTo: 310, vibration: final ? [7, 14, 11] : 4 },
+    animal: { filter: "bandpass", noiseFrom: 1200, noiseTo: 2900, tone: "triangle", toneFrom: 260, toneTo: 540, vibration: final ? [6, 16, 9] : 4 },
+    blackHole: { filter: "lowpass", noiseFrom: 280, noiseTo: 80, tone: "sine", toneFrom: 54, toneTo: 20, vibration: [18, 28, 38] },
+    cloudMascot: { filter: "bandpass", noiseFrom: 260, noiseTo: 3400, tone: "sine", toneFrom: 330, toneTo: 780, vibration: final ? [5, 20, 7] : 3 },
+  };
+  const profile = profiles[variant];
+  navigator.vibrate?.(profile.vibration);
+  try {
+    const context = createAudioContext();
+    if (!context) return;
+    const now = context.currentTime;
+    const duration = final ? (variant === "sun" || variant === "volcano" ? 0.92 : 0.62) : 0.12 + intensity * 0.07;
+    const master = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    master.gain.setValueAtTime(final ? 0.11 : 0.026 + intensity * 0.018, now);
+    master.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    master.connect(compressor).connect(context.destination);
+
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    source.buffer = createNoiseBuffer(context, duration, (time) => {
+      const hit = Math.exp(-time * (final ? 6.5 : 28));
+      const secondary = final && time > 0.09 ? Math.exp(-(time - 0.09) * 18) * 0.56 : 0;
+      return (Math.random() * 2 - 1) * (hit + secondary);
+    });
+    filter.type = profile.filter;
+    filter.Q.value = profile.filter === "bandpass" ? 1.15 : 0.68;
+    filter.frequency.setValueAtTime(profile.noiseFrom, now);
+    filter.frequency.exponentialRampToValueAtTime(profile.noiseTo, now + duration);
+    source.connect(filter).connect(master);
+
+    const oscillator = context.createOscillator();
+    const toneGain = context.createGain();
+    oscillator.type = profile.tone;
+    oscillator.frequency.setValueAtTime(profile.toneFrom, now);
+    oscillator.frequency.exponentialRampToValueAtTime(profile.toneTo, now + duration);
+    toneGain.gain.setValueAtTime(final ? 0.42 : 0.16, now);
+    toneGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    oscillator.connect(toneGain).connect(master);
+
+    if (variant === "ice" || variant === "saturn") {
+      const overtone = context.createOscillator();
+      const overtoneGain = context.createGain();
+      overtone.type = "sine";
+      overtone.frequency.setValueAtTime(profile.toneFrom * 1.62, now);
+      overtone.frequency.exponentialRampToValueAtTime(profile.toneTo * 1.4, now + duration);
+      overtoneGain.gain.setValueAtTime(final ? 0.2 : 0.08, now);
+      overtoneGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      overtone.connect(overtoneGain).connect(master);
+      overtone.start(now);
+      overtone.stop(now + duration);
+    }
+    source.start(now);
+    oscillator.start(now);
+    source.stop(now + duration);
+    oscillator.stop(now + duration);
+    source.addEventListener("ended", () => { void context.close(); }, { once: true });
+  } catch {
+    // Web Audio를 지원하지 않아도 왁뿌볼 파괴는 그대로 진행한다.
+  }
+}
+
+function playHiddenCommandFeedback(id: HiddenCardId, blackHoleVariant: boolean) {
+  const vibration: Record<HiddenCardId, number[]> = {
+    "swift-slice": [8, 20, 18, 35, 12],
+    "stellar-overcharge": [26, 34, 95, 48, 34],
+    "quantum-entanglement": [10, 22, 10, 22, 32],
+    "abracada-crack": [7, 13, 7, 13, 7, 34, 20],
+    "mirror-dimension": [9, 18, 9, 18, 42],
+    "gravity-reversal": [18, 45, 12, 28, 46],
+  };
+  navigator.vibrate?.(vibration[id]);
+
+  try {
+    const context = createAudioContext();
+    if (!context) return;
+    const now = context.currentTime;
+    const duration = id === "stellar-overcharge" ? 2.35 : id === "mirror-dimension" ? 1.95 : 1.35;
+    const master = context.createGain();
+    const compressor = context.createDynamicsCompressor();
+    compressor.threshold.value = -16;
+    compressor.knee.value = 14;
+    compressor.ratio.value = 7;
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(id === "stellar-overcharge" ? 0.2 : 0.135, now + 0.025);
+    master.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    master.connect(compressor).connect(context.destination);
+
+    const tone = (
+      type: OscillatorType,
+      from: number,
+      to: number,
+      level: number,
+      start = 0,
+      length = duration - start,
+      detune = 0,
+    ) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(from, now + start);
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(12, to), now + start + length);
+      oscillator.detune.value = detune;
+      gain.gain.setValueAtTime(0.0001, now + start);
+      gain.gain.exponentialRampToValueAtTime(level, now + start + 0.018);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + length);
+      oscillator.connect(gain).connect(master);
+      oscillator.start(now + start);
+      oscillator.stop(now + start + length + 0.02);
+    };
+    const noise = (
+      filterType: BiquadFilterType,
+      from: number,
+      to: number,
+      level: number,
+      start = 0,
+      length = duration - start,
+    ) => {
+      const source = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      const gain = context.createGain();
+      source.buffer = createNoiseBuffer(context, length, (time) => {
+        const attack = Math.min(1, time / 0.028);
+        const tail = Math.exp(-time / Math.max(length * 0.62, 0.08));
+        return (Math.random() * 2 - 1) * attack * tail;
+      });
+      filter.type = filterType;
+      filter.Q.value = filterType === "bandpass" ? 1.8 : 0.7;
+      filter.frequency.setValueAtTime(from, now + start);
+      filter.frequency.exponentialRampToValueAtTime(to, now + start + length);
+      gain.gain.setValueAtTime(level, now + start);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + start + length);
+      source.connect(filter).connect(gain).connect(master);
+      source.start(now + start);
+      source.stop(now + start + length);
+    };
+
+    if (id === "stellar-overcharge") {
+      tone("sine", 82, 24, 0.92, 0, 1.75);
+      tone("sawtooth", 164, 39, 0.24, 0.02, 1.2, -12);
+      tone("sine", 1260, 180, 0.12, 0, 0.54);
+      noise("lowpass", 7200, 105, 0.78, 0.015, 2.25);
+      noise("bandpass", 2600, 180, 0.32, 0.24, 1.8);
+    } else if (id === "quantum-entanglement") {
+      tone("sine", 214, 1260, 0.32, 0, 1.15, -22);
+      tone("sine", 231, 710, 0.32, 0, 1.15, 22);
+      tone("triangle", 1680, 320, 0.2, 0.22, 0.86);
+      noise("bandpass", 3400, 680, 0.22, 0.06, 1.16);
+    } else if (id === "abracada-crack") {
+      [0, 0.11, 0.22, 0.34].forEach((start, index) => {
+        tone("sawtooth", 820 + index * 260, 3100 - index * 310, 0.18, start, 0.18);
+      });
+      tone("sine", 156, 46, 0.52, 0.37, 0.86);
+      noise("highpass", 1100, 5600, 0.34, 0, 0.78);
+    } else if (id === "mirror-dimension") {
+      tone("sine", 118, 72, 0.32, 0, 1.9);
+      tone("triangle", 310, 1240, 0.2, 0, 1.34, -18);
+      tone("triangle", 465, 1860, 0.18, 0.08, 1.42, 18);
+      [0.18, 0.38, 0.62].forEach((start, index) => tone("sine", 920 + index * 310, 470, 0.12, start, 0.62));
+      noise("bandpass", 220, 5200, 0.34, 0, 1.78);
+    } else if (id === "gravity-reversal") {
+      tone("sine", 46, 640, 0.56, 0, 1.25);
+      tone("sawtooth", 78, 1180, 0.17, 0.06, 1.1, -14);
+      noise("bandpass", 140, 4300, 0.3, 0.08, 1.16);
+    } else {
+      tone("triangle", 210, 2900, 0.26, 0, 0.3);
+      tone("sine", 118, 42, 0.52, 0.17, 0.72);
+      noise("highpass", 850, 6500, 0.38, 0, 0.66);
+    }
+
+    window.setTimeout(() => { void context.close(); }, (duration + 0.2) * 1000);
+    if (blackHoleVariant) window.setTimeout(() => playBlackHoleFeedback(true), 80);
+  } catch {
+    // Web Audio를 지원하지 않아도 히든 상호작용은 그대로 진행한다.
   }
 }
 
@@ -327,12 +411,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
       if (nextStage === breakThreshold) {
         if (!feedbackPlayed.current) {
           feedbackPlayed.current = true;
-          if (wakppuVariant === "blackHole") playBlackHoleFeedback();
-          else playBreakFeedback();
+          playWakppuImpactFeedback(wakppuVariant, true, 1);
         }
       } else {
-        if (wakppuVariant === "blackHole") playBlackHoleFeedback(true);
-        else playCrunchFeedback(0.35 + nextStage / breakThreshold * 0.6);
+        playWakppuImpactFeedback(wakppuVariant, false, 0.35 + nextStage / breakThreshold * 0.6);
       }
       return nextStage;
     });
@@ -351,11 +433,11 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
       if (currentStage >= breakThreshold) return currentStage;
       if (!feedbackPlayed.current) {
         feedbackPlayed.current = true;
-        playVariantEffect(playSliceFeedback);
+        playHiddenCommandFeedback("swift-slice", wakppuVariant === "blackHole");
       }
       return breakThreshold;
     });
-  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
+  }, [breakThreshold, onHiddenCardDiscover, wakppuVariant]);
 
   const handleChargedBreak = useCallback(() => {
     setOvercharged(true);
@@ -364,10 +446,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("stellar-overcharge");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playVariantEffect(playBreakFeedback);
+      playHiddenCommandFeedback("stellar-overcharge", wakppuVariant === "blackHole");
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
+  }, [breakThreshold, onHiddenCardDiscover, wakppuVariant]);
 
   const handleEntangledBreak = useCallback(() => {
     setSliced(false);
@@ -376,10 +458,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("quantum-entanglement");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playVariantEffect(playBreakFeedback);
+      playHiddenCommandFeedback("quantum-entanglement", wakppuVariant === "blackHole");
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
+  }, [breakThreshold, onHiddenCardDiscover, wakppuVariant]);
 
   const handleSpellBreak = useCallback(() => {
     setSliced(false);
@@ -388,10 +470,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("abracada-crack");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playVariantEffect(playSliceFeedback);
+      playHiddenCommandFeedback("abracada-crack", wakppuVariant === "blackHole");
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
+  }, [breakThreshold, onHiddenCardDiscover, wakppuVariant]);
 
   const handlePortalBreak = useCallback(() => {
     setSliced(false);
@@ -400,10 +482,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("mirror-dimension");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playVariantEffect(playRocketFeedback);
+      playHiddenCommandFeedback("mirror-dimension", wakppuVariant === "blackHole");
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
+  }, [breakThreshold, onHiddenCardDiscover, wakppuVariant]);
 
   const handleGravityBreak = useCallback(() => {
     setSliced(false);
@@ -412,10 +494,10 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     onHiddenCardDiscover("gravity-reversal");
     if (!feedbackPlayed.current) {
       feedbackPlayed.current = true;
-      playVariantEffect(playRocketFeedback);
+      playHiddenCommandFeedback("gravity-reversal", wakppuVariant === "blackHole");
     }
     setStage(breakThreshold);
-  }, [breakThreshold, onHiddenCardDiscover, playVariantEffect]);
+  }, [breakThreshold, onHiddenCardDiscover, wakppuVariant]);
 
   const handleRocketLaunch = useCallback(() => {
     setRocketReady(false);
