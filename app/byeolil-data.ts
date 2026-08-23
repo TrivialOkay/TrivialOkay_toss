@@ -1,5 +1,5 @@
 export type Tab = "today" | "collection" | "records" | "about";
-export type View = "main" | "capture" | "card" | "report" | "examples" | "guide" | "wakppu";
+export type View = "main" | "capture" | "card" | "report" | "examples" | "guide" | "settings" | "wakppu";
 export type Outcome = "happened" | "close" | "missed";
 export type Category = "교통" | "음식" | "사람" | "일상" | "기타";
 export type HiddenCardId = "swift-slice" | "stellar-overcharge" | "quantum-entanglement" | "abracada-crack" | "mirror-dimension" | "gravity-reversal";

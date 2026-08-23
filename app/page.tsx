@@ -24,7 +24,7 @@ import {
   type View,
 } from "./byeolil-data";
 import { clearRecords, loadHiddenCards, loadObservedWakppu, loadRecords, saveHiddenCards, saveObservedWakppu, saveRecords } from "./byeolil-storage";
-import { BottomNav, BureauCode, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, SpeechBubble, Stars } from "./byeolil-ui";
+import { BottomNav, BureauCode, FortuneObject, FortuneScene, Icon, Mascot, OutcomeFace, Stars } from "./byeolil-ui";
 import { blackHoleUnlockCount, wakppuCatalog, wakppuVariantFor, type WakppuVariant } from "./wakppu-data";
 
 const FortuneBall = lazy(() => import("./fortune-ball").then((module) => ({ default: module.FortuneBall })));
@@ -92,17 +92,6 @@ function evidenceRewardFor(count: number) {
   const current = [...evidenceMilestones].reverse().find((milestone) => count >= milestone.count) ?? evidenceMilestones[0];
   const next = evidenceMilestones.find((milestone) => milestone.count > count);
   return { ...current, next };
-}
-
-function calendarCells(key: string) {
-  const [year, month] = key.split("-").map(Number);
-  const first = new Date(year, month - 1, 1).getDay();
-  const days = new Date(year, month, 0).getDate();
-  const count = Math.ceil((first + days) / 7) * 7;
-  return Array.from({ length: count }, (_, index) => {
-    const day = index - first + 1;
-    return day > 0 && day <= days ? day : 0;
-  });
 }
 
 function Header({ title, onBack, right }: { title: string; onBack?: () => void; right?: React.ReactNode }) {
@@ -640,18 +629,43 @@ function CollectionScreen({ observedFortuneIds, observedWakppu, discoveredHidden
   );
 }
 
+const signalGrades = [
+  { label: "혼함", tone: "gray" },
+  { label: "꽤 괜찮음", tone: "green" },
+  { label: "이왜진", tone: "violet" },
+  { label: "오늘 좀 됨", tone: "yellow" },
+  { label: "우주 개입", tone: "blue" },
+] as const;
+
+function SignalSpectrum({ counts }: { counts: Record<string, number> }) {
+  return (
+    <ol className="signal-spectrum" aria-label="우주 개입 농도 분포">
+      {signalGrades.map((item, index) => {
+        const count = counts[item.label] ?? 0;
+        return <li className={count ? "has-signal" : ""} data-tone={item.tone} key={item.label}><span><strong>{count}</strong><i aria-hidden="true">{index + 1}</i></span><small>{item.label}</small></li>;
+      })}
+    </ol>
+  );
+}
+
 function RecordsScreen({ records, selectedMonth, onMonth, onReport, onOpen }: { records: RecordItem[]; selectedMonth: string; onMonth: (value: string) => void; onReport: () => void; onOpen: (record: RecordItem) => void }) {
   const [page, setPage] = useState(1);
   const monthRecords = records.filter((record) => record.date.startsWith(selectedMonth));
   const totalPages = Math.max(1, Math.ceil(monthRecords.length / recordsPageSize));
   const currentPage = Math.min(page, totalPages);
   const visibleRecords = monthRecords.slice((currentPage - 1) * recordsPageSize, currentPage * recordsPageSize);
-  const cells = calendarCells(selectedMonth);
-  const today = localDateKey();
   const currentMonth = monthKey();
+  const reportMonth = Number(selectedMonth.slice(5));
+  const exactCount = monthRecords.filter((record) => record.outcome === "happened").length;
+  const evidenceCount = monthRecords.filter((record) => record.photoDataUrl).length;
+  const strongestStars = monthRecords.reduce((strongest, record) => Math.max(strongest, gradeFor(record).stars), 0);
+  const gradeCounts = gradeGuide.reduce<Record<string, number>>((counts, item) => {
+    counts[item.grade] = monthRecords.filter((record) => gradeFor(record).grade === item.grade).length;
+    return counts;
+  }, {});
   return (
     <>
-      <Header title="관측 일지" right={<button className="icon-button" onClick={onReport} aria-label="월간 리포트"><Icon name="chart" /></button>} />
+      <Header title="관측 일지" />
       <section className="screen-content records-screen">
         <BureauCode status={`${monthRecords.length}건 포착`}>일일 관측 기록 · DAILY LOG</BureauCode>
         <div className="month-switcher">
@@ -659,14 +673,19 @@ function RecordsScreen({ records, selectedMonth, onMonth, onReport, onOpen }: { 
           <span className="month-switcher-label"><strong>{monthLabel(selectedMonth)}</strong>{selectedMonth !== currentMonth && <button className="month-today-button" onClick={() => { setPage(1); onMonth(currentMonth); }}>오늘로 돌아가기</button>}</span>
           <button onClick={() => { setPage(1); onMonth(shiftMonth(selectedMonth, 1)); }} aria-label="다음 달"><Icon name="chevron-right" /></button>
         </div>
-        <div className="calendar"><div className="week-row">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid">{cells.map((day, index) => { const key = day ? `${selectedMonth}-${String(day).padStart(2, "0")}` : ""; const has = monthRecords.some((record) => record.date === key); return <span key={`${day}-${index}`} className={`${key === today ? "today" : ""} ${has ? "has-record" : ""}`}>{day || ""}</span>; })}</div></div>
-        <h2>{Number(selectedMonth.slice(5))}월의 기록</h2>
+        <article className="records-brief">
+          <div className="records-brief-head"><span><small>MONTHLY SIGNAL REPORT</small><strong>월간 우주 개입 보고서</strong></span><button onClick={onReport}>자세히 보기 <Icon name="chevron-right"/></button></div>
+          <div className="records-brief-copy"><small>관측국 한 줄 판정</small><h2>{monthRecords.length ? <>{reportMonth}월에는 별일이 {monthRecords.length}번.<br/>{exactCount ? `${exactCount}번은 예보와 정확히 겹쳤습니다.` : "정확 관측은 다음 기회로 미뤘습니다."}</> : <>아직 포착된 신호가 없습니다.<br/>우주는 잠시 조용합니다.</>}</h2><MonthlyMascot month={reportMonth} className="records-brief-mascot" /></div>
+          <dl className="records-brief-metrics"><div><dt>정확 관측</dt><dd>{exactCount}</dd></div><div><dt>최고 개입도</dt><dd>{strongestStars}<small>단계</small></dd></div><div><dt>현장 증거</dt><dd>{evidenceCount}</dd></div></dl>
+          <div className="records-signal-head"><strong>관측 신호 농도</strong><small>일상적 <i/> 극적인 별일</small></div>
+          <SignalSpectrum counts={gradeCounts} />
+        </article>
+        <h2>{reportMonth}월 관측 기록 <small>{monthRecords.length}건</small></h2>
         <div className="record-list">
           {visibleRecords.map((record) => { const fortune = fortuneFor(record.fortuneId); const grade = gradeFor(record); return <button key={record.id} onClick={() => onOpen(record)}><span className="record-thumb"><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt} compact /></span><span><strong>{record.title}{record.photoDataUrl && <i className="record-evidence-mark" aria-label="현장 증거 확보">✦</i>}</strong><small>{record.time} · {record.category}</small></span><em className={`grade-badge tone-${grade.tone}`}>{grade.grade}</em></button>; })}
           {!monthRecords.length && <div className="empty-state compact"><Mascot/><strong>이 달의 기록이 아직 없어요.</strong></div>}
         </div>
         <Pagination page={currentPage} totalPages={totalPages} onPage={setPage} />
-        <button className="month-comment" onClick={onReport}><span><small>관측국 코멘트</small><strong>인생에 큰 영향은 없었지만,<br/>보고서 쓸 정도는 됐습니다.</strong></span><Mascot /></button>
       </section>
     </>
   );
@@ -685,20 +704,17 @@ function ReportScreen({ records, month, onBack, onMonth }: { records: RecordItem
     return result;
   }, {});
   const top = Object.values(occurrenceCounts).sort((a, b) => b.count - a.count || a.id - b.id).slice(0, 3);
-  const max = Math.max(1, ...Object.values(gradeCounts));
   const strongestStars = monthRecords.reduce((strongest, record) => Math.max(strongest, gradeFor(record).stars), 0);
   return (
     <>
-      <Header title="월간 우주 개입 보고서" onBack={onBack} right={<Icon name="chart" />} />
+      <Header title="월간 우주 개입 보고서" onBack={onBack} />
       <section className="screen-content report-screen">
         <BureauCode status={`${monthRecords.length}건 분석`}>월간 관측 브리핑 · MONTHLY BRIEF</BureauCode>
         <div className="month-switcher"><button onClick={() => onMonth(shiftMonth(month, -1))} aria-label="이전 달"><Icon name="back" /></button><strong>{monthLabel(month)}</strong><button onClick={() => onMonth(shiftMonth(month, 1))} aria-label="다음 달"><Icon name="chevron-right" /></button></div>
         <div className="report-hero" data-theme-month={reportMonth}><small>관측 결론</small><h2>{monthRecords.length ? <>대단한 우주 개입은 없었습니다.<br/>그래도 몇 번 피식했습니다.</> : <>아직 포착된 신호가 없습니다.<br/>우주는 잠시 조용합니다.</>}</h2><MonthlyMascot month={reportMonth} className="report-mascot" /></div>
-        <div className="report-metrics"><span><small>포착 신호</small><strong>{monthRecords.length}<em>건</em></strong></span><span><small>최고 개입도</small><strong>{strongestStars}<em>%</em></strong></span><span><small>관측 상태</small><strong className="report-online">정상</strong></span></div>
+        <div className="report-metrics"><span><small>포착 신호</small><strong>{monthRecords.length}<em>건</em></strong></span><span><small>최고 개입도</small><strong>{strongestStars}<em>단계</em></strong></span><span><small>관측 상태</small><strong className="report-online">정상</strong></span></div>
         <h3>우주 개입 농도 분포</h3>
-        <div className="bar-chart">{[
-          ["혼함", gradeCounts["혼함"], "gray"], ["꽤 괜찮음", gradeCounts["꽤 괜찮음"], "green"], ["이왜진", gradeCounts["이왜진"], "violet"], ["오늘 좀 됨", gradeCounts["오늘 좀 됨"], "blue"], ["우주 개입", gradeCounts["우주 개입"], "pink"],
-        ].map(([label, count, tone]) => <div key={String(label)}><span><strong>{count}</strong><i className={`bar-${tone}`} style={{ height: `${22 + (Number(count) / max) * 88}px` }} /></span><small>{label}</small></div>)}</div>
+        <div className="report-signal-panel"><div><small>1단계</small><strong>일상적인 별일</strong></div><div><small>5단계</small><strong>우주가 도운 별일</strong></div><SignalSpectrum counts={gradeCounts}/></div>
         <h3>이번 달 하찮은 수상작 TOP 3</h3>
         {top.length ? <ol className="top-list">{top.map((item, index) => <li key={item.id}><b>{index + 1}</b><span>{item.title}</span><strong>{item.count}회</strong></li>)}</ol> : <div className="empty-state compact"><Mascot/><strong>이 달의 수상 후보가 아직 없어요.</strong></div>}
       </section>
@@ -707,9 +723,68 @@ function ReportScreen({ records, month, onBack, onMonth }: { records: RecordItem
 }
 
 function ExamplesScreen({ onBack }: { onBack: () => void }) {
-  const examples = [fortunes.find((fortune) => fortune.id === 94), fortunes.find((fortune) => fortune.id === 96), fortunes.find((fortune) => fortune.id === 103)].filter((fortune): fortune is (typeof fortunes)[number] => Boolean(fortune));
+  const [selectedExhibitId, setSelectedExhibitId] = useState<number | null>(null);
+  const exhibitNotes: Record<number, string> = {
+    99: "필요한 바로 그 순간, 가장 가까운 곳에서 발견된 공로",
+    96: "충전선과 의자 바퀴 사이의 평화를 지켜낸 공로",
+    100: "치즈와의 불필요한 줄다리기를 예방한 공로",
+  };
+  const exhibits = [99, 96, 100].flatMap((id) => {
+    const fortune = fortunes.find((item) => item.id === id);
+    if (!fortune) return [];
+    const record = { fortuneId: fortune.id, title: fortune.cardTitle, outcome: "happened" as const };
+    return [{ fortune, award: awardTitle(record), grade: gradeFor(record), note: exhibitNotes[id] }];
+  });
+  const selectedExhibit = exhibits.find(({ fortune }) => fortune.id === selectedExhibitId) ?? null;
+
   return (
-    <><Header title="하찮은 수상작" onBack={onBack}/><section className="screen-content examples-screen"><BureauCode status="전시 중">별일 시상위원회 · AWARD ARCHIVE</BureauCode>{examples.map((fortune, index) => <article className="example-card award-card" key={fortune.id}><div><small>NO.{String(fortune.id).padStart(3, "0")}</small><span className="award-ribbon">{["뜻밖의 평화상", "아슬아슬 생존상", "오늘의 피식상"][index]}</span></div><h2>{fortune.cardTitle}</h2><Stars count={index + 1} small/><FortuneObject kind={fortune.asset} characterArt={fortune.characterArt}/><p>{fortune.aside.replaceAll("\n", " ")}</p></article>)}</section></>
+    <>
+      <Header title="하찮은 수상작" onBack={onBack}/>
+      <section className="screen-content examples-screen">
+        <BureauCode status={`${exhibits.length}점 전시`}>별일 시상위원회 · AWARD HALL</BureauCode>
+        <div className="award-hall-stage">
+          <header className="award-hall-intro">
+            <small>PERMANENT COLLECTION</small>
+            <h2>별일 아닌 순간들의<br/>명예로운 전시</h2>
+            <p>실제로 일어난 관측 중 별 4단계 이상만 이곳에 걸립니다.</p>
+          </header>
+          <div className="award-gallery">
+            {exhibits.map(({ fortune, award, grade, note }, index) => (
+              <article className={`award-exhibit ${index === 0 ? "is-featured" : ""}`} key={fortune.id}>
+                <button className="award-exhibit-trigger" type="button" onClick={() => setSelectedExhibitId(fortune.id)} aria-haspopup="dialog">
+                  <div className="award-frame">
+                    <span>{index === 0 ? "이달의 대표작" : "위원회 소장작"}</span>
+                    <FortuneObject kind={fortune.asset} characterArt={fortune.characterArt}/>
+                    <small>NO.{String(fortune.id).padStart(3, "0")}</small>
+                  </div>
+                  <div className="award-plaque">
+                    <span className="award-name">{award}</span>
+                    <h2>{fortune.cardTitle}</h2>
+                    <div className="award-grade"><Stars count={grade.stars} small/><b>{grade.grade}</b></div>
+                    <p>{note}</p>
+                    <span className="award-open-label">작품 설명 보기 <Icon name="chevron-right"/></span>
+                  </div>
+                </button>
+              </article>
+            ))}
+          </div>
+          <p className="award-hall-footnote">※ 같은 별일도 관측 결과가 다르면 수상하지 않을 수 있어요.</p>
+        </div>
+        {selectedExhibit ? (
+          <div className="award-detail-backdrop" role="presentation">
+            <section className="award-detail-sheet" role="dialog" aria-modal="true" aria-labelledby="award-detail-title">
+              <button className="award-detail-close" type="button" onClick={() => setSelectedExhibitId(null)} aria-label="작품 설명 닫기">×</button>
+              <small>AWARD NOTE · NO.{String(selectedExhibit.fortune.id).padStart(3, "0")}</small>
+              <span className="award-name">{selectedExhibit.award}</span>
+              <h2 id="award-detail-title">{selectedExhibit.fortune.cardTitle}</h2>
+              <div className="award-detail-grade"><Stars count={selectedExhibit.grade.stars}/><strong>{selectedExhibit.grade.grade}</strong></div>
+              <p>{selectedExhibit.fortune.copy}</p>
+              <dl><dt>선정 이유</dt><dd>{selectedExhibit.note}</dd><dt>수상 기준</dt><dd>실제로 일어난 관측 중 우주 개입 농도 별 4단계 이상</dd></dl>
+            </section>
+          </div>
+        ) : null}
+      </section>
+    </>
   );
 }
 
@@ -717,9 +792,102 @@ function GuideScreen({ onBack }: { onBack: () => void }) {
   return <><Header title="우주 개입 농도 안내" onBack={onBack}/><section className="screen-content guide-screen"><BureauCode status="기준 유효">관측 판정 기준 · SIGNAL SCALE</BureauCode><p>관측된 별일에 우주가 얼마나 쓸데없이 개입했는지 계산해요.</p>{gradeGuide.map((item, index) => <article key={item.grade}><OutcomeFace outcome={index === 0 ? "missed" : index === 1 ? "close" : "happened"}/><div><strong>{item.grade}</strong><span>(별 {item.stars}개)</span><p>{item.copy}</p></div></article>)}</section></>;
 }
 
-function AboutScreen({ onGuide, onExamples, onReset, confirming }: { onGuide: () => void; onExamples: () => void; onReset: () => void; confirming: boolean }) {
+const observationProfiles: Record<Category, { title: string; copy: string }> = {
+  "교통": { title: "절묘한 이동운 포착자", copy: "오가는 길의 미세한 타이밍을 잘 발견해요." },
+  "음식": { title: "간식 신호 전문 관측자", copy: "먹는 순간 찾아오는 작은 행운에 민감해요." },
+  "사람": { title: "인간관계 우연 포착자", copy: "사람 사이에서 생기는 반가운 신호를 잘 찾아요." },
+  "일상": { title: "생활밀착형 행운 포착자", copy: "가까운 곳의 우주 개입을 잘 발견해요." },
+  "기타": { title: "미분류 신호 탐색자", copy: "아직 이름 붙지 않은 별일까지 놓치지 않아요." },
+};
+
+type ObservationMetric = "all" | "happened" | "awards";
+
+function AboutScreen({ records, onRecords, onOpenRecord, onExamples, onSettings }: { records: RecordItem[]; onRecords: () => void; onOpenRecord: (record: RecordItem) => void; onExamples: () => void; onSettings: () => void }) {
+  const [selectedMetric, setSelectedMetric] = useState<ObservationMetric | null>(null);
+  const monthRecords = records.filter((record) => record.date.startsWith(monthKey()));
+  const categoryCounts = monthRecords.reduce<Record<Category, number>>((counts, record) => {
+    counts[record.category] += 1;
+    return counts;
+  }, { "교통": 0, "음식": 0, "사람": 0, "일상": 0, "기타": 0 });
+  const leadingCategory = categories.reduce((leading, category) => categoryCounts[category] > categoryCounts[leading] ? category : leading, "일상");
+  const profile = observationProfiles[leadingCategory];
+  const happenedCount = records.filter((record) => record.outcome === "happened").length;
+  const awardCount = records.filter((record) => gradeFor(record).stars >= 4).length;
+  const metricCopy = selectedMetric ? {
+    all: { title: "누적 관측 기록", empty: "아직 관측한 별일이 없어요." },
+    happened: { title: "실제로 발생한 별일", empty: "아직 정확히 발생한 별일이 없어요." },
+    awards: { title: "내가 받은 상", empty: "별 4개 이상의 수상 기록을 기다리고 있어요." },
+  }[selectedMetric] : null;
+  const metricRecords = selectedMetric === "happened"
+    ? records.filter((record) => record.outcome === "happened")
+    : selectedMetric === "awards"
+      ? records.filter((record) => gradeFor(record).stars >= 4)
+      : records;
+
+  function toggleMetric(metric: ObservationMetric) {
+    setSelectedMetric((current) => current === metric ? null : metric);
+  }
+
   return (
-    <><Header title="별일 관측국은?"/><section className="screen-content about-screen"><BureauCode status="근무 중">관측요원 안내 · CREW FILE</BureauCode><div className="brand-lockup"><strong>별일</strong><i>✦</i><span>관측국</span></div><p className="about-lead">아무 일도 아닌 일을<br/>쓸데없이 관측하고, 보도하고, 시상합니다.</p><h2>이 앱은?</h2><p>오늘의 하찮은 예보를 분류하고 결정을 누르면 카드가 보관소에 등록돼요. 사진 증거까지 남기면 별가루와 전용 칭호도 받습니다.</p><h2>관측 절차</h2><ol><li><b>1</b>미세한 우주 개입 예보 확인</li><li><b>2</b>실제로 일어났는지 관측</li><li><b>3</b>분류 결정 후 도감 등록</li><li><b>4</b>사진과 메모로 증거 보강</li></ol><div className="about-actions"><button onClick={onGuide}>우주 개입 농도 안내<Icon name="chevron-right"/></button><button onClick={onExamples}>하찮은 수상작 보기<Icon name="chevron-right"/></button><button className={confirming ? "danger" : ""} onClick={onReset}>{confirming ? "한 번 더 누르면 기록이 삭제돼요" : "내 기록 초기화"}</button></div><div className="about-character"><SpeechBubble className="about-speech" tail="right">우주가 도운 건 3%.<br/>기록한 건 우리.</SpeechBubble><div className="crew-mascot"><Mascot/></div></div></section></>
+    <><Header title="내 정보"/><section className="screen-content about-screen">
+      <BureauCode status="근무 중">관측요원 파일 · CREW FILE</BureauCode>
+
+      <article className="crew-profile-card">
+        <span className="crew-profile-copy">
+          <small>나의 관측국 <i>✦</i></small>
+          <strong>사소한 별일을<br/>놓치지 않는 중 <i>✦</i></strong>
+        </span>
+        <span className="crew-profile-mascot" aria-hidden="true"><Mascot/><i/></span>
+      </article>
+
+      <div className="about-metrics" role="group" aria-label="나의 관측 통계">
+        <button className={selectedMetric === "all" ? "active" : ""} aria-expanded={selectedMetric === "all"} aria-controls="observation-metric-detail" onClick={() => toggleMetric("all")}><span>누적 관측</span><strong>{records.length}</strong><i>기록 보기</i></button>
+        <button className={selectedMetric === "happened" ? "active" : ""} aria-expanded={selectedMetric === "happened"} aria-controls="observation-metric-detail" onClick={() => toggleMetric("happened")}><span>실제 발생</span><strong>{happenedCount}</strong><i>기록 보기</i></button>
+        <button className={selectedMetric === "awards" ? "active" : ""} aria-expanded={selectedMetric === "awards"} aria-controls="observation-metric-detail" onClick={() => toggleMetric("awards")}><span>받은 상</span><strong>{awardCount}</strong><i>기록 보기</i></button>
+      </div>
+
+      {selectedMetric && metricCopy && <section className="observation-metric-detail" id="observation-metric-detail" aria-live="polite">
+        <header><span><small>OBSERVATION FILE</small><h2>{metricCopy.title}</h2></span><button onClick={() => setSelectedMetric(null)} aria-label={`${metricCopy.title} 닫기`}>닫기</button></header>
+        {metricRecords.length ? <div className="metric-record-list">{metricRecords.slice(0, 4).map((record) => <button key={record.id} onClick={() => onOpenRecord(record)}>
+          <span><strong>{record.title}</strong><small>{record.date} · {record.category}</small></span>
+          <em>{selectedMetric === "awards" ? awardTitle(record) : outcomeLabels[record.outcome]}</em>
+          <Icon name="chevron-right"/>
+        </button>)}</div> : <p>{metricCopy.empty}</p>}
+        {metricRecords.length > 4 && <button className="metric-more" onClick={onRecords}>나머지 {metricRecords.length - 4}건도 보기 <Icon name="chevron-right"/></button>}
+      </section>}
+
+      <article className="observation-profile-card">
+        <span>
+          <small>이번 달 관측 성향 · MONTHLY TYPE</small>
+          <strong>{profile.title}</strong>
+          <p>{monthRecords.length ? profile.copy : "첫 관측을 기다리고 있어요."}</p>
+        </span>
+        <em className="observation-profile-code" aria-hidden="true"><b>{leadingCategory}</b><small>OBSERVED</small></em>
+      </article>
+
+      <div className="about-actions">
+        <button onClick={onRecords}><span className="about-action-icon action-log" aria-hidden="true"><Icon name="records"/></span><strong>내 관측 기록</strong><Icon name="chevron-right"/></button>
+        <button onClick={onExamples}><span className="about-action-icon action-award" aria-hidden="true"><Icon name="award"/></span><strong>받은 상장 {awardCount}개</strong><Icon name="chevron-right"/></button>
+        <button onClick={onSettings}><span className="about-action-icon action-settings" aria-hidden="true"><Icon name="manual"/></span><span className="about-action-copy"><strong>앱 안내 및 설정</strong><small>관측 기준 · 저장 방식 · 데이터 관리</small></span><Icon name="chevron-right"/></button>
+      </div>
+    </section></>
+  );
+}
+
+function SettingsScreen({ records, onBack, onGuide, onReset, confirming }: { records: RecordItem[]; onBack: () => void; onGuide: () => void; onReset: () => void; confirming: boolean }) {
+  const evidenceCount = records.filter((record) => record.photoDataUrl).length;
+  return (
+    <><Header title="앱 안내 및 설정" onBack={onBack}/><section className="screen-content settings-screen">
+      <BureauCode status="기기 저장">관측국 운영 안내 · LOCAL FILE</BureauCode>
+      <article className="settings-intro"><span><small>별일 관측국은?</small><h2>아무 일도 아닌 일을<br/>관측하고, 보도하고, 시상합니다.</h2><p>예보를 분류하면 보관소와 관측일지에 기록돼요. 사진 증거를 붙이면 별가루와 전용 칭호를 받을 수 있어요.</p></span><Mascot/></article>
+
+      <section className="settings-section"><header><small>OBSERVATION RULE</small><h2>관측 기준</h2></header><button className="settings-link" onClick={onGuide}><span><strong>우주 개입 농도 안내</strong><small>1–5단계 판정 기준과 별점 확인</small></span><Icon name="chevron-right"/></button></section>
+
+      <section className="settings-section"><header><small>LOCAL STORAGE</small><h2>기록 보관 방식</h2></header><div className="storage-summary"><span className="storage-icon" aria-hidden="true"><i/></span><span><strong>이 기기에만 저장돼요</strong><p>계정이나 서버 없이 현재 기기의 브라우저 저장소를 사용합니다. 앱 데이터나 브라우저 저장소를 지우면 복구할 수 없어요.</p></span></div><dl className="storage-metrics"><div><dt>저장된 관측</dt><dd>{records.length}<small>건</small></dd></div><div><dt>현장 증거</dt><dd>{evidenceCount}<small>장</small></dd></div></dl></section>
+
+      <section className="settings-section settings-data"><header><small>DATA CONTROL</small><h2>데이터 관리</h2></header><p>보관소, 관측일지, 사진 증거와 발견한 카드가 모두 삭제됩니다.</p><button className={confirming ? "danger" : ""} onClick={onReset}>{confirming ? "정말 전체 기록을 삭제할까요?" : "내 기록 전체 초기화"}<span>{confirming ? "한 번 더 누르면 삭제" : `${records.length}건 저장 중`}</span></button></section>
+
+    </section></>
   );
 }
 
@@ -1057,11 +1225,12 @@ export default function Home() {
         {view === "report" && <ReportScreen records={records} month={selectedMonth} onBack={goBack} onMonth={setSelectedMonth} />}
         {view === "examples" && <ExamplesScreen onBack={goBack} />}
         {view === "guide" && <GuideScreen onBack={goBack} />}
+        {view === "settings" && <SettingsScreen records={records} onBack={goBack} onGuide={() => navigate({ view: "guide", activeRecordId: null })} onReset={resetRecords} confirming={confirmReset} />}
         {view === "wakppu" && <WakppuCatalogScreen observed={observedWakppu} onBack={goBack} />}
         {mainVisible && tab === "today" && <TodayScreen key={`${fortuneIndex}-${currentWakppuVariant}`} fortuneIndex={fortuneIndex} wakppuVariant={currentWakppuVariant} revealed={fortuneRevealed} outcome={outcome} onOutcome={selectFortuneOutcome} onRecall={() => setOutcome(null)} onCycleWakppu={cycleWakppu} onNewFortune={drawNewFortune} onHiddenCardDiscover={discoverHiddenCard} onReveal={() => { setFortuneRevealed(true); observeWakppu(currentWakppuVariant); }} onConfirm={confirmClassification} classificationConfirmed={Boolean(currentRecord && outcome === currentRecord.outcome)} onCapture={() => currentRecord ? openEvidence(currentRecord) : setToast("먼저 분류를 결정해주세요")} onAbout={() => moveTab("about")} />}
         {mainVisible && tab === "collection" && <CollectionScreen observedFortuneIds={observedFortuneIds} observedWakppu={observedWakppu} discoveredHiddenCardIds={discoveredHiddenCardIds} records={records} searchOpen={searchOpen} search={search} archiveView={archiveView} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCollectedFortune} onWakppu={() => navigate({ view: "wakppu", activeRecordId: null })} onArchive={(nextArchive) => navigate({ tab: "collection", view: "main", archiveView: nextArchive, activeRecordId: null })} onBack={goBack} />}
         {mainVisible && tab === "records" && <RecordsScreen records={records} selectedMonth={selectedMonth} onMonth={setSelectedMonth} onReport={() => navigate({ view: "report", activeRecordId: null })} onOpen={openCard} />}
-        {mainVisible && tab === "about" && <AboutScreen onGuide={() => navigate({ view: "guide", activeRecordId: null })} onExamples={() => navigate({ view: "examples", activeRecordId: null })} onReset={resetRecords} confirming={confirmReset} />}
+        {mainVisible && tab === "about" && <AboutScreen records={records} onRecords={() => moveTab("records")} onOpenRecord={openCard} onExamples={() => navigate({ view: "examples", activeRecordId: null })} onSettings={() => navigate({ view: "settings", activeRecordId: null })} />}
         {mainVisible && <BottomNav tab={tab} onMove={moveTab} />}
         {toast && <div className="toast" role="status">{toast}</div>}
       </div>

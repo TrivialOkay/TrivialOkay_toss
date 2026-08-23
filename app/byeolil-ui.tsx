@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import type { AssetKind, CharacterArt, Outcome, Tab } from "./byeolil-data";
 
-type IconName = "back" | "camera" | "chart" | "chevron-down" | "chevron-right" | "help" | "home" | "more" | "refresh" | "search" | "settings" | "share";
+type IconName = "award" | "back" | "camera" | "chart" | "chevron-down" | "chevron-right" | "help" | "home" | "manual" | "more" | "records" | "refresh" | "search" | "settings" | "share";
 
 const iconPaths: Record<IconName, ReactNode> = {
+  award: <><circle cx="12" cy="9" r="5"/><path d="m8.5 13-1 8 4.5-2.7 4.5 2.7-1-8"/><path d="m10.1 9 1.2 1.2 2.7-2.7"/></>,
   back: <path d="m15 5-7 7 7 7" />,
   camera: <><path d="M4 7.5h3l1.4-2h7.2l1.4 2h3v11H4Z"/><circle cx="12" cy="13" r="3.2"/></>,
   chart: <><path d="M5 19V9M12 19V5M19 19v-7"/><path d="M3 19h18"/></>,
@@ -11,7 +12,9 @@ const iconPaths: Record<IconName, ReactNode> = {
   "chevron-right": <path d="m9 5 7 7-7 7" />,
   help: <><circle cx="12" cy="12" r="9"/><path d="M9.8 9.3a2.35 2.35 0 1 1 3.7 1.92c-.92.64-1.5 1.14-1.5 2.28M12 17h.01"/></>,
   home: <><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></>,
+  manual: <><path d="M4 5.5c3.2-.7 5.9-.2 8 1.5v12c-2.1-1.7-4.8-2.2-8-1.5Z"/><path d="M20 5.5c-3.2-.7-5.9-.2-8 1.5v12c2.1-1.7 4.8-2.2 8-1.5Z"/><path d="M12 10v4M12 16h.01"/></>,
   more: <><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></>,
+  records: <><path d="M6 3.5h9l3 3V21H6Z"/><path d="M15 3.5V7h3M9 11h6M9 14.5h6M9 18h4"/><path d="M3.5 6v12"/></>,
   refresh: <><path d="M20 6.8v5h-5"/><path d="M19.2 11.8a7.6 7.6 0 1 0-1.4 5.5"/></>,
   search: <><circle cx="10.5" cy="10.5" r="6.2"/><path d="m15 15 5 5"/></>,
   settings: <><circle cx="12" cy="12" r="3.2"/><path d="m19 13.2 1.7 1.3-1.8 3.1-2.1-.8a7 7 0 0 1-2.1 1.2l-.3 2.3h-3.6l-.3-2.3a7 7 0 0 1-2.1-1.2l-2.1.8-1.8-3.1L6 13.2a7 7 0 0 1 0-2.4L4.4 9.5l1.8-3.1 2.1.8A7 7 0 0 1 10.5 6l.3-2.3h3.6l.3 2.3a7 7 0 0 1 2.1 1.2l2.1-.8 1.8 3.1-1.7 1.3a7 7 0 0 1 0 2.4Z"/></>,
