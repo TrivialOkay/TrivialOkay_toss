@@ -195,6 +195,31 @@ function TodayScreen({
   onAbout: () => void;
 }) {
   const fortune = fortunes[fortuneIndex];
+  const outcomeSectionRef = useRef<HTMLElement>(null);
+  const recallGestureRef = useRef<{ pointerId: number; startY: number; triggered: boolean } | null>(null);
+  const suppressRecallClickRef = useRef(false);
+  const [recallVersion, setRecallVersion] = useState(0);
+
+  function recallFiledCard() {
+    setRecallVersion((version) => version + 1);
+  }
+
+  useEffect(() => {
+    if (!revealed) return;
+    const timer = window.setTimeout(() => {
+      const section = outcomeSectionRef.current;
+      if (!section) return;
+      const rect = section.getBoundingClientRect();
+      const visibleBottom = window.innerHeight - 105;
+      if (rect.top >= 76 && rect.bottom <= visibleBottom) return;
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + rect.bottom - visibleBottom),
+        behavior: "smooth",
+      });
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [revealed]);
+
   return (
     <>
       <header className="today-header"><div><h1>별일 관측국</h1><small>오늘의 미세한 우주 개입 예보</small><span className="today-signal"><i />관측소 01 · KST · SIGNAL 03%</span></div><button className="icon-button" onClick={onAbout} aria-label="내 정보 열기"><Icon name="settings" /></button></header>
@@ -208,19 +233,52 @@ function TodayScreen({
           <h2>{revealed ? fortune.title : "왁뿌볼 안에 든 운세를 꺼내보세요."}</h2>
           <p>{revealed ? "우주 기여도 3% · 큰 기대는 금물!" : "돌리고, 누르고, 문지르면 예보가 나옵니다."}</p>
           <Suspense fallback={<div className="fortune-ball-loading" role="status">왁뿌볼 불러오는 중...</div>}>
-            <FortuneBall key={`${fortune.id}-${wakppuVariant}`} fortune={fortune.cardTitle} fortuneId={fortune.id} wakppuVariant={wakppuVariant} asset={fortune.asset} characterArt={fortune.characterArt} outcome={outcome} onOutcome={onOutcome} onHiddenCardDiscover={onHiddenCardDiscover} onReveal={onReveal} />
+            <FortuneBall key={`${fortune.id}-${wakppuVariant}`} fortune={fortune.cardTitle} fortuneId={fortune.id} wakppuVariant={wakppuVariant} asset={fortune.asset} characterArt={fortune.characterArt} outcome={outcome} onOutcome={onOutcome} onHiddenCardDiscover={onHiddenCardDiscover} onReveal={onReveal} recallVersion={recallVersion} />
           </Suspense>
         </article>
-        <section className={`outcome-section ${revealed ? "" : "is-locked"}`} aria-hidden={!revealed}>
+        <section ref={outcomeSectionRef} className={`outcome-section ${revealed ? "" : "is-locked"}`} aria-hidden={!revealed}>
           <div className="outcome-sorter-head"><span>OBS SORTER · 03</span><b><i />{outcome ? "도감 등록 완료" : "분류 대기"}</b></div>
           <h2>관측 결과 분류함</h2>
           <p>카드를 실제 결과와 맞는 투입구에 넣어주세요</p>
           <div className="outcome-grid" role="group" aria-label="오늘의 운세 결과">
             {(Object.keys(outcomeMeta) as Outcome[]).map((key) => (
-              <button key={key} data-outcome-slot={key} disabled={!revealed} className={`outcome-button outcome-${key} ${outcome === key ? "selected" : ""}`} onClick={() => onOutcome(key)} aria-pressed={outcome === key}>
+              <button
+                key={key}
+                data-outcome-slot={key}
+                disabled={!revealed}
+                className={`outcome-button outcome-${key} ${outcome === key ? "selected is-recallable" : ""}`}
+                onPointerDown={(event) => {
+                  if (outcome !== key) return;
+                  recallGestureRef.current = { pointerId: event.pointerId, startY: event.clientY, triggered: false };
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={(event) => {
+                  const gesture = recallGestureRef.current;
+                  if (!gesture || gesture.pointerId !== event.pointerId || gesture.triggered) return;
+                  if (gesture.startY - event.clientY < 24) return;
+                  gesture.triggered = true;
+                  suppressRecallClickRef.current = true;
+                  recallFiledCard();
+                }}
+                onPointerUp={(event) => {
+                  if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+                  recallGestureRef.current = null;
+                }}
+                onPointerCancel={() => { recallGestureRef.current = null; }}
+                onClick={() => {
+                  if (suppressRecallClickRef.current) {
+                    suppressRecallClickRef.current = false;
+                    return;
+                  }
+                  if (outcome === key) recallFiledCard();
+                  else onOutcome(key);
+                }}
+                aria-label={outcome === key ? `${outcomeLabels[key]} 카드 다시 꺼내기` : outcomeLabels[key]}
+                aria-pressed={outcome === key}
+              >
                 <span className="outcome-button-head"><OutcomeFace outcome={key} /><strong>{outcomeLabels[key]}</strong></span>
                 <span className="outcome-card-slot" aria-hidden="true"><i /></span>
-                <small>{outcome === key ? "분류 완료" : outcomeDescriptions[key]}</small>
+                <small>{outcome === key ? "위로 당겨 다시 분류" : outcomeDescriptions[key]}</small>
               </button>
             ))}
           </div>

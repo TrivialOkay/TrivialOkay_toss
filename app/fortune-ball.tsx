@@ -17,23 +17,28 @@ type FortuneBallProps = {
   onOutcome: (value: Outcome) => boolean;
   onHiddenCardDiscover: (id: HiddenCardId) => void;
   onReveal: () => void;
+  recallVersion?: number;
 };
 
 function clamp(value: number, min = -1, max = 1) {
   return Math.min(max, Math.max(min, value));
 }
 
-function outcomeSlotAtPoint(point: { x: number; y: number }) {
+function outcomeSlotAtPoint(point: { x: number; y: number }, magnetRadius = 52) {
   const slots = document.querySelectorAll<HTMLElement>("[data-outcome-slot]");
+  let nearest: { value: Outcome; distance: number } | null = null;
   for (const slot of slots) {
     const rect = slot.getBoundingClientRect();
     const left = rect.left + window.scrollX;
     const top = rect.top + window.scrollY;
-    if (point.x < left || point.x > left + rect.width || point.y < top || point.y > top + rect.height) continue;
     const value = slot.dataset.outcomeSlot;
-    if (value === "happened" || value === "close" || value === "missed") return value;
+    if (value !== "happened" && value !== "close" && value !== "missed") continue;
+    const dx = Math.max(left - point.x, 0, point.x - (left + rect.width));
+    const dy = Math.max(top - point.y, 0, point.y - (top + rect.height));
+    const distance = Math.hypot(dx, dy);
+    if (distance <= magnetRadius && (!nearest || distance < nearest.distance)) nearest = { value, distance };
   }
-  return null;
+  return nearest?.value ?? null;
 }
 
 function playBreakFeedback() {
@@ -167,7 +172,7 @@ function playRocketFeedback() {
   }
 }
 
-export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characterArt, outcome, onOutcome, onHiddenCardDiscover, onReveal }: FortuneBallProps) {
+export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characterArt, outcome, onOutcome, onHiddenCardDiscover, onReveal, recallVersion = 0 }: FortuneBallProps) {
   const [stage, setStage] = useState(0);
   const [cardRevealed, setCardRevealed] = useState(false);
   const [rocketReady, setRocketReady] = useState(false);
@@ -184,6 +189,8 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
   const cardRef = useRef<HTMLDivElement>(null);
   const boundsRef = useRef<HTMLElement>(null);
   const highlightedSlotRef = useRef<HTMLElement>(null);
+  const handledRecallRef = useRef(0);
+  const recalledOutcomeRef = useRef<Outcome | null>(null);
   const reduceMotion = useReducedMotion();
   const slipX = useMotionValue(0);
   const slipY = useMotionValue(0);
@@ -282,6 +289,7 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     if (cardFiled || filingOutcome) return;
     const slot = document.querySelector<HTMLElement>(`[data-outcome-slot="${value}"]`);
     const card = cardRef.current;
+    recalledOutcomeRef.current = null;
     setFilingOutcome(value);
     highlightOutcomeSlot(null);
     navigator.vibrate?.(18);
@@ -296,9 +304,24 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
 
   useEffect(() => {
     if (!outcome || !cardRevealed || cardFiled || filingOutcome) return;
+    if (recalledOutcomeRef.current === outcome) return;
     const frame = window.requestAnimationFrame(() => fileCard(outcome));
     return () => window.cancelAnimationFrame(frame);
   }, [cardFiled, cardRevealed, fileCard, filingOutcome, outcome]);
+
+  useEffect(() => {
+    if (!recallVersion || handledRecallRef.current === recallVersion) return;
+    if (!cardFiled) return;
+    handledRecallRef.current = recallVersion;
+    const frame = window.requestAnimationFrame(() => {
+      recalledOutcomeRef.current = outcome;
+      slipX.set(0);
+      slipY.set(0);
+      setCardFiled(false);
+      navigator.vibrate?.(10);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [cardFiled, outcome, recallVersion, slipX, slipY]);
 
   function returnSlip() {
     const options = reduceMotion
@@ -367,7 +390,8 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
               const selectedOutcome = outcomeSlotAtPoint(info.point);
               highlightOutcomeSlot(null);
               if (selectedOutcome) {
-                if (!onOutcome(selectedOutcome)) returnSlip();
+                if (onOutcome(selectedOutcome)) fileCard(selectedOutcome);
+                else returnSlip();
               }
               else returnSlip();
             }}

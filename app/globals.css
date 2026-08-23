@@ -324,6 +324,8 @@ img { display: block; }
 .outcome-card-slot i { position: absolute; left: 8%; right: 8%; top: -11px; height: 13px; border: 1px solid #b08b32; border-radius: 2px; background: #fff7d9; box-shadow: 0 1px 3px rgba(0,0,0,.3); opacity: 0; transform: translateY(-6px); transition: opacity .2s ease, transform .2s ease; }
 .outcome-button > small { position: relative; z-index: 1; color: #756e65; font-size: 9px; font-weight: 720; }
 .outcome-button.selected { border-color: #b78a25; background: linear-gradient(155deg, #fff8df, #e9dbac); box-shadow: inset 0 0 0 1px #d2a840, inset 0 1px 0 white, 0 2px 4px rgba(78,58,16,.12); }
+.outcome-button.selected.is-recallable { cursor: grab; touch-action: none; }
+.outcome-button.selected.is-recallable:active { cursor: grabbing; }
 .outcome-button.selected .outcome-card-slot i { opacity: 1; transform: translateY(7px); }
 .outcome-button.selected .outcome-card-slot::before { opacity: 0; }
 .outcome-button.selected > small { color: #785e1f; font-weight: 850; }
