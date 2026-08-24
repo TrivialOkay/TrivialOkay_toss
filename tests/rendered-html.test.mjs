@@ -41,6 +41,22 @@ test("renders accessible primary navigation", async () => {
   assert.match(html, /aria-label="오늘의 운세 결과"/i);
 });
 
+test("keeps a mascot illustration connected to every fortune", async () => {
+  const dataSource = await readFile(new URL("../app/byeolil-data.ts", import.meta.url), "utf8");
+  const fortuneSection = dataSource.split("export const fortunes: Fortune[] = [")[1]?.split("];", 1)[0] ?? "";
+  const fortuneEntries = [...fortuneSection.matchAll(/\{([\s\S]*?)\n  \},/g)].map((match) => match[1]);
+  const missingArt = fortuneEntries
+    .filter((entry) => !/characterArt:\s*"/.test(entry))
+    .map((entry) => entry.match(/id:\s*(\d+)/)?.[1] ?? "unknown");
+  assert.equal(fortuneEntries.length, 83);
+  assert.deepEqual(missingArt, []);
+
+  const uiSource = await readFile(new URL("../app/byeolil-ui.tsx", import.meta.url), "utf8");
+  const mappedPoseFiles = [...uiSource.matchAll(/:\s*"\/mascot-poses\/([^\"]+)"/g)].map((match) => match[1]);
+  const poseFiles = await readdir(new URL("../public/mascot-poses/", import.meta.url));
+  assert.deepEqual(mappedPoseFiles.filter((file) => !poseFiles.includes(file)), []);
+});
+
 test("keeps the legacy record migration in the client bundle", async () => {
   const chunkRoot = new URL("../dist/client/_next/static/chunks/", import.meta.url);
   const chunks = await readdir(chunkRoot);

@@ -76,7 +76,19 @@ export type CharacterArt =
   | "cleanPizza"
   | "firstPop"
   | "exactCable"
-  | "strapEscape";
+  | "strapEscape"
+  | "elevatorReady"
+  | "earlyDelivery"
+  | "untangledCable"
+  | "neatEarbuds"
+  | "roundTotal"
+  | "foundKey"
+  | "luckyPage"
+  | "giantChip"
+  | "foundCoin"
+  | "deliveryArrived"
+  | "returnedBook"
+  | "stoppedPen";
 export type AssetKind =
   | "usb"
   | "signal"
@@ -192,6 +204,7 @@ export const fortunes: Fortune[] = [
     copy: "당신을 위해 미리 도착했을 리는 없고, 그냥 운이 3% 좋았습니다. 그래도 좀 굿즈?",
     aside: "기다리기\n귀찮았는데\n다행.",
     asset: "elevator",
+    characterArt: "elevatorReady",
     category: "일상",
   },
   {
@@ -211,6 +224,7 @@ export const fortunes: Fortune[] = [
     copy: "세상을 바꾸진 못해도 배고픔은 조금 빨리 끝났습니다.",
     aside: "기사님\n최고",
     asset: "delivery",
+    characterArt: "earlyDelivery",
     category: "음식",
   },
   {
@@ -220,6 +234,7 @@ export const fortunes: Fortune[] = [
     copy: "오늘의 손끝에는 하찮지만 분명한 재능이 있었습니다.",
     aside: "웬일이지?",
     asset: "cable",
+    characterArt: "untangledCable",
     category: "일상",
   },
   {
@@ -279,6 +294,7 @@ export const fortunes: Fortune[] = [
     copy: "주머니 안에서 무슨 일이 있었는지는 몰라도 오늘은 평화 협정이 유지됐습니다.",
     aside: "서로 싸우지\n않았구나.",
     asset: "earbuds",
+    characterArt: "neatEarbuds",
     category: "일상",
   },
   {
@@ -308,6 +324,7 @@ export const fortunes: Fortune[] = [
     copy: "통장 잔고까지 깔끔해진 건 아니지만 숫자 모양만큼은 마음에 듭니다.",
     aside: "0원이\n줄 맞췄다.",
     asset: "receipt",
+    characterArt: "roundTotal",
     category: "기타",
   },
   {
@@ -327,6 +344,7 @@ export const fortunes: Fortune[] = [
     copy: "가방 정리를 잘한 결과는 아닐 확률이 높지만 손끝의 촉이 정확했습니다.",
     aside: "오늘은\n바로 잡힘.",
     asset: "key",
+    characterArt: "foundKey",
     category: "일상",
   },
   {
@@ -336,6 +354,7 @@ export const fortunes: Fortune[] = [
     copy: "책갈피 없이도 도착했습니다. 기억력보다 우연의 활약이 조금 컸습니다.",
     aside: "여기였네.\n한 번에 찾음.",
     asset: "book",
+    characterArt: "luckyPage",
     category: "기타",
   },
   {
@@ -345,6 +364,7 @@ export const fortunes: Fortune[] = [
     copy: "양이 늘어난 건 아니지만 마지막까지 남겨두고 싶은 조각을 얻었습니다.",
     aside: "이건 조금\n아껴 먹자.",
     asset: "snack",
+    characterArt: "giantChip",
     category: "음식",
   },
   {
@@ -354,6 +374,7 @@ export const fortunes: Fortune[] = [
     copy: "원래 당신 돈이었지만 다시 만난 순간만큼은 공돈처럼 반갑습니다.",
     aside: "과거의 내가\n용돈을 줌.",
     asset: "coin",
+    characterArt: "foundCoin",
     category: "기타",
   },
   {
@@ -393,6 +414,7 @@ export const fortunes: Fortune[] = [
     copy: "새로고침 한 번을 아꼈습니다. 문 앞에는 생각보다 부지런한 상자가 있습니다.",
     aside: "방금\n도착했네.",
     asset: "delivery",
+    characterArt: "deliveryArrived",
     category: "일상",
   },
   {
@@ -402,6 +424,7 @@ export const fortunes: Fortune[] = [
     copy: "누군가의 독서가 끝나는 순간 당신의 독서가 시작됐습니다.",
     aside: "기다리지\n않아도 됨.",
     asset: "book",
+    characterArt: "returnedBook",
     category: "기타",
   },
   {
@@ -421,6 +444,7 @@ export const fortunes: Fortune[] = [
     copy: "허리를 완전히 숙이지 않아도 되는 거리에서 작은 탈주가 끝났습니다.",
     aside: "거기서\n멈춰줘서 고맙.",
     asset: "pen",
+    characterArt: "stoppedPen",
     category: "일상",
   },
   {
