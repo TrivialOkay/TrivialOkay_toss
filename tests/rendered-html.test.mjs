@@ -41,10 +41,29 @@ test("renders accessible primary navigation", async () => {
   assert.match(html, /aria-label="오늘의 운세 결과"/i);
 });
 
+test("allows vertical page scrolling after the wakppu ball breaks", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(css, /\.fortune-ball\.is-broken[\s\S]*?\.wakppu-break-canvas\s*\{\s*touch-action:\s*pan-y;/);
+  assert.match(css, /\.observed-card-drag\s*>\s*\*[^}]*touch-action:\s*none;/);
+});
+
+test("keeps main-screen actions clear of the floating bottom navigation", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const pageSource = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(pageSource, /phone-surface.*has-bottom-nav/);
+  assert.match(css, /\.phone-surface\.has-bottom-nav\s*>\s*\.screen-content\s*\{[^}]*padding-bottom:[^}]*--bottom-nav-height[^}]*safe-area-inset-bottom[^}]*--bottom-nav-content-gap/);
+});
+
+test("falls back to browser navigation outside the Apps in Toss runtime", async () => {
+  const pageSource = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(pageSource, /function registerNativeBackEvent[\s\S]*?try[\s\S]*?graniteEvent\.addEventListener[\s\S]*?catch[\s\S]*?return \(\) => undefined/);
+  assert.match(pageSource, /window\.addEventListener\("popstate", onPopState\)/);
+});
+
 test("keeps a mascot illustration connected to every fortune", async () => {
   const dataSource = await readFile(new URL("../app/byeolil-data.ts", import.meta.url), "utf8");
   const fortuneSection = dataSource.split("export const fortunes: Fortune[] = [")[1]?.split("];", 1)[0] ?? "";
-  const fortuneEntries = [...fortuneSection.matchAll(/\{([\s\S]*?)\n  \},/g)].map((match) => match[1]);
+  const fortuneEntries = [...fortuneSection.matchAll(/\{([\s\S]*?)\n {2}\},/g)].map((match) => match[1]);
   const missingArt = fortuneEntries
     .filter((entry) => !/characterArt:\s*"/.test(entry))
     .map((entry) => entry.match(/id:\s*(\d+)/)?.[1] ?? "unknown");
@@ -52,7 +71,7 @@ test("keeps a mascot illustration connected to every fortune", async () => {
   assert.deepEqual(missingArt, []);
 
   const uiSource = await readFile(new URL("../app/byeolil-ui.tsx", import.meta.url), "utf8");
-  const mappedPoseFiles = [...uiSource.matchAll(/:\s*"\/mascot-poses\/([^\"]+)"/g)].map((match) => match[1]);
+  const mappedPoseFiles = [...uiSource.matchAll(/:\s*"\/mascot-poses\/([^"]+)"/g)].map((match) => match[1]);
   const poseFiles = await readdir(new URL("../public/mascot-poses/", import.meta.url));
   assert.deepEqual(mappedPoseFiles.filter((file) => !poseFiles.includes(file)), []);
 });
@@ -72,6 +91,8 @@ test("keeps the legacy record migration in the client bundle", async () => {
   assert.match(source, /아브라다-깨다브라/);
   assert.match(source, /미러 디멘션 개방/);
   assert.match(source, /중력 역전/);
+  assert.match(source, /젤리 임계폭발/);
+  assert.match(source, /mascot-overload/);
   assert.match(source, /분류 결정 · 도감과 관측일지에 등록했어요/);
   assert.match(source, /이 버튼을 눌러야 운세가 도감에 저장돼요/);
   assert.match(source, /새 운세 뽑기/);

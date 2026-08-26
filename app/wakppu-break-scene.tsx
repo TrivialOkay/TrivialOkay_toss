@@ -32,6 +32,7 @@ type WakppuBreakSceneProps = {
   onSpellBreak: () => void;
   onPortalBreak: () => void;
   onGravityBreak: () => void;
+  onMascotBurst: () => void;
   onRocketReady: () => void;
   onRocketLaunch: () => void;
   onCardReveal: () => void;
@@ -102,6 +103,9 @@ type SceneRuntime = {
   mascotElastic: THREE.Vector2;
   mascotElasticTarget: THREE.Vector2;
   mascotElasticVelocity: THREE.Vector2;
+  mascotTapCount: number;
+  lastMascotTapAt: number;
+  mascotBurstAt: number | null;
   lastPressStrength: number;
   fracturePatternAligned: boolean;
   cameraTarget: THREE.Vector3;
@@ -168,8 +172,12 @@ const HIDDEN_REVEAL_DELAYS: Record<HiddenCardId, number> = {
   "abracada-crack": 1250,
   "mirror-dimension": 1800,
   "gravity-reversal": 1480,
+  "mascot-overload": 520,
 };
 const ROCKET_SEQUENCE_DURATION = 1650;
+const MASCOT_TAP_THRESHOLD = 7;
+const MASCOT_TAP_WINDOW_MS = 1800;
+const MASCOT_BURST_LAUNCH_DELAY = 520;
 const LONG_PRESS_CHARGE_MS = 1200;
 const LONG_PRESS_VISIBLE_MS = 360;
 const DEFORMATION_MIN_DOT = Math.cos(0.96);
@@ -913,6 +921,7 @@ export function WakppuBreakScene({
   onSpellBreak,
   onPortalBreak,
   onGravityBreak,
+  onMascotBurst,
   onRocketReady,
   onRocketLaunch,
   onCardReveal,
@@ -928,6 +937,7 @@ export function WakppuBreakScene({
   const spellBreakCallbackRef = useRef(onSpellBreak);
   const portalBreakCallbackRef = useRef(onPortalBreak);
   const gravityBreakCallbackRef = useRef(onGravityBreak);
+  const mascotBurstCallbackRef = useRef(onMascotBurst);
   const rocketReadyCallbackRef = useRef(onRocketReady);
   const rocketLaunchCallbackRef = useRef(onRocketLaunch);
   const cardRevealCallbackRef = useRef(onCardReveal);
@@ -944,10 +954,11 @@ export function WakppuBreakScene({
     spellBreakCallbackRef.current = onSpellBreak;
     portalBreakCallbackRef.current = onPortalBreak;
     gravityBreakCallbackRef.current = onGravityBreak;
+    mascotBurstCallbackRef.current = onMascotBurst;
     rocketReadyCallbackRef.current = onRocketReady;
     rocketLaunchCallbackRef.current = onRocketLaunch;
     cardRevealCallbackRef.current = onCardReveal;
-  }, [stage, revealed, onImpact, onSlice, onChargedBreak, onEntangledBreak, onSpellBreak, onPortalBreak, onGravityBreak, onRocketReady, onRocketLaunch, onCardReveal]);
+  }, [stage, revealed, onImpact, onSlice, onChargedBreak, onEntangledBreak, onSpellBreak, onPortalBreak, onGravityBreak, onMascotBurst, onRocketReady, onRocketLaunch, onCardReveal]);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -1704,6 +1715,9 @@ export function WakppuBreakScene({
       mascotElastic: new THREE.Vector2(),
       mascotElasticTarget: new THREE.Vector2(),
       mascotElasticVelocity: new THREE.Vector2(),
+      mascotTapCount: 0,
+      lastMascotTapAt: 0,
+      mascotBurstAt: null,
       lastPressStrength: 0.35,
       fracturePatternAligned: false,
       cameraTarget: CAMERA_STAGE_POSITIONS[0].clone(),
@@ -1793,7 +1807,7 @@ export function WakppuBreakScene({
     }
 
     function pickMascot(event: PointerEvent) {
-      if (!runtime.mascotRoot.visible) return false;
+      if (!runtime.mascotRoot.visible || runtime.mascotBurstAt !== null) return false;
       setPointerRay(runtime, event);
       return runtime.raycaster.intersectObject(runtime.mascotSprite, false).length > 0;
     }
@@ -1911,10 +1925,24 @@ export function WakppuBreakScene({
       if (runtime.mascotDrag?.pointerId === event.pointerId) {
         const drag = runtime.mascotDrag;
         const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
-        if (distance < 12 && !runtime.reduceMotion) {
-          const bounds = renderer.domElement.getBoundingClientRect();
-          const bounceDirection = event.clientX < bounds.left + bounds.width * 0.5 ? 1 : -1;
-          runtime.mascotElasticVelocity.set(bounceDirection * 0.26, 0.42);
+        if (distance < 12) {
+          const tappedAt = performance.now();
+          runtime.mascotTapCount = tappedAt - runtime.lastMascotTapAt <= MASCOT_TAP_WINDOW_MS
+            ? runtime.mascotTapCount + 1
+            : 1;
+          runtime.lastMascotTapAt = tappedAt;
+          navigator.vibrate?.(4);
+          if (runtime.mascotTapCount >= MASCOT_TAP_THRESHOLD) {
+            runtime.mascotBurstAt = tappedAt;
+            runtime.mascotElasticVelocity.set(0, 0);
+            mascotBurstCallbackRef.current();
+          }
+          if (!runtime.reduceMotion) {
+            const bounds = renderer.domElement.getBoundingClientRect();
+            const bounceDirection = event.clientX < bounds.left + bounds.width * 0.5 ? 1 : -1;
+            const tapStrength = Math.min(0.72, 0.3 + runtime.mascotTapCount * 0.06);
+            runtime.mascotElasticVelocity.set(bounceDirection * tapStrength * 0.62, tapStrength);
+          }
         }
         runtime.mascotDrag = null;
         runtime.mascotElasticTarget.set(0, 0);
@@ -2348,6 +2376,9 @@ export function WakppuBreakScene({
           runtime.rocketRoot.visible = false;
           runtime.cardDropRoot.visible = false;
           runtime.mascotRoot.visible = true;
+          runtime.mascotBurstAt = null;
+          runtime.mascotSprite.visible = true;
+          mascotMaterial.opacity = 1;
           cardRevealCallbackRef.current();
         }
       }
@@ -2372,11 +2403,22 @@ export function WakppuBreakScene({
       const verticalStretch = Math.abs(pullY) * 0.25;
       const horizontalCompression = Math.abs(pullY) * 0.08;
       const verticalCompression = Math.abs(pullX) * 0.08;
+      const mascotBurstElapsed = runtime.mascotBurstAt === null ? -1 : time - runtime.mascotBurstAt;
+      const mascotBurstScale = mascotBurstElapsed < 0
+        ? 1
+        : mascotBurstElapsed < 180
+          ? 1 + smoothstep(mascotBurstElapsed / 180) * 0.42
+          : 1.42 * (1 - smoothstep(clamp((mascotBurstElapsed - 180) / 180)));
       runtime.mascotSprite.scale.set(
-        MASCOT_HEIGHT * mascotAspect * mascotStyle.scaleX * (1 + horizontalStretch - horizontalCompression),
-        MASCOT_HEIGHT * mascotStyle.scaleY * (1 + verticalStretch - verticalCompression),
+        MASCOT_HEIGHT * mascotAspect * mascotStyle.scaleX * (1 + horizontalStretch - horizontalCompression) * mascotBurstScale,
+        MASCOT_HEIGHT * mascotStyle.scaleY * (1 + verticalStretch - verticalCompression) * mascotBurstScale,
         1,
       );
+      mascotMaterial.opacity = mascotBurstElapsed < 180 ? 1 : 1 - smoothstep(clamp((mascotBurstElapsed - 180) / 160));
+      if (mascotBurstElapsed >= 360) runtime.mascotSprite.visible = false;
+      if (mascotBurstElapsed >= MASCOT_BURST_LAUNCH_DELAY && runtime.rocketReady) {
+        beginRocketLaunch(runtime, rocketLaunchCallbackRef.current);
+      }
       runtime.mascotSprite.position.set(pullX * 0.06, 0.16 + pullY * 0.06, 0);
       if (!runtime.reduceMotion && mascotCanFloat) {
         mascotAura.rotation.z += variant === "blackHole" ? -0.007 : 0.004;
@@ -2613,6 +2655,9 @@ function HiddenBreakEffect({ id }: { id: HiddenCardId }) {
         {Array.from({ length: 13 }, (_, index) => <i key={index} />)}
       </div>
       <div className="hidden-effect-slice"><i /><i /><b /></div>
+      <div className="hidden-effect-mascot-burst">
+        {Array.from({ length: 12 }, (_, index) => <i key={index} />)}
+      </div>
     </div>
   );
 }

@@ -30,6 +30,22 @@ import { blackHoleUnlockCount, wakppuCatalog, wakppuVariantFor, type WakppuVaria
 
 const FortuneBall = lazy(() => import("./fortune-ball").then((module) => ({ default: module.FortuneBall })));
 
+function registerNativeBackEvent(onEvent: () => void) {
+  try {
+    return graniteEvent.addEventListener("backEvent", { onEvent });
+  } catch {
+    return () => undefined;
+  }
+}
+
+function enableIosSwipeBack() {
+  try {
+    void Screen.setIosSwipeBack({ isEnabled: true }).catch(() => undefined);
+  } catch {
+    return;
+  }
+}
+
 const outcomeLabels: Record<Outcome, string> = {
   happened: "정확 관측",
   close: "근접 관측",
@@ -992,16 +1008,14 @@ export default function Home() {
     }
 
     window.addEventListener("popstate", onPopState);
-    const removeBackEvent = graniteEvent.addEventListener("backEvent", {
-      onEvent: () => {
-        if (navigationRef.current.depth > 0) {
-          window.history.back();
-          return;
-        }
-        void closeView().catch(() => window.history.back());
-      },
+    const removeBackEvent = registerNativeBackEvent(() => {
+      if (navigationRef.current.depth > 0) {
+        window.history.back();
+        return;
+      }
+      void closeView().catch(() => window.history.back());
     });
-    void Screen.setIosSwipeBack({ isEnabled: true }).catch(() => undefined);
+    enableIosSwipeBack();
 
     return () => {
       window.removeEventListener("popstate", onPopState);
@@ -1268,7 +1282,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <div className="phone-surface">
+      <div className={`phone-surface ${mainVisible ? "has-bottom-nav" : ""}`.trim()}>
         {view === "capture" && currentRecord && <CaptureScreen record={currentRecord} evidenceCount={evidenceCount} category={category} note={note} photo={photo} onBack={goBack} onCategory={setCategory} onNote={setNote} onPhoto={selectPhoto} onSave={saveRecord} onSkip={() => navigate({ view: "card", activeRecordId: currentRecord.id }, "replace")} />}
         {view === "card" && activeRecord && <CardScreen record={activeRecord} evidenceCount={evidenceCount} occurrenceCount={records.filter((record) => record.fortuneId === activeRecord.fortuneId).length} onBack={goBack} onShare={shareRecord} onCollection={() => moveTab("collection")} onReplay={() => moveTab("today")} onDelete={deleteRecord} onEvidence={() => openEvidence(activeRecord)} />}
         {view === "hidden-card" && currentHiddenCardId && <HiddenCardResultScreen cardId={currentHiddenCardId} onBack={goBack} onCollection={() => navigate({ tab: "collection", view: "main", archiveView: "hidden", activeRecordId: null }, "replace")} onReplay={drawNewFortune} />}

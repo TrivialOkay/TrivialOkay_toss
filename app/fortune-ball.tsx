@@ -242,6 +242,7 @@ function playHiddenCommandFeedback(id: HiddenCardId, blackHoleVariant: boolean) 
     "abracada-crack": [7, 13, 7, 13, 7, 34, 20],
     "mirror-dimension": [9, 18, 9, 18, 42],
     "gravity-reversal": [18, 45, 12, 28, 46],
+    "mascot-overload": [8, 12, 8, 12, 8, 12, 72],
   };
   navigator.vibrate?.(vibration[id]);
 
@@ -382,6 +383,7 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
       if (specialCardId === "abracada-crack") return "아브라다-깨다브라! 주문 균열 확산 중...";
       if (specialCardId === "mirror-dimension") return "미러 디멘션 개방! 공간이 접히는 중...";
       if (specialCardId === "gravity-reversal") return "중력 역전! 파편이 위로 낙하하는 중...";
+      if (specialCardId === "mascot-overload") return "과접촉 경보! 젤리 신호가 팡— 터지는 중...";
       if (overcharged) return "히든 과충전! 특수 파괴 발동 중...";
       return sliced ? "슥— 한방컷! 파편 떨어지는 중..." : "파편들이 후두둑 떨어지는 중...";
     }
@@ -499,6 +501,12 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
     setStage(breakThreshold);
   }, [breakThreshold, onHiddenCardDiscover, wakppuVariant]);
 
+  const handleMascotBurst = useCallback(() => {
+    setSpecialCardId("mascot-overload");
+    onHiddenCardDiscover("mascot-overload");
+    playHiddenCommandFeedback("mascot-overload", wakppuVariant === "blackHole");
+  }, [onHiddenCardDiscover, wakppuVariant]);
+
   const handleRocketLaunch = useCallback(() => {
     setRocketReady(false);
     setRocketLaunching(true);
@@ -607,6 +615,7 @@ export function FortuneBall({ fortune, fortuneId, wakppuVariant, asset, characte
           onSpellBreak={handleSpellBreak}
           onPortalBreak={handlePortalBreak}
           onGravityBreak={handleGravityBreak}
+          onMascotBurst={handleMascotBurst}
           onRocketReady={() => setRocketReady(true)}
           onRocketLaunch={handleRocketLaunch}
           onCardReveal={revealObservedCard}

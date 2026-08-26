@@ -20,6 +20,9 @@
   --signal-violet: #8068c2;
   --orbit-gold: #e3b63d;
   --phone-width: 428px;
+  --bottom-nav-height: 76px;
+  --bottom-nav-edge-gap: 12px;
+  --bottom-nav-content-gap: 24px;
 }
 
 * { box-sizing: border-box; }
@@ -111,6 +114,9 @@ img { display: block; }
 .fortune-ball-canvas canvas { display: block; width: 100% !important; height: 100% !important; }
 .wakppu-break-scene { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
 .wakppu-break-canvas { display: block; width: 100%; height: 100%; outline: none; cursor: grab; touch-action: none; }
+.fortune-ball.is-broken,
+.fortune-ball.is-broken .wakppu-break-scene,
+.fortune-ball.is-broken .wakppu-break-canvas { touch-action: pan-y; }
 .wakppu-break-canvas:active { cursor: grabbing; }
 .wakppu-break-loading { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; color: #867e72; font-size: 11px; font-weight: 760; pointer-events: none; }
 .hidden-break-effect { position: absolute; z-index: 24; inset: 0; overflow: hidden; pointer-events: none; isolation: isolate; }
@@ -177,6 +183,14 @@ img { display: block; }
 .hidden-break-effect--swift-slice .hidden-effect-slice { position: absolute; z-index: 10; inset: 0; display: block; animation: slice-burst 1.08s ease-out both; }
 .hidden-effect-slice i, .hidden-effect-slice b { position: absolute; left: -12%; top: 48%; width: 125%; height: 5px; display: block; background: #fff; box-shadow: 0 0 8px 3px #ff80cf, 0 0 22px 8px rgba(92,208,255,.58); transform: rotate(28deg) scaleX(0); transform-origin: center; animation: slice-line .42s cubic-bezier(.05,.7,.14,1) both; }
 .hidden-effect-slice i:nth-child(2) { top: 39%; height: 2px; opacity: .72; animation-delay: .08s; }.hidden-effect-slice b { top: 57%; height: 2px; opacity: .45; animation-delay: .14s; }
+
+/* 젤리 임계폭발 */
+.hidden-break-effect--mascot-overload .hidden-effect-flash { background: radial-gradient(circle, #fff 0 5%, rgba(255,225,93,.9) 16%, rgba(255,103,176,.52) 36%, transparent 68%); animation-duration: .72s; animation-delay: .14s; }
+.hidden-break-effect--mascot-overload .hidden-effect-shockwave { border-color: #ffda58; box-shadow: 0 0 12px 4px rgba(255,102,177,.72), inset 0 0 9px #fff; animation-duration: .9s; animation-delay: .16s; }
+.hidden-break-effect--mascot-overload .hidden-effect-mascot-burst { position: absolute; z-index: 9; left: 50%; top: 49%; width: 220px; height: 220px; display: block; transform: translate(-50%, -50%); }
+.hidden-effect-mascot-burst i { --burst-angle: 0deg; position: absolute; left: calc(50% - 6px); top: calc(50% - 8px); width: 12px; height: 16px; border-radius: 55% 45% 62% 38%; background: #ffdf5a; box-shadow: 0 0 9px rgba(255,102,177,.8); opacity: 0; transform: rotate(var(--burst-angle)) translateY(-10px) scale(.92); animation: mascot-confetti-burst .82s cubic-bezier(.23,1,.32,1) .16s both; }
+.hidden-effect-mascot-burst i:nth-child(2) { --burst-angle: 30deg; background: #ff75b7; }.hidden-effect-mascot-burst i:nth-child(3) { --burst-angle: 60deg; background: #fff4a9; }.hidden-effect-mascot-burst i:nth-child(4) { --burst-angle: 90deg; background: #9defff; }.hidden-effect-mascot-burst i:nth-child(5) { --burst-angle: 120deg; background: #ff75b7; }.hidden-effect-mascot-burst i:nth-child(6) { --burst-angle: 150deg; background: #ffdf5a; }.hidden-effect-mascot-burst i:nth-child(7) { --burst-angle: 180deg; background: #fff4a9; }.hidden-effect-mascot-burst i:nth-child(8) { --burst-angle: 210deg; background: #9defff; }.hidden-effect-mascot-burst i:nth-child(9) { --burst-angle: 240deg; background: #ff75b7; }.hidden-effect-mascot-burst i:nth-child(10) { --burst-angle: 270deg; background: #ffdf5a; }.hidden-effect-mascot-burst i:nth-child(11) { --burst-angle: 300deg; background: #9defff; }.hidden-effect-mascot-burst i:nth-child(12) { --burst-angle: 330deg; background: #fff4a9; }
+@keyframes mascot-confetti-burst { 0% { opacity: 0; transform: rotate(var(--burst-angle)) translateY(-8px) scale(.92); } 12% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--burst-angle)) translateY(-104px) scale(1.08); } }
 @keyframes slice-line { 45% { transform: rotate(28deg) scaleX(1); } 100% { transform: rotate(28deg) scaleX(1); opacity: 0; } }
 @keyframes slice-burst { 0%, 68% { opacity: 1; } 100% { opacity: 0; } }
 .fortune-ball-guide { position: absolute; z-index: 5; left: 50%; bottom: 7px; width: 172px; display: grid; gap: 7px; transform: translateX(-50%); text-align: center; pointer-events: none; }
@@ -1010,7 +1024,8 @@ button.archive-hub-card { font-family: inherit; cursor: pointer; }
 .settings-data > button.danger { border-color: #c6564c; background: #fae3df; color: #9d2f28; }
 
 
-.bottom-nav { position: sticky; z-index: 30; left: 12px; right: 12px; bottom: 12px; width: calc(100% - 24px); height: 76px; margin: -88px 12px 12px; padding: 6px; display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid rgba(119,100,168,.24); border-radius: 24px; background: rgba(255,253,248,.96); box-shadow: 0 10px 28px rgba(47,43,36,.15); backdrop-filter: blur(14px); }
+.phone-surface.has-bottom-nav > .screen-content { padding-bottom: calc(var(--bottom-nav-height) + max(var(--bottom-nav-edge-gap), env(safe-area-inset-bottom)) + var(--bottom-nav-content-gap)); }
+.bottom-nav { position: sticky; z-index: 30; left: 12px; right: 12px; bottom: var(--bottom-nav-edge-gap); width: calc(100% - 24px); height: var(--bottom-nav-height); margin: -88px 12px 12px; padding: 6px; display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid rgba(119,100,168,.24); border-radius: 24px; background: rgba(255,253,248,.96); box-shadow: 0 10px 28px rgba(47,43,36,.15); backdrop-filter: blur(14px); }
 .bottom-nav button { position: relative; min-width: 0; padding: 4px 0 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; border: 0; border-radius: 13px; background: transparent; color: #8e877e; font-size: 10px; font-weight: 760; transition: color .16s ease, background .16s ease; }.bottom-nav button.active { background: linear-gradient(145deg, #eee9fb, #fff6da); color: #4f3d78; font-weight: 850; }.nav-icon { position: relative; z-index: 1; width: 28px; height: 27px; display: block; color: currentColor; }
 .about-screen { padding-bottom: 128px; }
 
@@ -1027,7 +1042,7 @@ button.archive-hub-card { font-family: inherit; cursor: pointer; }
 @media (max-width: 520px) {
   .app-shell { padding: 0; display: block; }
   .phone-surface { width: 100%; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
-  .bottom-nav { position: fixed; left: 12px; right: 12px; bottom: max(10px, env(safe-area-inset-bottom)); width: auto; max-width: calc(var(--phone-width) - 24px); margin: 0 auto; }
+  .bottom-nav { position: fixed; left: 12px; right: 12px; bottom: max(var(--bottom-nav-edge-gap), env(safe-area-inset-bottom)); width: auto; max-width: calc(var(--phone-width) - 24px); margin: 0 auto; }
   .toast { position: fixed; }
   .collection-hub-screen { min-height: calc(100dvh - 67px); }
 }

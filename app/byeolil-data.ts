@@ -2,7 +2,7 @@ export type Tab = "today" | "collection" | "records" | "about";
 export type View = "main" | "capture" | "card" | "hidden-card" | "report" | "examples" | "guide" | "settings" | "wakppu";
 export type Outcome = "happened" | "close" | "missed";
 export type Category = "교통" | "음식" | "사람" | "일상" | "기타";
-export type HiddenCardId = "swift-slice" | "stellar-overcharge" | "quantum-entanglement" | "abracada-crack" | "mirror-dimension" | "gravity-reversal";
+export type HiddenCardId = "swift-slice" | "stellar-overcharge" | "quantum-entanglement" | "abracada-crack" | "mirror-dimension" | "gravity-reversal" | "mascot-overload";
 export type HiddenCard = {
   id: HiddenCardId;
   code: string;
@@ -189,6 +189,15 @@ export const hiddenCards: HiddenCard[] = [
     copy: "아래로 떨어질 운명이던 왁뿌볼을 위로 날려 우주의 방향 감각을 잠깐 망가뜨렸습니다.",
     hint: "왁뿌볼을 아래에서 위로 빠르게 밀어올려 보세요.",
     symbol: "↑",
+  },
+  {
+    id: "mascot-overload",
+    code: "SP.07",
+    title: "젤리 임계폭발",
+    label: "연속 접촉 과부하",
+    copy: "파편 사이의 젤리를 마구 눌러 참을성의 임계점을 관측했습니다.",
+    hint: "왁뿌볼이 깨진 뒤 나타난 젤리를 빠르게 여러 번 눌러보세요.",
+    symbol: "POP",
   },
 ];
 
