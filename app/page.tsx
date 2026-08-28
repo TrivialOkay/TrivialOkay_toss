@@ -59,6 +59,7 @@ const outcomeDescriptions: Record<Outcome, string> = {
 };
 
 const collectionPageSize = 12;
+const wakppuCatalogPageSize = 4;
 const recordsPageSize = 5;
 type ArchiveView = "hub" | "fortune" | "hidden" | "evidence";
 
@@ -475,8 +476,13 @@ function WakppuOrb({ variant, locked = false }: { variant: WakppuVariant; locked
 
 function WakppuCatalogScreen({ observed, hiddenCommandCount, onBack }: { observed: WakppuVariant[]; hiddenCommandCount: number; onBack: () => void }) {
   const [status, setStatus] = useState<CollectionStatus>("all");
+  const [page, setPage] = useState(1);
   const observedSet = new Set(observed);
   const visibleCatalog = wakppuCatalog.filter((item) => status === "all" || (status === "observed" ? observedSet.has(item.id) : !observedSet.has(item.id)));
+  const pageCount = Math.max(1, Math.ceil(visibleCatalog.length / wakppuCatalogPageSize));
+  const currentPage = Math.min(page, pageCount);
+  const pagedCatalog = visibleCatalog.slice((currentPage - 1) * wakppuCatalogPageSize, currentPage * wakppuCatalogPageSize);
+
   const completion = Math.round((observed.length / wakppuCatalog.length) * 100);
   const heroVariant: WakppuVariant = observed.includes("saturn") ? "saturn" : observed[0] ?? "moon";
   const visibleObservedCount = observed.filter((variant) => variant !== "blackHole" && variant !== "cloudMascot").length;
@@ -496,10 +502,10 @@ function WakppuCatalogScreen({ observed, hiddenCommandCount, onBack }: { observe
         <div className={`black-hole-unlock ${blackHoleUnlocked ? "is-unlocked" : ""}`}><span>{blackHoleUnlocked ? "✦" : "?"}</span><span><small>히든 천체 신호</small><strong>{blackHoleUnlocked ? "중력 특이점 출현 조건 해제" : `천체 ${blackHoleUnlockCount}종을 관측하면 신호가 열려요`}</strong></span><b>{Math.min(visibleObservedCount, blackHoleUnlockCount)} / {blackHoleUnlockCount}</b><i><em style={{ width: `${Math.min(100, (visibleObservedCount / blackHoleUnlockCount) * 100)}%` }} /></i></div>
         <div className={`black-hole-unlock ${cloudMascotUnlocked ? "is-unlocked" : ""}`}><span>{cloudMascotUnlocked ? "☁" : "?"}</span><span><small>최심부 히든 신호</small><strong>{cloudMascotUnlocked ? "구름이 의태 신호 출현 조건 해제" : "히든 상호작용 카드를 모두 발견하면 열려요"}</strong></span><b>{Math.min(hiddenCommandCount, hiddenCards.length)} / {hiddenCards.length}</b><i><em style={{ width: `${Math.min(100, (hiddenCommandCount / hiddenCards.length) * 100)}%` }} /></i></div>
         <div className="collection-status-row" role="group" aria-label="왁뿌볼 관측 상태 필터">
-          {([ ["all", "전체"], ["observed", "관측 완료"], ["locked", "미관측"] ] as const).map(([key, label]) => <button key={key} className={status === key ? "active" : ""} onClick={() => setStatus(key)}>{label}</button>)}
+          {([ ["all", "전체"], ["observed", "관측 완료"], ["locked", "미관측"] ] as const).map(([key, label]) => <button key={key} className={status === key ? "active" : ""} onClick={() => { setStatus(key); setPage(1); }}>{label}</button>)}
         </div>
         <div className="wakppu-catalog-grid">
-          {visibleCatalog.map((item) => {
+          {pagedCatalog.map((item) => {
             const isObserved = observedSet.has(item.id);
             const isBlackHole = item.id === "blackHole";
             const isCloudMascot = item.id === "cloudMascot";
@@ -517,6 +523,7 @@ function WakppuCatalogScreen({ observed, hiddenCommandCount, onBack }: { observe
           })}
           {!visibleCatalog.length && <div className="empty-state compact"><Mascot/><strong>조건에 맞는 천체가 없어요.</strong></div>}
         </div>
+        <Pagination page={currentPage} totalPages={pageCount} onPage={setPage} showSinglePage />
       </section>
     </>
   );
@@ -1059,6 +1066,7 @@ export default function Home() {
   }, [toast]);
 
   const mainVisible = view === "main";
+  const bottomNavVisible = view === "main" || view === "wakppu";
   const observedFortuneIds = useMemo(() => [...new Set(records.map((record) => record.fortuneId))], [records]);
   const evidenceCount = records.filter((record) => record.photoDataUrl).length;
   const currentRecord = currentRecordId ? records.find((record) => record.id === currentRecordId) : undefined;
@@ -1282,7 +1290,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
-      <div className={`phone-surface ${mainVisible ? "has-bottom-nav" : ""}`.trim()}>
+      <div className={`phone-surface ${bottomNavVisible ? "has-bottom-nav" : ""}`.trim()}>
         {view === "capture" && currentRecord && <CaptureScreen record={currentRecord} evidenceCount={evidenceCount} category={category} note={note} photo={photo} onBack={goBack} onCategory={setCategory} onNote={setNote} onPhoto={selectPhoto} onSave={saveRecord} onSkip={() => navigate({ view: "card", activeRecordId: currentRecord.id }, "replace")} />}
         {view === "card" && activeRecord && <CardScreen record={activeRecord} evidenceCount={evidenceCount} occurrenceCount={records.filter((record) => record.fortuneId === activeRecord.fortuneId).length} onBack={goBack} onShare={shareRecord} onCollection={() => moveTab("collection")} onReplay={() => moveTab("today")} onDelete={deleteRecord} onEvidence={() => openEvidence(activeRecord)} />}
         {view === "hidden-card" && currentHiddenCardId && <HiddenCardResultScreen cardId={currentHiddenCardId} onBack={goBack} onCollection={() => navigate({ tab: "collection", view: "main", archiveView: "hidden", activeRecordId: null }, "replace")} onReplay={drawNewFortune} />}
@@ -1295,7 +1303,7 @@ export default function Home() {
         {mainVisible && tab === "collection" && <CollectionScreen observedFortuneIds={observedFortuneIds} observedWakppu={observedWakppu} discoveredHiddenCardIds={discoveredHiddenCardIds} records={records} searchOpen={searchOpen} search={search} archiveView={archiveView} onSearchOpen={() => setSearchOpen((value) => !value)} onSearch={setSearch} onOpen={openCollectedFortune} onWakppu={() => navigate({ view: "wakppu", activeRecordId: null })} onArchive={(nextArchive) => navigate({ tab: "collection", view: "main", archiveView: nextArchive, activeRecordId: null })} onBack={goBack} />}
         {mainVisible && tab === "records" && <RecordsScreen records={records} selectedMonth={selectedMonth} onMonth={setSelectedMonth} onReport={() => navigate({ view: "report", activeRecordId: null })} onOpen={openCard} />}
         {mainVisible && tab === "about" && <AboutScreen records={records} onRecords={() => moveTab("records")} onOpenRecord={openCard} onExamples={() => navigate({ view: "examples", activeRecordId: null })} onSettings={() => navigate({ view: "settings", activeRecordId: null })} />}
-        {mainVisible && <BottomNav tab={tab} onMove={moveTab} />}
+        {bottomNavVisible && <BottomNav tab={tab} onMove={moveTab} />}
         {toast && <div className="toast" role="status">{toast}</div>}
       </div>
     </main>
